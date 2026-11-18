@@ -77,6 +77,10 @@ class Theme:
     small: float = 10.5
     min_text: float = 10
 
+    # 3D look, in pixels; 0 turns each part off
+    lid: float = 9     # the sloped top drawn above each panel header, like the lid of a box
+    depth: float = 4   # the top and right faces that make each tile look raised
+
     # spacing, in pixels
     pad: float = 12
     tile_gap: float = 8
@@ -114,6 +118,14 @@ class Theme:
         if dark >= light:
             return self.header_text, self.header_sub
         return self.header_text_on_dark, self.header_sub_on_dark
+
+
+def shade(hex_color: str, amount: float) -> str:
+    """Darken a color toward black by `amount` (0 to 1). A negative amount lightens it toward white."""
+    h = hex_color.lstrip("#")
+    target, a = (0, amount) if amount >= 0 else (255, -amount)
+    r, g, b = (round(int(h[i:i + 2], 16) * (1 - a) + target * a) for i in (0, 2, 4))
+    return f"#{r:02X}{g:02X}{b:02X}"
 
 
 def _luminance(hex_color: str) -> float:

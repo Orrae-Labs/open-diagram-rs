@@ -13,7 +13,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tupl
 
 from .fonts import cap_height, fmt, lines_width, text_width, wrap
 from .svg import Canvas
-from .theme import Theme
+from .theme import Theme, shade
 
 Report = Callable[[str], None]
 ICON = 16.0
@@ -67,16 +67,27 @@ class Tile(Block):
         icon = ICON + 6 if self.icon else 0
         w = max(lines_width(main, t.tile, "semibold") + icon, lines_width(sub, t.tile_sub)) + 2 * t.pad
         h = t.tile_h + (len(main) - 1) * t.line_h + len(sub) * (t.line_h - 1.5)
-        return max(w, self.width or 0), h
+        return max(w, self.width or 0) + t.depth, h + t.depth
 
     def draw(self, c, x, y, w, h, t, report):
         st = t.status(self.status)
-        c.rect(x, y, w, h, st.fill if st else t.tile_fill, st.stroke if st else t.tile_stroke, 1.1, 4,
-               st.dash if st else None)
-        main, sub = self._lines(t)
+        fill, stroke = (st.fill, st.stroke) if st else (t.tile_fill, t.tile_stroke)
+        dash = st.dash if st else None
         need = self.measure(t)[0]
         if need > w + 0.5:
             report(f"tile {self.label!r} needs {need:.0f} px but has {w:.0f} px")
+        d = t.depth
+        if d:
+            # The raised look: a thin top face and right face behind the front face.
+            top = (f"M{fmt(x)} {fmt(y + d)}L{fmt(x + d)} {fmt(y)}H{fmt(x + w)}"
+                   f"L{fmt(x + w - d)} {fmt(y + d)}Z")
+            side = (f"M{fmt(x + w - d)} {fmt(y + d)}L{fmt(x + w)} {fmt(y)}V{fmt(y + h - d)}"
+                    f"L{fmt(x + w - d)} {fmt(y + h)}Z")
+            c.path(top, fill=shade(fill, 0.05), stroke=stroke, width=0.8, dash=dash)
+            c.path(side, fill=shade(fill, 0.15), stroke=stroke, width=0.8, dash=dash)
+            y, w, h = y + d, w - d, h - d
+        c.rect(x, y, w, h, fill, stroke, 1.1, 2 if d else 4, dash)
+        main, sub = self._lines(t)
         steps = [t.line_h] * (len(main) - 1) + [t.line_h - 1.5] * len(sub)
         centres = [y + h / 2 - sum(steps) / 2]
         for s in steps:
@@ -447,16 +458,26 @@ class Panel(Block):
         body_h = sum(s[1] for s in sizes) + t.section_gap * max(0, len(sizes) - 1)
         foot = lines_width(self._footer_lines(), t.small) + 2 * t.pad + 4
         w = max(head, sub, body_w + 2 * t.pad, foot, t.panel_min_w, self.width or 0)
-        h = self.head_h(t) + (2 * t.pad + body_h if sizes else t.pad) + self._footer_h(t)
+        h = t.lid + self.head_h(t) + (2 * t.pad + body_h if sizes else t.pad) + self._footer_h(t)
         return w, h
 
     def draw(self, c, x, y, w, h, t, report):
         st = t.status(self.status)
         hh = self.head_h(t)
-        c.rect(x, y, w, h, st.fill if st else t.panel_fill, st.stroke if st else t.panel_stroke,
-               1.3 if st else 1, t.radius, st.dash if st else None)
         tone = t.tone(self.tone)
-        c.path(_top_rounded(x, y, w, hh, t.radius), fill=tone)
+        lid = t.lid
+        if lid:
+            # The 3D top: a darker sloped strip above the header, like the lid of a box seen from the front.
+            inset = min(lid * 0.7, w / 4)
+            c.path(f"M{fmt(x)} {fmt(y + lid)}L{fmt(x + inset)} {fmt(y)}H{fmt(x + w - inset)}"
+                   f"L{fmt(x + w)} {fmt(y + lid)}Z", fill=shade(tone, 0.16), stroke=shade(tone, 0.32), width=0.8)
+            y, h = y + lid, h - lid
+        c.rect(x, y, w, h, st.fill if st else t.panel_fill, st.stroke if st else t.panel_stroke,
+               1.3 if st else 1, 2 if lid else t.radius, st.dash if st else None)
+        if lid:
+            c.rect(x, y, w, hh, tone)
+        else:
+            c.path(_top_rounded(x, y, w, hh, t.radius), fill=tone)
         title_color, sub_color = t.header_colors(tone)
         tx = x + t.pad
         title_cy = y + (18 if self.sub else hh / 2)
@@ -496,5 +517,5 @@ class Panel(Block):
 
     def ports(self, side, w, h, t):
         if side in ("left", "right"):
-            return self.head_h(t) + 8, h - 10
+            return t.lid + self.head_h(t) + 8, h - 10
         return 18, w - 18

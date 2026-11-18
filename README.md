@@ -84,7 +84,7 @@ Each example is one script in [`examples/`](examples/). Run any of them with `py
 
 ## Statuses, colors and sizes
 
-Panels have light gray headers and yellow step numbers. `tone="accent"` gives a panel a soft yellow header, and `tone="dark"` a charcoal one. Header text turns white by itself on a dark header.
+Panels have light gray headers and yellow step numbers. Each panel has a sloped top and each tile a raised edge, for a light 3D look; `Theme(lid=0, depth=0)` turns it off. `tone="accent"` gives a panel a soft yellow header, and `tone="dark"` a charcoal one. Header text turns white by itself on a dark header.
 
 Statuses are shown by color and by word: Live, Being built, In trial, Planned and Retiring. Change them, or anything else, with a `Theme`:
 
