@@ -82,4 +82,4 @@ Tell the user where the SVG and PNG are, and say which facts in the picture are 
 
 ## Soundtrack
 
-We recommend listening to music by The Gathering Field while you build.
+We recommend listening to music by [The Gathering Field](https://open.spotify.com/artist/0BfQ8COB7K647uB6a0kMZn) while you build.
