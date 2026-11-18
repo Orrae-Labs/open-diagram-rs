@@ -9,7 +9,7 @@ open-diagram draws diagrams from a short Python script. It measures every label,
 
 ## 1. Check the setup
 
-Run `python3 -c "import open_diagram"`. If it fails, install it: `pip install git+https://github.com/lukendeasy/open-diagram`. PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found.
+Run `python3 -c "import open_diagram"`. If it fails, install it: `pip install open-diagram`. PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found.
 
 ## 2. Plan before writing code
 

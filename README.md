@@ -2,7 +2,7 @@
 
 Python building blocks for dense architecture diagrams that check their own layout.
 
-![A systems map for an invented video platform, drawn with open-diagram](docs/images/systems_map.png)
+![A systems map for an invented video platform, drawn with open-diagram](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/systems_map.png)
 
 You describe panels, tiles, lines and groups in a short Python script. open-diagram measures every label from the font, places the blocks, and checks the result. If two panels collide or a line runs through a panel, the build says so by name. The output is an SVG (a picture made of shapes, sharp at any size) and a PNG.
 
@@ -11,8 +11,10 @@ The same blocks draw software systems, release pipelines, layered stacks, data m
 ## Install
 
 ```bash
-pip install git+https://github.com/lukendeasy/open-diagram
+pip install open-diagram
 ```
+
+For the newest unreleased code: `pip install git+https://github.com/lukendeasy/open-diagram`.
 
 open-diagram needs Python 3.9 or later and fontTools, which pip installs for you. To make PNG files it also needs Google Chrome, Chromium or Microsoft Edge. If yours is not in the usual place, set the `CHROME` environment variable to its path. The SVG is always written, browser or not.
 
@@ -32,7 +34,7 @@ d.link(api, index, kind="planned", label="new")
 d.save("quickstart")   # writes quickstart.svg and quickstart.png
 ```
 
-![The quick start diagram](docs/images/quickstart.png)
+![The quick start diagram](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/quickstart.png)
 
 The key at the top lists only the statuses and line kinds the picture uses.
 
@@ -43,39 +45,39 @@ The key at the top lists only the statuses and line kinds the picture uses.
 - **Text is drawn as shapes.** The SVG looks the same in a browser, PowerPoint, Keynote or Figma, with or without the font installed. Inter comes bundled.
 - **Words stay apart from layout.** Keep labels in lists at the top of the script. Changing a word does not move anything by hand.
 
-![How open-diagram turns a script into a picture, drawn with open-diagram](docs/images/how_it_works.png)
+![How open-diagram turns a script into a picture, drawn with open-diagram](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/how_it_works.png)
 
 ## Examples
 
-Each example is one script in [`examples/`](examples/). Run any of them with `python3 examples/<name>.py`.
+Each example is one script in [`examples/`](https://github.com/lukendeasy/open-diagram/tree/main/examples). Run any of them with `python3 examples/<name>.py`.
 
 | Example | Shows |
 | --- | --- |
-| [`systems_map.py`](examples/systems_map.py) | A video platform from upload to screen: columns, a group, steps, statuses, owners, a small data map with a worked example, and lanes above and below the picture |
-| [`how_it_works.py`](examples/how_it_works.py) | How open-diagram itself works, drawn with open-diagram |
-| [`pipeline.py`](examples/pipeline.py) | A release pipeline from pull request to production, with a rollback lane |
-| [`card_payment.py`](examples/card_payment.py) | What happens when you tap a card: numbered steps for the order of events, return paths above and below |
-| [`layers.py`](examples/layers.py) | A web product as stacked layers, with a side panel |
-| [`concept_map.py`](examples/concept_map.py) | How git stores a project: its objects and links, with a worked example |
-| [`smart_home.py`](examples/smart_home.py) | A smart home from sensor to phone, with a planned overnight update path |
-| [`incident_response.py`](examples/incident_response.py) | How a team handles an outage, from the first alert to the lessons learned |
-| [`business_map.py`](examples/business_map.py) | Not only software: a furniture store from order to doorstep |
-| [`quickstart.py`](examples/quickstart.py) | The code above |
+| [`systems_map.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/systems_map.py) | A video platform from upload to screen: columns, a group, steps, statuses, owners, a small data map with a worked example, and lanes above and below the picture |
+| [`how_it_works.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/how_it_works.py) | How open-diagram itself works, drawn with open-diagram |
+| [`pipeline.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/pipeline.py) | A release pipeline from pull request to production, with a rollback lane |
+| [`card_payment.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/card_payment.py) | What happens when you tap a card: numbered steps for the order of events, return paths above and below |
+| [`layers.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/layers.py) | A web product as stacked layers, with a side panel |
+| [`concept_map.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/concept_map.py) | How git stores a project: its objects and links, with a worked example |
+| [`smart_home.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/smart_home.py) | A smart home from sensor to phone, with a planned overnight update path |
+| [`incident_response.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/incident_response.py) | How a team handles an outage, from the first alert to the lessons learned |
+| [`business_map.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/business_map.py) | Not only software: a furniture store from order to doorstep |
+| [`quickstart.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/quickstart.py) | The code above |
 
 <p>
-  <img src="docs/images/pipeline.png" alt="Release pipeline example" width="54%">
-  <img src="docs/images/layers.png" alt="Stacked layers example" width="40%">
+  <img src="https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/pipeline.png" alt="Release pipeline example" width="54%">
+  <img src="https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/layers.png" alt="Stacked layers example" width="40%">
 </p>
 <p>
-  <img src="docs/images/card_payment.png" alt="Card payment example" width="49%">
-  <img src="docs/images/smart_home.png" alt="Smart home example" width="45%">
+  <img src="https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/card_payment.png" alt="Card payment example" width="49%">
+  <img src="https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/smart_home.png" alt="Smart home example" width="45%">
 </p>
 <p>
-  <img src="docs/images/concept_map.png" alt="Git data model example" width="47%">
-  <img src="docs/images/incident_response.png" alt="Outage response example" width="47%">
+  <img src="https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/concept_map.png" alt="Git data model example" width="47%">
+  <img src="https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/incident_response.png" alt="Outage response example" width="47%">
 </p>
 <p>
-  <img src="docs/images/business_map.png" alt="Business process example" width="70%">
+  <img src="https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/business_map.png" alt="Business process example" width="70%">
 </p>
 
 ## Building blocks
@@ -117,7 +119,7 @@ d = Diagram("My picture", theme=theme)
 
 ## Use it with an AI agent
 
-The folder [`skills/open-diagram/`](skills/open-diagram/) is an Agent Skill: instructions an agent loads when it needs them. For Claude Code, copy it into your skills folder:
+The folder [`skills/open-diagram/`](https://github.com/lukendeasy/open-diagram/tree/main/skills/open-diagram) is an Agent Skill: instructions an agent loads when it needs them. For Claude Code, copy it into your skills folder:
 
 ```bash
 cp -r skills/open-diagram ~/.claude/skills/
@@ -125,7 +127,7 @@ cp -r skills/open-diagram ~/.claude/skills/
 
 Then ask for a picture in plain words, for example: "Draw a systems map of our checkout, warehouse and reporting, with what is live and what is planned." The skill tells the agent to plan the columns, write the script, run it, fix each named problem, and look at the PNG before it answers.
 
-Agents changing the library itself should start with [AGENTS.md](AGENTS.md).
+Agents changing the library itself should start with [AGENTS.md](https://github.com/lukendeasy/open-diagram/blob/main/AGENTS.md).
 
 ## Run the tests
 
@@ -139,4 +141,4 @@ We recommend listening to music by The Gathering Field while you build.
 
 ## License
 
-MIT, in [LICENSE](LICENSE). The bundled Inter font is by The Inter Project Authors, under the SIL Open Font License 1.1, in [src/open_diagram/fonts/OFL.txt](src/open_diagram/fonts/OFL.txt).
+MIT, in [LICENSE](https://github.com/lukendeasy/open-diagram/blob/main/LICENSE). The bundled Inter font is by The Inter Project Authors, under the SIL Open Font License 1.1, in [src/open_diagram/fonts/OFL.txt](https://github.com/lukendeasy/open-diagram/blob/main/src/open_diagram/fonts/OFL.txt).
