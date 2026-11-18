@@ -1,5 +1,5 @@
 name: open-diagram
-description: Redraw diagrams on every push and fail the check when a layout problem appears, so pictures never go stale.
+description: 'Redraw diagrams on every push and fail the check when a layout problem appears, so pictures never go stale.'
 author: Luke Deasy
 branding:
   icon: layout
@@ -7,18 +7,18 @@ branding:
 
 inputs:
   files:
-    description: Diagram files to check or draw (.json, .mmd, .mermaid, or .py with build()). Space- or newline-separated; globs allowed, ** included.
+    description: 'Diagram files to check or draw (.json, .mmd, .mermaid, or .py with build()). Space- or newline-separated; globs allowed, ** included.'
     required: true
   mode:
     description: "'check' builds each diagram in memory and reports problems; 'draw' also writes the SVG and PNG next to each file."
     required: false
     default: check
   statuses:
-    description: Optional JSON file of name -> state (for example {"Fraud checks": "live"}), applied before drawing. Update it as work ships and the pictures follow.
+    description: 'Optional JSON file of name -> state (for example {"Fraud checks": "live"}), applied before drawing. Update it as work ships and the pictures follow.'
     required: false
     default: ""
   python-version:
-    description: Python version to use.
+    description: 'Python version to use.'
     required: false
     default: "3.12"
 
