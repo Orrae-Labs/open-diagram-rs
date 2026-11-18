@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "open-diagram"
+version = "0.1.0"
+description = "Python building blocks for dense architecture diagrams that check their own layout"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Luke Deasy" }]
+requires-python = ">=3.9"
+dependencies = ["fonttools>=4.40"]
+keywords = ["diagram", "svg", "architecture", "agents", "visualization"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics",
+]
+
+[project.optional-dependencies]
+png = ["pillow>=9"]
+
+[project.urls]
+Homepage = "https://github.com/lukendeasy/open-diagram"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+open_diagram = ["fonts/*.ttf", "fonts/*.txt"]
