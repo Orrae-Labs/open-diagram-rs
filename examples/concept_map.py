@@ -1,4 +1,4 @@
-"""A small map of the things an invented community library keeps track of, with one worked example.
+"""A map of how git stores a project: its objects and how they point to each other, with one worked example.
 Run: python3 examples/concept_map.py"""
 import os
 
@@ -7,27 +7,26 @@ from open_diagram import Card, Diagram, Graph, Panel, Row
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 MAP = Graph(
-    nodes={"member": "Member", "loan": "Loan", "copy": "Copy", "title": "Title", "branch": "Branch",
-           "event": "Event", "hold": "Hold"},
-    links=[("member", "loan", "borrows"), ("loan", "copy", "of"), ("copy", "title", "is a"),
-           ("copy", "branch", "kept at"), ("member", "hold", "places"), ("hold", "title", "on"),
-           ("branch", "event", "hosts")],
-    at={"member": (0, 0), "loan": (1.5, 0), "copy": (3, 0), "title": (3, 2), "hold": (1.5, 2),
-        "branch": (4.5, 0), "event": (4.5, 2)},
+    nodes={"branch": "Branch", "tag": "Tag", "commit": "Commit", "parent": "Parent commit", "tree": "Tree",
+           "blob": "Blob", "subtree": "Subfolder tree"},
+    links=[("branch", "commit", "points to"), ("tag", "commit", "points to"), ("commit", "parent", "follows"),
+           ("commit", "tree", "saves"), ("tree", "blob", "lists file"), ("tree", "subtree", "lists folder")],
+    at={"branch": (0, 0), "commit": (1.5, 0), "tree": (3, 0), "blob": (4.5, 0), "tag": (0, 2),
+        "parent": (1.5, 2), "subtree": (4.5, 2)},
 )
 
-EXAMPLE = Card("Example: one loan", [
-    ("Member", "Card 20931"),
-    ("Copy", "Copy 3 of 5, main branch"),
-    ("Title", "A field guide to moths"),
-    ("Due", "In three weeks"),
-], intro="One loan, as the library stores it:")
+EXAMPLE = Card("Example: one commit", [
+    ("Snapshot", "Tree 9c1e4a"),
+    ("Parent", "Commit 52f0b7"),
+    ("Message", "Fix sign-in on phones"),
+    ("Branch", "main points here"),
+], intro="One commit, as git stores it:")
 
 
 def build() -> Diagram:
-    d = Diagram("What the library keeps track of", tag="EXAMPLE")
-    d.add(Panel("Things and how they connect", Row(MAP, EXAMPLE), sub="One entry per thing",
-                footer="Owner: Library systems team"))
+    d = Diagram("How git stores a project", tag="EXAMPLE")
+    d.add(Panel("Objects and how they connect", Row(MAP, EXAMPLE),
+                sub="Each object is named by a hash of its contents"))
     return d
 
 

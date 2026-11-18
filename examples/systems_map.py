@@ -1,74 +1,74 @@
-"""A dense systems map for an invented furniture store: where orders come from, what handles them, who uses the
-results, what state each part is in, and which changes come first. Run: python3 examples/systems_map.py"""
+"""A dense systems map for an invented video platform: where videos come from, how they are processed and stored,
+who watches them, what state each part is in, and which changes come first. Run: python3 examples/systems_map.py"""
 import os
 
 from open_diagram import Card, Diagram, Graph, Note, Panel, Row, Tile, Tiles
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-STEPS = [(1, "Fraud checks in checkout"), (2, "One record for each order"), (3, "Book returns online")]
+STEPS = [(1, "Encode on GPUs"), (2, "One record for each video"), (3, "Recommendations")]
 
-ORDER_MAP = Graph(
-    nodes={"customer": "Customer", "order": "Order", "payment": "Payment", "item": "Item",
-           "delivery": "Delivery", "return": "Return"},
-    links=[("customer", "order", "places"), ("order", "payment", "paid by"), ("order", "item", "includes"),
-           ("order", "delivery", "ships as"), ("item", "return", "may come back as")],
-    at={"customer": (0, 0), "order": (1.5, 0), "payment": (3, 0), "return": (0, 2), "item": (1.5, 2),
-        "delivery": (3, 2)},
+VIDEO_MAP = Graph(
+    nodes={"channel": "Channel", "video": "Video", "rendition": "Rendition", "caption": "Caption",
+           "view": "View", "language": "Language"},
+    links=[("channel", "video", "publishes"), ("video", "rendition", "encoded as"), ("video", "caption", "has"),
+           ("video", "view", "watched in"), ("caption", "language", "written in")],
+    at={"channel": (0, 0), "video": (1.5, 0), "rendition": (3, 0), "language": (0, 2), "caption": (1.5, 2),
+        "view": (3, 2)},
 )
 
-ORDER_CARD = Card("Example: order 10482", [
-    ("Customer", "Online account"),
-    ("Items", "Sofa, two cushions"),
-    ("Paid by", "Card, in full"),
-    ("Delivery", "Two-person, Tuesday"),
+VIDEO_CARD = Card("Example: video 7Q4M", [
+    ("Length", "12 min 40 s"),
+    ("Renditions", "1080p, 720p, 480p"),
+    ("Captions", "English, Spanish"),
+    ("Status", "Ready to play"),
 ])
 
 
 def build() -> Diagram:
     d = Diagram(
-        "Pinemoor Home: from order to doorstep",
+        "Quillfin Video: from upload to screen",
         subtitle="What runs today, what is being built, and what comes next",
         tag="EXAMPLE",
-        note=Note("Example", "Pinemoor Home is an invented company.", "Every system, owner and status is made up."),
+        note=Note("Example", "Quillfin Video is an invented company.", "Every system, owner and status is made up."),
         steps=STEPS, steps_label="Rollout",
     )
-    (ways_in,), (checkout, record), (fulfil, returns), (reports, service) = d.columns([
-        [Panel("Where orders come from", Tiles(["Website", "Mobile app", Tile("Showroom tablets", status="retiring"),
-                                               Tile("Marketplace listings", status="trial")], cols=2),
-               sub="Four ways in", footer="Owner: Digital team")],
-        [Panel("Checkout", Tiles(["Basket", "Payments", Tile("Fraud checks", status="building"),
-                                 Tile("Buy now, pay later", status="planned")], cols=2),
-               step=1, footer="Owner: Payments team"),
-         Panel("Order record", Row(ORDER_MAP, ORDER_CARD), sub="Every order kept in one place",
-               step=2, status="building", footer="Owner: Platform team")],
-        [Panel("Fulfilment", Tiles(["Pick and pack", "Stock counts"], label="Warehouse"),
-               Tiles(["Two-person delivery", Tile("Same-day vans", status="trial"),
-                      Tile("Parcel lockers", status="planned")], label="Delivery"),
-               footer="Owner: Operations"),
-         Panel("Returns", Tiles(["Book a collection", "Refund on pickup"]), step=3, status="planned",
+    (uploads,), (processing, record), (storage, recommend), (players, health) = d.columns([
+        [Panel("Where videos come from", Tiles(["Creator app", "Web uploader", "Partner API",
+                                               Tile("Live streams", status="trial")], cols=2),
+               sub="Four ways in", footer="Owner: Creator team")],
+        [Panel("Processing", Tiles(["Upload checks", "Transcoding", Tile("GPU encoding", status="building"),
+                                   Tile("Auto captions", status="planned")], cols=2),
+               step=1, footer="Owner: Media team"),
+         Panel("Video record", Row(VIDEO_MAP, VIDEO_CARD), sub="Everything known about each video",
+               step=2, status="building", footer="Owner: Media team")],
+        [Panel("Storage", Tiles(["Original files", "Renditions"], label="Files"),
+               Tiles(["Metadata database", Tile("Search index", status="trial"),
+                      Tile("Cold archive", status="planned")], label="Records"),
+               footer="Owner: Platform team"),
+         Panel("Recommendations", Tiles(["Watch history", "Ranking model"]), step=3, status="planned",
                footer="Owner: Not yet named")],
-        [Panel("Reporting", Tiles(["Daily sales", "Stock cover", Tile("Demand forecast", status="trial")], cols=1),
-               tone="neutral", footer="Owner: Finance"),
-         Panel("Customer service", Tiles(["Order lookup", "Delivery changes",
-                                          Tile("Chat assistant", status="building")], cols=1),
-               tone="neutral", footer="Owner: Service team")],
+        [Panel("Player apps", Tiles(["Web", "Phones", Tile("TV", status="building")], cols=1),
+               tone="neutral", footer="Owner: Apps team"),
+         Panel("Service health", Tiles(["Playback errors", "Start-up time",
+                                        Tile("Old dashboards", status="retiring")], cols=1),
+               tone="neutral", footer="Owner: Reliability team")],
     ], gap=88, row_gap=40)
-    d.group("Order platform", [checkout, record], sub="Run by the platform team")
+    d.group("Media pipeline", [processing, record], sub="Run by the media team")
 
-    d.link(ways_in, checkout)
-    d.link(checkout, record, start="bottom", end="top")
-    d.link(record, fulfil)
-    d.link(record, returns, kind="planned")
-    d.link(fulfil, reports)
-    d.link(fulfil, service, label="updates")
-    d.link(returns, reports, kind="planned")
+    d.link(uploads, processing)
+    d.link(processing, record, start="bottom", end="top")
+    d.link(record, storage)
+    d.link(record, recommend, kind="planned")
+    d.link(storage, players)
+    d.link(storage, health, label="logs")
+    d.link(recommend, players, kind="planned")
 
     top = min(p.y for p in d.placed) - 80
     bottom = max(p.bottom for p in d.placed) + 48
-    d.link(ways_in, reports, start="top", end="top", via_y=top, label="Web traffic, sent nightly")
-    d.link(ways_in, service, start="bottom", end="bottom", via_y=bottom,
-           label="Marketplace questions come straight to service")
+    d.link(uploads, players, start="top", end="top", via_y=top, label="Live streams skip processing")
+    d.link(uploads, health, start="bottom", end="bottom", via_y=bottom,
+           label="Upload failures go straight to service health")
     return d
 
 

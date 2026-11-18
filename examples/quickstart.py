@@ -7,14 +7,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def build() -> Diagram:
-    d = Diagram("How an order reaches the warehouse", tag="EXAMPLE")
-    shop = d.add(Panel("Online shop", ["Product pages", "Basket", "Checkout"], footer="Owner: Web team"))
-    orders = d.right_of(shop, Panel("Order service", [Tile("Takes payment"), Tile("Checks stock", status="building")],
-                                    footer="Owner: Platform team"), align="center")
-    stock = d.right_of(orders, Panel("Warehouse", ["Pick and pack", Tile("Same-day dispatch", status="planned")],
-                                     status="planned"), align="center")
-    d.link(shop, orders)
-    d.link(orders, stock, kind="planned", label="new")
+    d = Diagram("How a search request is answered", tag="EXAMPLE")
+    app = d.add(Panel("Web app", ["Search box", "Results page", "Filters"], footer="Owner: Web team"))
+    api = d.right_of(app, Panel("Search API", [Tile("Checks access"), Tile("Caches results", status="building")],
+                                footer="Owner: Platform team"), align="center")
+    index = d.right_of(api, Panel("Search index", ["Product text", Tile("Spelling fixes", status="planned")],
+                                  status="planned"), align="center")
+    d.link(app, api)
+    d.link(api, index, kind="planned", label="new")
     return d
 
 
