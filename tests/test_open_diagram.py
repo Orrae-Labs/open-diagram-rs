@@ -1,5 +1,7 @@
 """Run with: python3 -m unittest discover -s tests"""
+import contextlib
 import importlib.util
+import io
 import os
 import sys
 import tempfile
@@ -8,7 +10,9 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from open_diagram import Diagram, Graph, LayoutError, Panel, Theme, Tile, text_width, wrap  # noqa: E402
+from open_diagram import (Diagram, Graph, LayoutError, MermaidError, Panel, SpecError, Theme, Tile,  # noqa: E402
+                          from_mermaid, from_spec, text_width, wrap)
+from open_diagram import cli  # noqa: E402
 from open_diagram.fonts import face  # noqa: E402
 
 EXAMPLES = ["quickstart", "systems_map", "how_it_works", "pipeline", "card_payment", "layers", "concept_map",
@@ -124,6 +128,142 @@ class ThemeTests(unittest.TestCase):
         on, off = Theme(), Theme(lid=0, depth=0)
         self.assertEqual(Tile("x").measure(on)[0] - Tile("x").measure(off)[0], on.depth)
         self.assertEqual(Panel("A", ["x"]).measure(on)[1] - Panel("A", ["x"]).measure(off)[1], on.lid + on.depth)
+
+
+class DescribeTests(unittest.TestCase):
+    def test_describe_lists_blocks_states_and_lines(self):
+        d = load_example("quickstart").build()
+        text = d.describe()
+        for part in ("How a search request is answered", "Web app: Search box; Results page; Filters",
+                     "Caches results (being built)", "Search index [planned]", "Search API -> Search index",
+                     "(connection to build)", 'labeled "new"'):
+            self.assertIn(part, text)
+
+    def test_description_is_written_into_the_svg(self):
+        svg, _ = load_example("quickstart").build().render()
+        self.assertIn("<desc>How a search request is answered", svg)
+
+
+class StatusFileTests(unittest.TestCase):
+    def test_set_statuses_by_name(self):
+        d = load_example("quickstart").build()
+        d.set_statuses({"Caches results": "live", "Product text": "retiring"})
+        text = d.describe()
+        self.assertIn("Checks access; Caches results. Owner", text)
+        self.assertIn("Product text (retiring)", text)
+
+    def test_unknown_names_and_states_are_reported(self):
+        d = load_example("quickstart").build()
+        with self.assertRaises(ValueError) as caught:
+            d.set_statuses({"Nope": "live"})
+        self.assertIn("'Nope'", str(caught.exception))
+        with self.assertRaises(ValueError) as caught:
+            d.set_statuses({"Filters": "shipped"})
+        self.assertIn("'shipped'", str(caught.exception))
+
+
+class SpecTests(unittest.TestCase):
+    SPEC = {"title": "t", "columns": [[{"id": "a", "title": "Alpha", "tiles": ["x", {"label": "y", "status": "planned"}]}],
+                                      [{"id": "b", "title": "Beta", "tiles": ["z"]}]],
+            "links": [{"from": "a", "to": "b", "kind": "planned"}, {"from": "b", "to": "a", "lane": "bottom"}]}
+
+    def test_spec_builds_cleanly(self):
+        d = from_spec(self.SPEC)
+        _, report = d.render()
+        self.assertEqual(report.problems, [])
+        self.assertEqual(len(d.links), 2)
+        self.assertIn("y (planned)", d.describe())
+
+    def test_spec_errors_name_the_place(self):
+        bad = {**self.SPEC, "columns": [[{"id": "a", "title": "Alpha", "tiles": [{"label": "x", "colour": "red"}]}]]}
+        with self.assertRaises(SpecError) as caught:
+            from_spec(bad)
+        self.assertIn("columns[0][0].tiles[0]", str(caught.exception))
+        self.assertIn("'colour'", str(caught.exception))
+        bad = {**self.SPEC, "links": [{"from": "a", "to": "c"}]}
+        with self.assertRaises(SpecError) as caught:
+            from_spec(bad)
+        self.assertIn("no panel with id 'c'", str(caught.exception))
+
+    def test_json_example_is_clean(self):
+        _, report = cli.load(os.path.join(ROOT, "examples", "email_delivery.json")).render()
+        self.assertEqual(report.problems, [])
+
+
+class MermaidTests(unittest.TestCase):
+    TEXT = """flowchart LR
+      a[Start] --> b{Decide}
+      b -->|yes| c[Do it]:::building
+      b -- no --> a
+      c -.-> d([Done])
+      a --> d
+      subgraph work [The work]
+        c
+      end
+    """
+
+    def test_parse_edges_labels_groups_and_states(self):
+        d = from_mermaid(self.TEXT, title="Flow")
+        self.assertEqual(d.title, "Flow")
+        self.assertEqual(len(d.links), 5)
+        kinds = {(l.a.name, l.b.name): l.kind for l in d.links}
+        self.assertEqual(kinds[("Do it", "Done")], "planned")
+        labels = {l.label for l in d.links if l.label}
+        self.assertEqual(labels, {"yes", "no"})
+        self.assertEqual([g.label for g in d.groups], ["The work"])
+        self.assertIn("Do it (being built)", d.describe())
+
+    def test_layout_is_clean_with_back_and_long_edges(self):
+        for direction in ("LR", "TD"):
+            with self.subTest(direction=direction):
+                d = from_mermaid(self.TEXT.replace("LR", direction))
+                _, report = d.render()
+                self.assertEqual(report.problems, [])
+
+    def test_mermaid_example_is_clean(self):
+        _, report = cli.load(os.path.join(ROOT, "examples", "signup_flow.mmd")).render()
+        self.assertEqual(report.problems, [])
+
+    def test_errors_name_the_line(self):
+        with self.assertRaises(MermaidError) as caught:
+            from_mermaid("flowchart LR\n  a[ok] --> ???")
+        self.assertIn("line 2", str(caught.exception))
+
+
+class CommandTests(unittest.TestCase):
+    def run_cli(self, *args):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cli.main(list(args))
+        return code, out.getvalue()
+
+    def test_check_passes_and_fails(self):
+        code, out = self.run_cli("check", os.path.join(ROOT, "examples", "quickstart.py"))
+        self.assertEqual(code, 0)
+        self.assertIn("0 layout problem(s)", out)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "bad.py")
+            with open(path, "w") as fh:
+                fh.write("from open_diagram import Diagram, Panel\n"
+                         "def build():\n    d = Diagram('t')\n    d.add(Panel('A', ['x']), 0, 0)\n"
+                         "    d.add(Panel('B', ['y']), 5, 5)\n    return d\n")
+            code, out = self.run_cli("check", path)
+        self.assertEqual(code, 1)
+        self.assertIn("overlap", out)
+
+    def test_draw_writes_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out_base = os.path.join(tmp, "flow")
+            code, _ = self.run_cli("draw", os.path.join(ROOT, "examples", "signup_flow.mmd"), "-o", out_base,
+                                   "--no-png")
+            self.assertEqual(code, 0)
+            self.assertTrue(os.path.exists(out_base + ".svg"))
+
+    def test_soundtrack(self):
+        code, out = self.run_cli("--soundtrack")
+        self.assertEqual(code, 0)
+        self.assertIn("The Gathering Field", out)
+        self.assertIn("open.spotify.com", out)
 
 
 class ExampleTests(unittest.TestCase):

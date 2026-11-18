@@ -371,8 +371,51 @@ class Diagram:
         c.close_group()
         if c.min_text is not None and c.min_text < t.min_text:
             problems.append(f"smallest text is {c.min_text:g} px; the theme's minimum is {t.min_text:g} px")
-        svg = c.svg(self.title, t.paper)
+        svg = c.svg(self.title, t.paper, desc=self.describe())
         return svg, Report(svg, c.width, c.height, c.min_text, problems)
+
+    def describe(self) -> str:
+        """Plain-text description: blocks left to right, their tiles and states, groups, lines and the key.
+        It is also written into the SVG as <desc>, for screen readers."""
+        from .describe import describe
+        return describe(self)
+
+    def set_statuses(self, statuses: Dict[str, str]) -> None:
+        """Set states by name, for example from a file the team updates: {"Fraud checks": "live"}.
+
+        Names match panel titles, panel names and tile labels. "live" clears a state back to the default look.
+        Raises ValueError naming any unknown state or any name that matches nothing.
+        """
+        bad = sorted({s for s in statuses.values() if s not in self.theme.statuses})
+        if bad:
+            raise ValueError(f"unknown state(s) {', '.join(map(repr, bad))}; this theme has: "
+                             f"{', '.join(self.theme.statuses)}")
+        found = set()
+
+        def apply(block, *names):
+            for n in names:
+                if n is not None and n in statuses:
+                    block.status = None if statuses[n] == "live" else statuses[n]
+                    found.add(n)
+
+        def visit(block):
+            body = getattr(block, "body", None)
+            items = getattr(block, "items", None)
+            if body is not None:
+                apply(block, getattr(block, "title", None), getattr(block, "name", None))
+                for b in body:
+                    visit(b)
+            elif items is not None:
+                for b in items:
+                    visit(b)
+            elif hasattr(block, "label") and hasattr(block, "status"):
+                apply(block, block.label, getattr(block, "name", None))
+
+        for p in self.placed:
+            visit(p.block)
+        missing = [n for n in statuses if n not in found]
+        if missing:
+            raise ValueError(f"no panel or tile is named {', '.join(map(repr, missing))}")
 
     def save(self, path: str, png: bool = True, scale: float = 2.0, strict: bool = True) -> Report:
         """Write path.svg (and path.png at `scale`), print a one-line summary, then raise LayoutError if the checks

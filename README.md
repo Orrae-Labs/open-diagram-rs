@@ -62,6 +62,8 @@ Each example is one script in [`examples/`](https://github.com/lukendeasy/open-d
 | [`smart_home.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/smart_home.py) | A smart home from sensor to phone, with a planned overnight update path |
 | [`incident_response.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/incident_response.py) | How a team handles an outage, from the first alert to the lessons learned |
 | [`business_map.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/business_map.py) | Not only software: a furniture store from order to doorstep |
+| [`email_delivery.json`](https://github.com/lukendeasy/open-diagram/blob/main/examples/email_delivery.json) | How an email is delivered, written as JSON instead of Python |
+| [`signup_flow.mmd`](https://github.com/lukendeasy/open-diagram/blob/main/examples/signup_flow.mmd) | A sign-up flow imported from a Mermaid flowchart |
 | [`quickstart.py`](https://github.com/lukendeasy/open-diagram/blob/main/examples/quickstart.py) | The code above |
 
 <p>
@@ -102,6 +104,8 @@ Each example is one script in [`examples/`](https://github.com/lukendeasy/open-d
 | `link(a, b, kind=, label=, start=, end=, via_x=, via_y=)` | An arrow. `kind="planned"` is dotted. `via_y` routes it through a lane, for example above everything |
 | `save(path)` | Write the SVG and PNG, print a summary, raise `LayoutError` if there are problems |
 | `render()` | Return the SVG text and a report without writing files |
+| `describe()` | Return what the picture says in plain words |
+| `set_statuses({name: state})` | Set states by panel title, id or tile label, for example from a file |
 
 ## Statuses, colors and sizes
 
@@ -116,6 +120,86 @@ theme = Theme(tones={"default": "#2B3036", "neutral": "#6A7078", "accent": "#FFC
 theme.statuses["pilot"] = Status("Pilot", stroke="#8E24AA", fill="#F6EDF9", dash="dashed")
 d = Diagram("My picture", theme=theme)
 ```
+
+## Command line
+
+```bash
+open-diagram draw plan.json       # writes plan.svg and plan.png; exits with 1 if the layout has problems
+open-diagram check docs/*.json    # checks without writing files, for scripts and CI
+open-diagram describe plan.json   # prints what the picture says, in plain words
+```
+
+Each command takes a JSON description (`.json`), a Mermaid flowchart (`.mmd` or `.mermaid`), or a Python script with a `build()` function that returns a `Diagram` (`.py`). Add `--statuses states.json` to set states by name before drawing.
+
+## Describe a diagram in JSON
+
+Any agent or language can describe a picture as plain data, with no Python:
+
+```json
+{
+  "title": "How an email is delivered",
+  "columns": [
+    [{"id": "app", "title": "Mail app", "tiles": ["Write", "Send"], "cols": 1}],
+    [{"id": "out", "title": "Sending server", "tiles": ["Queue", {"label": "Digital signature", "status": "building"}]}]
+  ],
+  "links": [{"from": "app", "to": "out"}]
+}
+```
+
+![The JSON email example](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/email_delivery.png)
+
+| Part | Keys |
+| --- | --- |
+| Top level | `title` (required), `columns` (required: a list of columns, each a list of panels), `subtitle`, `tag`, `note` (`title`, `lines`), `steps` (`[[1, "First"]]`), `steps_label`, `gap`, `row_gap`, `valign`, `groups`, `links`, `statuses`, `theme` |
+| Panel | `title` (required), `id`, `sub`, `status`, `step`, `footer`, `tone`, `width`, `tiles` with `cols` and `label`, or `sections` (each `{"tiles": [...]}`, `{"text": "..."}`, `{"card": {...}}`, `{"graph": {...}}` or `{"row": [...]}`) |
+| Tile | a string, or `{"label", "sub", "status"}` |
+| Link | `from` and `to` (panel ids), `kind` (`flow` or `planned`), `label`, `start`, `end`, `lane` (`top` or `bottom`, to route around the picture), `via_x`, `via_y`, `cross_ok` |
+| Group | `label`, `members` (panel ids), `sub` |
+
+Every mistake names its place, for example `columns[0][0].tiles[2]: unknown key(s) 'colour'`. From Python, use `from_spec(data)`. The full example is [`examples/email_delivery.json`](https://github.com/lukendeasy/open-diagram/blob/main/examples/email_delivery.json).
+
+## Bring your Mermaid
+
+Already have a Mermaid flowchart? open-diagram lays it out again, with the same measuring and checks:
+
+```bash
+open-diagram draw signup_flow.mmd
+```
+
+![A Mermaid flowchart drawn by open-diagram](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/signup_flow.png)
+
+It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, chains, `&`, edge labels, and front-matter titles. Dotted edges (`-.->`) become planned connections. Each top-level `subgraph` becomes a shaded group with its own band, so groups never cover other nodes. A class named like a state (`A:::building`, or `class A,B planned`) sets that state. Lines that skip a step or point backwards travel above or below the picture. From Python, use `from_mermaid(text)`. The example is [`examples/signup_flow.mmd`](https://github.com/lukendeasy/open-diagram/blob/main/examples/signup_flow.mmd).
+
+## The picture explains itself
+
+`d.describe()`, or `open-diagram describe`, returns what the picture says in plain words: each block and its tiles with their states, the groups, every line and its label, and the key. The same text goes into the SVG as its description, so screen readers can read it. An agent can compare it with the request without looking at the picture.
+
+```text
+- Processing [step 1]: Upload checks; Transcoding; GPU encoding (being built); Auto captions (planned). Owner: Media team
+- Video record -> Recommendations (connection to build)
+```
+
+## Keep diagrams from going stale
+
+Add this GitHub Action and every push redraws your diagrams and fails the check if a layout problem appears:
+
+```yaml
+# .github/workflows/diagrams.yml
+name: diagrams
+on: [push, pull_request]
+jobs:
+  diagrams:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lukendeasy/open-diagram@v0.2.0
+        with:
+          files: docs/diagrams/*.json docs/diagrams/*.mmd
+          statuses: docs/diagrams/states.json   # optional
+          mode: check                           # or draw, to write SVG and PNG next to each file
+```
+
+Keep states in a small file, such as `{"Fraud checks": "live", "Parcel lockers": "building"}`. When work ships, change one word; the pictures follow. Names match panel titles, panel ids and tile labels, and `live` returns a part to the default look. From Python, use `d.set_statuses(...)`.
 
 ## Use it with an AI agent
 

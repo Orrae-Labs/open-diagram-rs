@@ -9,7 +9,7 @@ open-diagram draws diagrams from a short Python script. It measures every label,
 
 ## 1. Check the setup
 
-Run `python3 -c "import open_diagram"`. If it fails, install it: `pip install open-diagram`. PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found.
+Run `python3 -c "import open_diagram"`. If it fails, install it: `pip install open-diagram` (version 0.2.0 or later has the `open-diagram` command). PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found.
 
 ## 2. Plan before writing code
 
@@ -52,11 +52,13 @@ if __name__ == "__main__":
     build().save("out/picture")
 ```
 
+No Python? Write the same picture as JSON and run `open-diagram draw plan.json` (keys: README, "Describe a diagram in JSON"). Given a Mermaid flowchart, run `open-diagram draw flow.mmd` to lay it out with the checks; dotted edges become planned connections and subgraphs become groups.
+
 Other blocks: `Card(title, [(name, value), ...], intro=)` for a worked example; `Graph(nodes, links, at)` for a map of things and links, with `at` giving each node a `(column, row)` on a grid; `Row(a, b)` to put sections side by side; `Text(...)` for a short paragraph. Placing: `add(block, x, y)`, `right_of(ref, block, align="center")`, `below(ref, block)`, `stack([...])`, `columns([[...], ...])`.
 
 ## 4. Run it and fix every named problem
 
-Run the script. `save()` writes the SVG and PNG, prints a summary, then raises `LayoutError` listing every problem. Fix them all and run again until the summary says `0 layout problem(s)`.
+Run the script, or `open-diagram check FILE`. `save()` writes the SVG and PNG, prints a summary, then raises `LayoutError` listing every problem. Fix them all and run again until the summary says `0 layout problem(s)`.
 
 | Message contains | Fix |
 | --- | --- |
@@ -71,7 +73,7 @@ Run the script. `save()` writes the SVG and PNG, prints a summary, then raises `
 
 ## 5. Look at the PNG before answering
 
-Open the PNG and check it as a reader would:
+Run `d.describe()` (or `open-diagram describe FILE`) and compare the text with the request: every system, state, owner and line the user named should be there, and nothing they did not. Then open the PNG and check it as a reader would:
 
 - The reading direction is obvious and the main flow has few bends.
 - No line is ambiguous where it meets a panel.

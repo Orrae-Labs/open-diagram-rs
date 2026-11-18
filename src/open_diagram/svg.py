@@ -78,11 +78,14 @@ class Canvas:
     def close_group(self) -> None:
         self.add("</g>")
 
-    def svg(self, title: Optional[str] = None, background: Optional[str] = "#FFFFFF") -> str:
+    def svg(self, title: Optional[str] = None, background: Optional[str] = "#FFFFFF",
+            desc: Optional[str] = None) -> str:
         w, h = fmt(self.width), fmt(self.height)
         head = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img">']
         if title:
             head.append(f"<title>{escape(title)}</title>")
+        if desc:
+            head.append(f"<desc>{escape(desc)}</desc>")
         if background:
             head.append(f'<rect width="{w}" height="{h}" fill="{background}"/>')
         return "".join(head + self.parts + ["</svg>\n"])

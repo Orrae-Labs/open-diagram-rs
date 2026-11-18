@@ -18,6 +18,7 @@ PYTHONPATH=src python3 examples/systems_map.py                # build one exampl
 for f in examples/*.py; do PYTHONPATH=src python3 "$f"; done  # rebuild every picture
 pip install -e .                                               # optional: editable install instead of PYTHONPATH
 python3 -m build                                               # sdist and wheel into dist/ (needs `pip install build`)
+PYTHONPATH=src python3 -m open_diagram check examples/*.py examples/*.json examples/*.mmd   # the CLI, without installing
 ```
 
 PNG output needs Chrome, Chromium or Edge; set `CHROME` to the binary if `find_chrome()` misses it. SVG output never
@@ -32,11 +33,17 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
 | `src/open_diagram/theme.py` | `Theme` (colors, statuses, tones, type sizes, spacing, 3D `lid`/`depth`), `Status`, `shade()` |
 | `src/open_diagram/blocks.py` | `Block` base and `Tile`, `Tiles`, `Text`, `Card`, `Note`, `Graph`, `Row`, `Panel` |
 | `src/open_diagram/diagram.py` | `Diagram`: placement, `link`/`group`, routing, `_check()`, legend and header, `render()`, `save()` |
+| `src/open_diagram/describe.py` | `describe(diagram)`: the plain-text description behind `Diagram.describe()` and the SVG `<desc>` |
+| `src/open_diagram/spec.py` | `from_spec(dict)` / `load_spec(path)`: JSON descriptions; `SpecError` names the place of every mistake |
+| `src/open_diagram/mermaid.py` | `parse()` and `from_mermaid(text)`: Mermaid flowchart subset (listed in the module docstring) and its layered, banded layout |
+| `src/open_diagram/cli.py` | The `open-diagram` command (`draw`, `check`, `describe`, `png`) and `load(path)` for .json, .mmd and .py |
 | `src/open_diagram/render.py` | `find_chrome()`, `svg_to_png()` (headless browser screenshot, optional Pillow crop) |
 | `src/open_diagram/fonts/` | Inter 4.1, four weights, under the SIL OFL (`OFL.txt`). Do not replace or subset without updating the license note |
 | `examples/` | One script per example; each defines `build() -> Diagram` and saves to `docs/images/<name>` |
 | `docs/images/` | Committed SVG and PNG output of the examples; the README embeds them |
 | `skills/open-diagram/SKILL.md` | Agent Skill for *using* the library; its fix table keys on problem-message wording |
+| `action.yml` | The GitHub Action (composite): installs the package from the action's own checkout, then runs `open-diagram check` or `draw` |
+| `.github/workflows/diagrams.yml` | Runs that action on this repo's examples (`uses: ./`) |
 | `tests/test_open_diagram.py` | unittest suite; `EXAMPLES` lists every example that must build with zero problems |
 
 ## How a build flows
@@ -71,6 +78,12 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
   3.10+ standard-library APIs.
 - **Dependencies.** Runtime depends on `fonttools` only; Pillow is optional (the `png` extra). Do not add others.
 - **Public API** is `__all__` in `src/open_diagram/__init__.py`. Changing it means updating the README tables.
+- **JSON and Mermaid errors name the place** (`columns[1][0].tiles[2]`, `line 7`). Keep that when adding keys or syntax,
+  and keep the README key table in step with `spec.py`.
+- **`describe()` wording is relied on** by tests and by agents comparing a picture with a request: `->` for lines,
+  `labeled "..."`, state words in parentheses, `[step N, state]` after panel titles.
+- **Easter egg:** `open-diagram --soundtrack` prints The Gathering Field's Spotify link and is hidden from `--help`.
+  Keep it, and keep it hidden.
 
 ## Common changes
 
@@ -93,7 +106,8 @@ Add the name to `EXAMPLES` in the tests and a row to the README examples table.
 
 ## Releasing
 
-1. Set the same version in `pyproject.toml` and `src/open_diagram/__init__.py` (`__version__`).
+1. Set the same version in `pyproject.toml` and `src/open_diagram/__init__.py` (`__version__`), and update the
+   `lukendeasy/open-diagram@vX.Y.Z` line in the README's GitHub Action example.
 2. Make sure tests pass and every picture is rebuilt.
 3. Publish a GitHub release tagged `vX.Y.Z`. `.github/workflows/publish.yml` builds the package and uploads it to
    PyPI through trusted publishing (no token). PyPI never accepts the same version twice; fix forward with a new

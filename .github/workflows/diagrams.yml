@@ -1,0 +1,16 @@
+# Uses this repo's own GitHub Action (action.yml) on its examples, the way any project would.
+name: diagrams
+on: [push, pull_request]
+jobs:
+  diagrams:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          files: examples/*.py examples/*.json examples/*.mmd
+          mode: check
+      - uses: ./
+        with:
+          files: examples/signup_flow.mmd
+          mode: draw

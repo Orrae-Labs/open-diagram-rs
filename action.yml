@@ -1,0 +1,61 @@
+name: open-diagram
+description: Redraw diagrams on every push and fail the check when a layout problem appears, so pictures never go stale.
+author: Luke Deasy
+branding:
+  icon: layout
+  color: yellow
+
+inputs:
+  files:
+    description: Diagram files to check or draw (.json, .mmd, .mermaid, or .py with build()). Space- or newline-separated; globs allowed, ** included.
+    required: true
+  mode:
+    description: "'check' builds each diagram in memory and reports problems; 'draw' also writes the SVG and PNG next to each file."
+    required: false
+    default: check
+  statuses:
+    description: Optional JSON file of name -> state (for example {"Fraud checks": "live"}), applied before drawing. Update it as work ships and the pictures follow.
+    required: false
+    default: ""
+  python-version:
+    description: Python version to use.
+    required: false
+    default: "3.12"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install open-diagram
+      shell: bash
+      run: pip install --quiet "$ACTION_PATH"
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+    - name: Check or draw diagrams
+      shell: bash
+      env:
+        FILES: ${{ inputs.files }}
+        MODE: ${{ inputs.mode }}
+        STATUSES: ${{ inputs.statuses }}
+      run: |
+        shopt -s nullglob; shopt -s globstar 2>/dev/null || true
+        set -f; patterns=($FILES); set +f
+        files=()
+        for pattern in "${patterns[@]}"; do
+          matches=($pattern)
+          if [ ${#matches[@]} -eq 0 ]; then echo "::error::no files match '$pattern'"; exit 1; fi
+          files+=("${matches[@]}")
+        done
+        extra=()
+        if [ -n "$STATUSES" ]; then extra=(--statuses "$STATUSES"); fi
+        if [ "$MODE" = "draw" ]; then
+          status=0
+          for f in "${files[@]}"; do open-diagram draw "$f" "${extra[@]}" || status=1; done
+          exit $status
+        elif [ "$MODE" = "check" ]; then
+          open-diagram check "${files[@]}" "${extra[@]}"
+        else
+          echo "::error::mode must be 'check' or 'draw', not '$MODE'"; exit 1
+        fi
