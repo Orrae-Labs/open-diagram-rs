@@ -274,6 +274,23 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("overlap", out)
 
+    def test_edited_script_is_read_fresh(self):
+        # Same length, same timestamp: Python's bytecode cache would reuse the old version.
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "edit.py")
+            old = ("from open_diagram import Diagram, Panel\ndef build():\n    d = Diagram('t')\n"
+                   "    a = d.add(Panel('A', ['x']), 0, 0)\n    d.add(Panel('B', ['y']), 60, 20)\n    return d\n")
+            new = old.replace("d.add(Panel('B', ['y']), 60, 20)", "d.right_of(a, Panel('B', ['y']))")
+            self.assertEqual(len(old), len(new))
+            with open(path, "w") as fh:
+                fh.write(old)
+            stamp = os.stat(path).st_mtime
+            self.assertEqual(self.run_cli("check", path)[0], 1)
+            with open(path, "w") as fh:
+                fh.write(new)
+            os.utime(path, (stamp, stamp))
+            self.assertEqual(self.run_cli("check", path)[0], 0)
+
     def test_draw_writes_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             out_base = os.path.join(tmp, "flow")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-diagram"
-version = "0.2.1"
+version = "0.2.2"
 description = "Python building blocks for dense architecture diagrams that check their own layout"
 readme = "README.md"
 license = "MIT"

@@ -12,11 +12,11 @@ stop a build.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import os
 import re
 import sys
+import types
 from typing import List, Optional
 
 from . import __version__
@@ -36,9 +36,20 @@ def load(path: str, statuses: Optional[str] = None, title: Optional[str] = None)
         from .mermaid import load_mermaid
         d = load_mermaid(path, title=title)
     elif ext == ".py":
-        spec = importlib.util.spec_from_file_location(f"_open_diagram_{abs(hash(path))}", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        # Compile from the source every time. Python's saved bytecode can be reused when a script is edited
+        # within the same second and keeps the same size, which an agent's quick edit-and-check loop can hit.
+        source_path = os.path.abspath(path)
+        with open(source_path, encoding="utf-8") as fh:
+            source = fh.read()
+        module = types.ModuleType("_open_diagram_script")
+        module.__file__ = source_path
+        folder = os.path.dirname(source_path)
+        sys.path.insert(0, folder)
+        try:
+            exec(compile(source, source_path, "exec"), module.__dict__)
+        finally:
+            if folder in sys.path:
+                sys.path.remove(folder)
         if not hasattr(module, "build"):
             raise SystemExit(f"{path}: needs a build() function that returns a Diagram")
         d = module.build()

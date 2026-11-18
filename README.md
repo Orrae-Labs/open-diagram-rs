@@ -192,7 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: lukendeasy/open-diagram@v0.2.1
+      - uses: lukendeasy/open-diagram@v0.2.2
         with:
           files: docs/diagrams/*.json docs/diagrams/*.mmd
           statuses: docs/diagrams/states.json   # optional
