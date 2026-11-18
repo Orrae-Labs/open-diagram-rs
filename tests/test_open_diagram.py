@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from open_diagram import Diagram, Graph, LayoutError, Panel, Theme, Tile, text_width, wrap  # noqa: E402
 from open_diagram.fonts import face  # noqa: E402
 
-EXAMPLES = ["quickstart", "systems_map", "pipeline", "layers", "concept_map", "business_map"]
+EXAMPLES = ["quickstart", "systems_map", "how_it_works", "pipeline", "card_payment", "layers", "concept_map",
+            "smart_home", "incident_response", "business_map"]
 
 
 def load_example(name):

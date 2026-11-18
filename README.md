@@ -43,6 +43,8 @@ The key at the top lists only the statuses and line kinds the picture uses.
 - **Text is drawn as shapes.** The SVG looks the same in a browser, PowerPoint, Keynote or Figma, with or without the font installed. Inter comes bundled.
 - **Words stay apart from layout.** Keep labels in lists at the top of the script. Changing a word does not move anything by hand.
 
+![How open-diagram turns a script into a picture, drawn with open-diagram](docs/images/how_it_works.png)
+
 ## Examples
 
 Each example is one script in [`examples/`](examples/). Run any of them with `python3 examples/<name>.py`.
@@ -50,9 +52,13 @@ Each example is one script in [`examples/`](examples/). Run any of them with `py
 | Example | Shows |
 | --- | --- |
 | [`systems_map.py`](examples/systems_map.py) | A video platform from upload to screen: columns, a group, steps, statuses, owners, a small data map with a worked example, and lanes above and below the picture |
+| [`how_it_works.py`](examples/how_it_works.py) | How open-diagram itself works, drawn with open-diagram |
 | [`pipeline.py`](examples/pipeline.py) | A release pipeline from pull request to production, with a rollback lane |
+| [`card_payment.py`](examples/card_payment.py) | What happens when you tap a card: numbered steps for the order of events, return paths above and below |
 | [`layers.py`](examples/layers.py) | A web product as stacked layers, with a side panel |
 | [`concept_map.py`](examples/concept_map.py) | How git stores a project: its objects and links, with a worked example |
+| [`smart_home.py`](examples/smart_home.py) | A smart home from sensor to phone, with a planned overnight update path |
+| [`incident_response.py`](examples/incident_response.py) | How a team handles an outage, from the first alert to the lessons learned |
 | [`business_map.py`](examples/business_map.py) | Not only software: a furniture store from order to doorstep |
 | [`quickstart.py`](examples/quickstart.py) | The code above |
 
@@ -61,8 +67,15 @@ Each example is one script in [`examples/`](examples/). Run any of them with `py
   <img src="docs/images/layers.png" alt="Stacked layers example" width="40%">
 </p>
 <p>
+  <img src="docs/images/card_payment.png" alt="Card payment example" width="49%">
+  <img src="docs/images/smart_home.png" alt="Smart home example" width="45%">
+</p>
+<p>
   <img src="docs/images/concept_map.png" alt="Git data model example" width="47%">
-  <img src="docs/images/business_map.png" alt="Business process example" width="47%">
+  <img src="docs/images/incident_response.png" alt="Outage response example" width="47%">
+</p>
+<p>
+  <img src="docs/images/business_map.png" alt="Business process example" width="70%">
 </p>
 
 ## Building blocks
