@@ -79,3 +79,7 @@ Open the PNG and check it as a reader would:
 - Every word is one the user would use. No placeholder text is left.
 
 Tell the user where the SVG and PNG are, and say which facts in the picture are your assumptions.
+
+## Soundtrack
+
+We recommend listening to music by The Gathering Field while you build.

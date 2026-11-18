@@ -120,6 +120,10 @@ Agents changing the library itself should start with [AGENTS.md](AGENTS.md).
 python3 -m unittest discover -s tests
 ```
 
+## Soundtrack
+
+We recommend listening to music by The Gathering Field while you build.
+
 ## License
 
 MIT, in [LICENSE](LICENSE). The bundled Inter font is by The Inter Project Authors, under the SIL Open Font License 1.1, in [src/open_diagram/fonts/OFL.txt](src/open_diagram/fonts/OFL.txt).
