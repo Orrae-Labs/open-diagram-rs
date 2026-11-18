@@ -8,7 +8,7 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from open_diagram import Diagram, Graph, LayoutError, Panel, Tile, text_width, wrap  # noqa: E402
+from open_diagram import Diagram, Graph, LayoutError, Panel, Theme, Tile, text_width, wrap  # noqa: E402
 from open_diagram.fonts import face  # noqa: E402
 
 EXAMPLES = ["quickstart", "systems_map", "pipeline", "layers", "concept_map", "business_map"]
@@ -102,6 +102,27 @@ class CheckTests(unittest.TestCase):
                 d.save(path, png=False)
             self.assertTrue(os.path.exists(path + ".svg"))
             self.assertIn("overlap", str(caught.exception))
+
+
+class ThemeTests(unittest.TestCase):
+    def test_custom_colors_reach_the_picture(self):
+        theme = Theme(tones={"default": "#123456"}, badge_fill="#ABCDEF")
+        d = Diagram("t", theme=theme)
+        d.add(Panel("Alpha", ["x"], step=1))
+        svg, report = d.render()
+        self.assertEqual(report.problems, [])
+        self.assertIn("#123456", svg)
+        self.assertIn("#ABCDEF", svg)
+
+    def test_header_text_turns_white_on_dark_headers(self):
+        t = Theme()
+        self.assertEqual(t.header_colors("#2B3036"), (t.header_text_on_dark, t.header_sub_on_dark))
+        self.assertEqual(t.header_colors("#E2E5E9"), (t.header_text, t.header_sub))
+
+    def test_3d_look_can_be_turned_off(self):
+        on, off = Theme(), Theme(lid=0, depth=0)
+        self.assertEqual(Tile("x").measure(on)[0] - Tile("x").measure(off)[0], on.depth)
+        self.assertEqual(Panel("A", ["x"]).measure(on)[1] - Panel("A", ["x"]).measure(off)[1], on.lid + on.depth)
 
 
 class ExampleTests(unittest.TestCase):

@@ -1,0 +1,106 @@
+# AGENTS.md
+
+Instructions for coding agents working on the open-diagram library itself. To **draw a diagram with** the library,
+read [`skills/open-diagram/SKILL.md`](skills/open-diagram/SKILL.md) instead.
+
+## What this is
+
+A pure-Python library that turns a short script into a dense architecture diagram (SVG, plus PNG through a headless
+browser). Its core promise: every label is measured from the font before anything is placed, and the build reports
+layout problems as plain sentences that name the parts involved, so an agent can fix them without looking at the
+picture. Preserve that promise in every change.
+
+## Commands
+
+```bash
+python3 -m unittest discover -s tests                         # all tests; they add src/ to sys.path themselves
+PYTHONPATH=src python3 examples/systems_map.py                # build one example into docs/images/
+for f in examples/*.py; do PYTHONPATH=src python3 "$f"; done  # rebuild every picture
+pip install -e .                                               # optional: editable install instead of PYTHONPATH
+python3 -m build                                               # sdist and wheel into dist/ (needs `pip install build`)
+```
+
+PNG output needs Chrome, Chromium or Edge; set `CHROME` to the binary if `find_chrome()` misses it. SVG output never
+needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10 and 3.14.
+
+## Map
+
+| Path | Role |
+| --- | --- |
+| `src/open_diagram/fonts.py` | `Face` (fontTools): glyph outlines, advance widths, GPOS pair kerning. `text_width`, `cap_height`, `wrap`, `fmt` |
+| `src/open_diagram/svg.py` | `Canvas`: SVG primitives; `text()` emits outline paths with a `<title>` holding the string |
+| `src/open_diagram/theme.py` | `Theme` (colors, statuses, tones, type sizes, spacing, 3D `lid`/`depth`), `Status`, `shade()` |
+| `src/open_diagram/blocks.py` | `Block` base and `Tile`, `Tiles`, `Text`, `Card`, `Note`, `Graph`, `Row`, `Panel` |
+| `src/open_diagram/diagram.py` | `Diagram`: placement, `link`/`group`, routing, `_check()`, legend and header, `render()`, `save()` |
+| `src/open_diagram/render.py` | `find_chrome()`, `svg_to_png()` (headless browser screenshot, optional Pillow crop) |
+| `src/open_diagram/fonts/` | Inter 4.1, four weights, under the SIL OFL (`OFL.txt`). Do not replace or subset without updating the license note |
+| `examples/` | One script per example; each defines `build() -> Diagram` and saves to `docs/images/<name>` |
+| `docs/images/` | Committed SVG and PNG output of the examples; the README embeds them |
+| `skills/open-diagram/SKILL.md` | Agent Skill for *using* the library; its fix table keys on problem-message wording |
+| `tests/test_open_diagram.py` | unittest suite; `EXAMPLES` lists every example that must build with zero problems |
+
+## How a build flows
+
+1. `Block.measure(theme)` returns `(w, h)` computed from text widths. It never guesses.
+2. `Diagram.add / right_of / below / stack / columns` place blocks and return `Placed` records.
+3. `Diagram.link` and `Diagram.group` record lines and shaded areas.
+4. `render()`: `_route()` and `_shape()` compute line paths, `_check()` collects problems, everything is drawn,
+   and a `Report(svg, width, height, min_text, problems, files)` comes back.
+5. `save(path)` writes the SVG (and PNG), prints a one-line summary, then raises
+   `LayoutError(problems, files)` when `strict=True` and problems exist. Files are written before it raises.
+
+## Invariants (do not break)
+
+- **Measure, then draw.** `draw()` may receive more space than `measure()` asked for, never less. If it gets less,
+  call `report(...)` with a named problem rather than clipping or shrinking text.
+- **Everything drawn stays inside the measured box.** The 3D lid on panels and the raised faces on tiles are counted
+  in `measure()`, so overlap and crossing checks see the whole shape. Any new decoration must do the same.
+- **Text is drawn as outlines and measured from the font.** Use `text_width` / `wrap` / `Canvas.text`. Never
+  estimate width from character counts, and never emit `<text>` elements.
+- **Output is deterministic.** The same script must produce a byte-identical SVG (the example test asserts this).
+  No timestamps, randomness, absolute paths or environment-dependent values in the SVG.
+- **Problem messages are an API.** Agents act on them. Each message names parts by their labels and, where
+  possible, says how to fix it. Keep these substrings stable: `overlap`, `px apart`, `crosses`, `sits on`,
+  `needs N px`, `smallest text`, `group ... overlaps`, `graph: the label ... touches`,
+  `graph: the line ... runs through`. If you add or change one, update the fix table in `skills/open-diagram/SKILL.md`.
+- **Colors come from `Theme`.** Blocks read colors from the theme (derived shades via `shade()` are fine). Do not
+  hard-code hex values in blocks or the diagram code. Header text color is chosen by contrast in
+  `Theme.header_colors()`; keep tones usable with either light or dark headers.
+- **Minimum text size.** Nothing is drawn below `theme.min_text` (10 px); `Report.min_text` tracks the smallest.
+- **Python 3.9+.** Modules use `from __future__ import annotations`. No `match`, no runtime `X | Y` unions, no
+  3.10+ standard-library APIs.
+- **Dependencies.** Runtime depends on `fonttools` only; Pillow is optional (the `png` extra). Do not add others.
+- **Public API** is `__all__` in `src/open_diagram/__init__.py`. Changing it means updating the README tables.
+
+## Common changes
+
+**Add a block.** Subclass `Block` in `blocks.py`. Implement `measure`, `draw`, `statuses()` (what the key should
+list) and, if lines attach to it, `ports()`. Export it in `__init__.py`, add a row to the README "Building blocks"
+table, and add a test.
+
+**Add a layout check.** Add it to `Diagram._check()`. Write the message in plain words with the parts' labels and a
+fix. Add a test that triggers it, and a row to the SKILL.md fix table.
+
+**Change the default look** (`Theme` defaults, header, tiles, 3D). Rebuild every example, look at every PNG, and
+commit the SVG and PNG files together with the code. All examples must still report `0 layout problem(s)`.
+
+**Add an example.** One script in `examples/` with all words in lists at the top, a `build()` that returns the
+`Diagram`, and a `__main__` block that saves to `docs/images/<name>`. Use an invented organization and say so in a
+`Note`; never real company names, logos or data. Prefer technical subjects that show a different kind of diagram.
+Add the name to `EXAMPLES` in the tests and a row to the README examples table.
+
+**Edit the README quick start.** It mirrors `examples/quickstart.py` line for line; change both.
+
+## Releasing
+
+1. Set the same version in `pyproject.toml` and `src/open_diagram/__init__.py` (`__version__`).
+2. Make sure tests pass and every picture is rebuilt.
+3. Publish a GitHub release tagged `vX.Y.Z`. `.github/workflows/publish.yml` builds the package and uploads it to
+   PyPI through trusted publishing (no token). PyPI never accepts the same version twice; fix forward with a new
+   patch version.
+
+## Done means
+
+- `python3 -m unittest discover -s tests` passes.
+- Every example builds with `0 layout problem(s)` and the committed pictures match the code.
+- README, SKILL.md and this file still describe the code as it is.

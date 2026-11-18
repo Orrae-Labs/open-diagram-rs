@@ -112,6 +112,8 @@ cp -r skills/open-diagram ~/.claude/skills/
 
 Then ask for a picture in plain words, for example: "Draw a systems map of our checkout, warehouse and reporting, with what is live and what is planned." The skill tells the agent to plan the columns, write the script, run it, fix each named problem, and look at the PNG before it answers.
 
+Agents changing the library itself should start with [AGENTS.md](AGENTS.md).
+
 ## Run the tests
 
 ```bash
