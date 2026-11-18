@@ -20,42 +20,45 @@ def default_statuses() -> Dict[str, Status]:
         "live": Status("Live", "#27323F", "#FFFFFF"),
         "building": Status("Being built", "#B26B00", "#FFF5E5", "dashed"),
         "trial": Status("In trial", "#6B4FD8", "#F4F1FE", "dashed"),
-        "planned": Status("Planned", "#2C6DB5", "#EEF4FC", "dotted"),
+        "planned": Status("Planned", "#5C636B", "#F1F2F4", "dotted"),
         "retiring": Status("Retiring", "#B42318", "#FEF0EE"),
     }
 
 
 def default_tones() -> Dict[str, str]:
     return {
-        "default": "#163C40",
-        "accent": "#0C6C67",
-        "neutral": "#46505B",
-        "warm": "#80501A",
-        "plum": "#4A3966",
+        "default": "#E2E5E9",  # light gray
+        "neutral": "#E2E5E9",
+        "accent": "#FFE08A",   # soft yellow, for a panel that should stand out
+        "dark": "#2B3036",     # charcoal; its header text turns white
     }
 
 
 @dataclass
 class Theme:
     # colors
-    ink: str = "#1D2733"
+    ink: str = "#1F2328"
     muted: str = "#5E6874"
     faint: str = "#8A939D"
     paper: str = "#FFFFFF"
-    line: str = "#3D4F5C"
-    panel_fill: str = "#F6F7F5"
+    line: str = "#3F454C"
+    panel_fill: str = "#F7F7F8"
     panel_stroke: str = "#C5CCD3"
     tile_fill: str = "#FFFFFF"
-    tile_stroke: str = "#27323F"
-    header_text: str = "#FFFFFF"
-    header_sub: str = "#CFE0E0"
-    group_fill: str = "#F1F4F3"
-    group_stroke: str = "#9AA7AC"
+    tile_stroke: str = "#2B3036"
+    header_text: str = "#1F2328"  # on light headers
+    header_sub: str = "#5A6067"
+    header_text_on_dark: str = "#FFFFFF"  # used instead when the header color is dark
+    header_sub_on_dark: str = "#D5D9DE"
+    group_fill: str = "#F2F3F5"
+    group_stroke: str = "#A3A8B0"
     note_fill: str = "#FFF8EC"
     note_stroke: str = "#D9B77E"
-    tag_color: str = "#0C6C67"
-    graph_fill: str = "#FBFCFB"
-    graph_grid: str = "#ECEFEE"
+    tag_color: str = "#2B3036"
+    badge_fill: Optional[str] = "#FFC83D"  # step number circles; None: white in headers, the default tone in the key
+    badge_text: Optional[str] = "#1F2328"  # step numbers; None: the header color in headers, white in the key
+    graph_fill: str = "#FBFBFC"
+    graph_grid: str = "#EBECEF"
     graph_line: str = "#97A3AB"
     tones: Dict[str, str] = field(default_factory=default_tones)
     statuses: Dict[str, Status] = field(default_factory=default_statuses)
@@ -103,3 +106,21 @@ class Theme:
         if key not in self.tones:
             raise ValueError(f"unknown tone {key!r}; this theme has: {', '.join(self.tones)}")
         return self.tones[key]
+
+    def header_colors(self, background: str):
+        """Title and subtitle colors for a header: whichever of the light-header or dark-header pair reads better."""
+        dark = (_luminance(background) + 0.05) / (_luminance(self.header_text) + 0.05)
+        light = (_luminance(self.header_text_on_dark) + 0.05) / (_luminance(background) + 0.05)
+        if dark >= light:
+            return self.header_text, self.header_sub
+        return self.header_text_on_dark, self.header_sub_on_dark
+
+
+def _luminance(hex_color: str) -> float:
+    """Relative brightness of a color from 0 (black) to 1 (white), as used for contrast checks."""
+    h = hex_color.lstrip("#")
+    def channel(v):
+        v = int(v, 16) / 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    r, g, b = (channel(h[i:i + 2]) for i in (0, 2, 4))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b

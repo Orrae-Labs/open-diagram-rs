@@ -84,13 +84,14 @@ Each example is one script in [`examples/`](examples/). Run any of them with `py
 
 ## Statuses, colors and sizes
 
+Panels have light gray headers and yellow step numbers. `tone="accent"` gives a panel a soft yellow header, and `tone="dark"` a charcoal one. Header text turns white by itself on a dark header.
+
 Statuses are shown by color and by word: Live, Being built, In trial, Planned and Retiring. Change them, or anything else, with a `Theme`:
 
 ```python
 from open_diagram import Diagram, Status, Theme
 
-theme = Theme(tones={"default": "#1F3A5F", "accent": "#2E7D32", "neutral": "#555555", "warm": "#8D5524",
-                     "plum": "#5B3A70"})
+theme = Theme(tones={"default": "#2B3036", "neutral": "#6A7078", "accent": "#FFC83D", "dark": "#111418"})
 theme.statuses["pilot"] = Status("Pilot", stroke="#8E24AA", fill="#F6EDF9", dash="dashed")
 d = Diagram("My picture", theme=theme)
 ```

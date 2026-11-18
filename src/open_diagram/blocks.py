@@ -457,16 +457,17 @@ class Panel(Block):
                1.3 if st else 1, t.radius, st.dash if st else None)
         tone = t.tone(self.tone)
         c.path(_top_rounded(x, y, w, hh, t.radius), fill=tone)
+        title_color, sub_color = t.header_colors(tone)
         tx = x + t.pad
         title_cy = y + (18 if self.sub else hh / 2)
         if self.step is not None:
-            c.circle(tx + 11, title_cy, 10.5, t.paper)
-            c.text_centered(str(self.step), tx + 11, title_cy, 11.5, "bold", tone)
+            c.circle(tx + 11, title_cy, 10.5, t.badge_fill or t.paper)
+            c.text_centered(str(self.step), tx + 11, title_cy, 11.5, "bold", t.badge_text or tone)
             tx += self._badge_w()
         c.text_centered(self.title, tx + text_width(self.title, t.panel_title, "semibold") / 2, title_cy,
-                        t.panel_title, "semibold", t.header_text)
+                        t.panel_title, "semibold", title_color)
         if self.sub:
-            c.text(self.sub, tx, y + 36 + cap_height(t.panel_sub) / 2, t.panel_sub, "regular", t.header_sub)
+            c.text(self.sub, tx, y + 36 + cap_height(t.panel_sub) / 2, t.panel_sub, "regular", sub_color)
         tag, tag_w = self._tag(t)
         if tag:
             c.rect(x + w - t.pad - tag_w, title_cy - 9, tag_w, 18, t.paper, None, radius=9)

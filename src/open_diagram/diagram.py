@@ -474,8 +474,8 @@ class Diagram:
                          "semibold", t.ink) + 12
             tone = t.tone("default")
             for n, label in self.steps:
-                c.circle(lx + 9, ly, 9, tone)
-                c.text_centered(str(n), lx + 9, ly, 10.5, "bold", t.paper)
+                c.circle(lx + 9, ly, 9, t.badge_fill or tone)
+                c.text_centered(str(n), lx + 9, ly, 10.5, "bold", t.badge_text or t.paper)
                 lx += 24 + c.text(label, lx + 24, ly + cap_height(t.legend) / 2, t.legend, "regular", t.ink) + 18
         if self.note:
             nw, nh = self.note.measure(t)
