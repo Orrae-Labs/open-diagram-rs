@@ -224,10 +224,33 @@ class MermaidTests(unittest.TestCase):
         _, report = cli.load(os.path.join(ROOT, "examples", "signup_flow.mmd")).render()
         self.assertEqual(report.problems, [])
 
+    def test_node_names_that_match_mermaid_words(self):
+        d = from_mermaid("flowchart LR\n  click[Click it] --> style[Style it]:::building\n  style -.-> class[Done]\n")
+        self.assertEqual([(l.a.name, l.b.name, l.kind) for l in d.links],
+                         [("Click it", "Style it", "flow"), ("Style it", "Done", "planned")])
+        self.assertIn("Style it (being built)", d.describe())
+
+    def test_top_down_with_a_group_is_clean(self):
+        text = ("flowchart TD\n a[Ask] --> b{Found?}\n b -->|yes| c[Send link]\n b -->|no| d[Same message]\n"
+                " c --> e[Click]\n e -.->|expired| a\n subgraph mail [Email service]\n  c\n end\n")
+        _, report = from_mermaid(text).render()
+        self.assertEqual(report.problems, [])
+
     def test_errors_name_the_line(self):
         with self.assertRaises(MermaidError) as caught:
             from_mermaid("flowchart LR\n  a[ok] --> ???")
         self.assertIn("line 2", str(caught.exception))
+
+
+class GroupTitleTests(unittest.TestCase):
+    def test_label_on_a_group_title_is_reported(self):
+        d = Diagram("t")
+        a = d.add(Panel("A", ["x"]), 0, 60)
+        b = d.add(Panel("B", ["y"]), 420, 100)
+        d.group("Group title", [b])
+        d.link(a, b, start="right", end="left", via_y=78, label="a long label that reaches the group title")
+        _, report = d.render()
+        self.assertTrue(any("sits on the title of group 'Group title'" in p for p in report.problems))
 
 
 class CommandTests(unittest.TestCase):

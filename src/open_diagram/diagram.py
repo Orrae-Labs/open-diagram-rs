@@ -81,6 +81,7 @@ class Link:
     tip: Point = (0.0, 0.0)
     direction: Point = (0.0, 0.0)
     samples: List[Point] = field(default_factory=list)
+    label_spots: List[Point] = field(default_factory=list)
     label_at: Point = (0.0, 0.0)
 
 
@@ -247,6 +248,28 @@ class Diagram:
                 line.offsets[e] = mid + (i - (n - 1) / 2) * step
         for line in self.links:
             self._shape(line)
+        self._place_labels()
+
+    def _place_labels(self) -> None:
+        """Slide each line label along its line to the first spot clear of blocks, group titles, other lines and
+        labels already placed. If no spot is clear, the label stays in the middle and the checks report it."""
+        titles = [self._group_title_box(g) for g in self.groups]
+        taken: List[Tuple[float, float, float, float]] = []
+        for line in self.links:
+            if not line.label:
+                continue
+            others = [s for other in self.links if other is not line for s in other.samples]
+
+            def clear(spot):
+                x, y, w, h = self._label_box(line, spot)
+                if any(_separation((x, y, w, h), p.rect()) < 0 for p in self.placed):
+                    return False
+                if any(_separation((x, y, w, h), b) < 0 for b in titles + taken):
+                    return False
+                return not any(x - 2 < sx < x + w + 2 and y - 2 < sy < y + h + 2 for sx, sy in others)
+
+            line.label_at = next((s for s in line.label_spots if clear(s)), line.label_spots[0])
+            taken.append(self._label_box(line))
 
     def _shape(self, line: Link) -> None:
         p0 = _anchor(line.a, line.start, line.offsets[0])
@@ -261,7 +284,8 @@ class Diagram:
             c2 = (p3[0] + d3[0] * k, p3[1] + d3[1] * k)
             line.d = f"M{_p(p0)}C{_p(c1)} {_p(c2)} {_p(p3)}"
             line.samples = [_bezier(p0, c1, c2, p3, i / 80) for i in range(81)]
-            line.label_at = _bezier(p0, c1, c2, p3, 0.5)
+            line.label_spots = [_bezier(p0, c1, c2, p3, s) for s in (0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74)]
+            line.label_at = line.label_spots[0]
             return
         s0 = (p0[0] + d0[0] * STUB, p0[1] + d0[1] * STUB)
         s3 = (p3[0] + d3[0] * STUB, p3[1] + d3[1] * STUB)
@@ -272,13 +296,26 @@ class Diagram:
         pts = _simplify([p0, s0] + middle + [s3, p3])
         line.d = _rounded(pts, CORNER)
         line.samples = _sample(pts, 5.0)
-        longest = max(range(len(pts) - 1), key=lambda i: math.dist(pts[i], pts[i + 1]))
-        a, b = pts[longest], pts[longest + 1]
-        line.label_at = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        order = sorted(range(len(pts) - 1), key=lambda i: -math.dist(pts[i], pts[i + 1]))
+        line.label_spots = []
+        for i in order[:2]:
+            a, b = pts[i], pts[i + 1]
+            for f in (0.5, 0.35, 0.65, 0.2, 0.8):
+                line.label_spots.append((a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f))
+        line.label_at = line.label_spots[0]
 
-    def _label_box(self, line: Link) -> Tuple[float, float, float, float]:
+    def _group_title_box(self, g: Group) -> Tuple[float, float, float, float]:
+        t = self.theme
+        x, y, _, _ = g.rect
+        tw = text_width(g.label, 12.5, "semibold")
+        if g.sub:
+            tw = max(tw, text_width(g.sub, t.small))
+        return x + 10, y + 7, tw + 8, t.line_h * (2 if g.sub else 1) + 8
+
+    def _label_box(self, line: Link, at: Optional[Point] = None) -> Tuple[float, float, float, float]:
+        x, y = at or line.label_at
         w = text_width(line.label or "", self.theme.small, "medium") + 14
-        return line.label_at[0] - w / 2, line.label_at[1] - 9, w, 18
+        return x - w / 2, y - 9, w, 18
 
     # ---------------------------------------------------------------------------------------------- checks
 
@@ -316,6 +353,10 @@ class Diagram:
                 for p in self.placed:
                     if _separation(box, p.rect()) < 0:
                         problems.append(f"the label '{line.label}' on {name} sits on '{p.name}'")
+                for g in self.groups:
+                    if _separation(box, self._group_title_box(g)) < 0:
+                        problems.append(f"the label '{line.label}' on {name} sits on the title of group "
+                                        f"'{g.label}'; move the label's line, or the group")
         return problems
 
     # ------------------------------------------------------------------------------------------------ build
@@ -325,13 +366,13 @@ class Diagram:
         t = self.theme
         if not self.placed:
             raise ValueError("the diagram has no blocks; add some with add(), right_of(), below() or columns()")
-        self._route()
         for g in self.groups:
             x0 = min(p.x for p in g.members) - g.pad
             y0 = min(p.y for p in g.members) - g.pad - (t.line_h * (2 if g.sub else 1) + 6)
             x1 = max(p.right for p in g.members) + g.pad
             y1 = max(p.bottom for p in g.members) + g.pad
             g.rect = (x0, y0, x1 - x0, y1 - y0)
+        self._route()
         problems = self._check()
 
         boxes = [p.rect() for p in self.placed] + [g.rect for g in self.groups]
@@ -353,13 +394,18 @@ class Diagram:
         for g in self.groups:
             x, y, w, h = g.rect
             c.rect(x, y, w, h, t.group_fill, t.group_stroke, 1.1, t.radius + 4, "dashed")
-            c.text(g.label, x + 14, y + 12 + cap_height(12.5, "semibold"), 12.5, "semibold", t.ink)
-            if g.sub:
-                c.text(g.sub, x + 14, y + 12 + t.line_h + cap_height(t.small), t.small, "regular", t.muted)
         for line in self.links:
             dotted = line.kind == "planned"
             c.path(line.d, stroke=t.line, width=1.6 if dotted else 1.3, dash="dotted" if dotted else None)
             c.path(_arrowhead(line.tip, line.direction), fill=t.line)
+        for g in self.groups:
+            # Titles go above the lines, on a backing, so a line passing through reads as passing behind.
+            x, y, w, h = g.rect
+            bx, by, bw, bh = self._group_title_box(g)
+            c.rect(bx, by, bw, bh, t.group_fill, None, radius=3)
+            c.text(g.label, x + 14, y + 12 + cap_height(12.5, "semibold"), 12.5, "semibold", t.ink)
+            if g.sub:
+                c.text(g.sub, x + 14, y + 12 + t.line_h + cap_height(t.small), t.small, "regular", t.muted)
         report = problems.append
         for p in self.placed:
             p.block.draw(c, p.x, p.y, p.w, p.h, t, report)

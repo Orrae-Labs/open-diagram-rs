@@ -68,7 +68,7 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
   No timestamps, randomness, absolute paths or environment-dependent values in the SVG.
 - **Problem messages are an API.** Agents act on them. Each message names parts by their labels and, where
   possible, says how to fix it. Keep these substrings stable: `overlap`, `px apart`, `crosses`, `sits on`,
-  `needs N px`, `smallest text`, `group ... overlaps`, `graph: the label ... touches`,
+  `needs N px`, `smallest text`, `group ... overlaps`, `sits on the title of group`, `graph: the label ... touches`,
   `graph: the line ... runs through`. If you add or change one, update the fix table in `skills/open-diagram/SKILL.md`.
 - **Colors come from `Theme`.** Blocks read colors from the theme (derived shades via `shade()` are fine). Do not
   hard-code hex values in blocks or the diagram code. Header text color is chosen by contrast in

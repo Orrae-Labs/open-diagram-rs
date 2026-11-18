@@ -112,7 +112,8 @@ def parse(source: str) -> _Graph:
                 header_seen = True
                 continue
             word = stmt.split()[0].lower()
-            if word in ("classdef", "style", "linkstyle", "click", "direction"):
+            has_edge = _EDGE.search(stmt) is not None
+            if word in ("classdef", "style", "linkstyle", "click", "direction") and not has_edge:
                 continue
             if word == "subgraph":
                 rest = stmt[len("subgraph"):].strip()
@@ -129,7 +130,7 @@ def parse(source: str) -> _Graph:
                     raise MermaidError(f"line {n}: 'end' without a matching 'subgraph'")
                 stack.pop()
                 continue
-            if word == "class":
+            if word == "class" and not has_edge:
                 parts = stmt.split()
                 if len(parts) >= 3:
                     for node_id in parts[1].split(","):
@@ -255,10 +256,14 @@ def from_mermaid(source: str, title: Optional[str] = None, theme: Optional[Theme
         if label and layer[b] == layer[a] + 1:
             w = text_width(label, t.small, "medium") + 14
             label_w[layer[a]] = max(label_w.get(layer[a], 0), w)
-    step_gap = [max(t.col_gap if across else 56.0, label_w.get(L, 0) + (56 if across else 40))
-                for L in range(n_layers)]
     grouped = [key is not None for key in band_keys]
     group_head = t.pad + 8 + t.line_h + 6
+    if across:
+        step_gap = [max(t.col_gap, label_w.get(L, 0) + 56) for L in range(n_layers)]
+    else:
+        starts = {min(layer[n] for n in g.order if g.group_of.get(n) == key)
+                  for key in band_keys if key is not None}
+        step_gap = [64.0 + (group_head + 24 if (L + 1) in starts else 0) for L in range(n_layers)]
     item_gap = 24.0 if across else 40.0
 
     if across:

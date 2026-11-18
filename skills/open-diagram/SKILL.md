@@ -65,6 +65,7 @@ Run the script, or `open-diagram check FILE`. `save()` writes the SVG and PNG, p
 | `overlap` or `px apart` | Move one block, raise `gap` or `row_gap`, or place it with `right_of()` / `below()` |
 | `crosses` | Route the line through a lane with `via_y` (or `via_x`), change `start` and `end` sides, or move a block. Use `cross_ok=True` only when the line should pass behind |
 | `label ... sits on` | Shorten the label, or widen the gap between the two columns |
+| `sits on the title of group` | Give the line a different start or end side, route it through a lane, or move the group's blocks |
 | `group ... overlaps` | Add the block to the group, or move it out of the group's area |
 | `graph: the label ... touches` | Spread the nodes in `at`, or shorten the label |
 | `graph: the line ... runs through` | Move a node so the straight line between the pair is clear |
