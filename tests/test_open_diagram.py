@@ -253,6 +253,69 @@ class GroupTitleTests(unittest.TestCase):
         self.assertTrue(any("sits on the title of group 'Group title'" in p for p in report.problems))
 
 
+class LayoutShapeTests(unittest.TestCase):
+    def test_ring_places_blocks_apart_and_auto_sides_face_each_other(self):
+        d = Diagram("t")
+        around, middle = d.ring([Panel(f"Step {i}", ["x"]) for i in range(5)], center=[Panel("Goal", ["g"])])
+        self.assertEqual((len(around), len(middle)), (5, 1))
+        for a, b in zip(around, around[1:] + around[:1]):
+            d.link(a, b, start="auto", end="auto")
+        _, report = d.render()
+        self.assertEqual(report.problems, [])
+
+    def test_auto_picks_facing_sides(self):
+        d = Diagram("t")
+        a = d.add(Panel("Top", ["x"]), 0, 0)
+        b = d.below(a, Panel("Below", ["y"]))
+        line = d.link(a, b, start="auto", end="auto")
+        d.render()
+        self.assertEqual((line.start, line.end), ("bottom", "top"))
+
+    def test_line_facing_away_is_reported(self):
+        d = Diagram("t")
+        a = d.add(Panel("Left", ["x"]), 0, 0)
+        b = d.right_of(a, Panel("Right", ["y"]))
+        d.link(a, b, start="left", end="left")
+        _, report = d.render()
+        self.assertTrue(any("leaves 'Left' from its left side, facing away from 'Right'" in p for p in report.problems))
+
+    def test_json_panels_and_ring_layouts(self):
+        free = {"title": "t", "panels": [{"id": "a", "title": "A", "tiles": ["x"], "x": 0, "y": 0},
+                                         {"id": "b", "title": "B", "tiles": ["y"], "x": 320, "y": 160}],
+                "links": [{"from": "a", "to": "b"}]}
+        _, report = from_spec(free).render()
+        self.assertEqual(report.problems, [])
+        _, report = cli.load(os.path.join(ROOT, "examples", "release_cycle.json")).render()
+        self.assertEqual(report.problems, [])
+
+    def test_json_layout_errors(self):
+        cases = [({"title": "t", "panels": [{"title": "A", "tiles": ["x"], "x": 0}]}, "needs numbers for x and y"),
+                 ({"title": "t", "columns": [[{"title": "A", "x": 1}]]}, "only work in the 'panels' layout"),
+                 ({"title": "t", "columns": [[{"title": "A"}]], "ring": [{"title": "B"}]}, "exactly one layout"),
+                 ({"title": "t"}, "exactly one layout")]
+        for spec, words in cases:
+            with self.subTest(words=words):
+                with self.assertRaises(SpecError) as caught:
+                    from_spec(spec)
+                self.assertIn(words, str(caught.exception))
+
+    def test_public_spec_helpers(self):
+        from open_diagram.spec import _panel, _theme, panel_from_spec, theme_from_spec
+        self.assertIs(_panel, panel_from_spec)
+        self.assertIs(_theme, theme_from_spec)
+        self.assertEqual(panel_from_spec({"title": "A", "tiles": ["x"]}).title, "A")
+
+
+class YellowTests(unittest.TestCase):
+    def test_step_numbers_turn_dark_when_yellow_headers_are_used(self):
+        d = Diagram("t")
+        d.add(Panel("Plain", ["x"], step=1), 0, 0)
+        self.assertEqual(d._drawing_theme().badge_fill, Theme().badge_fill)
+        d.add(Panel("Decision", ["y"], tone="accent"), 300, 0)
+        self.assertEqual(d._drawing_theme().badge_fill, Theme().tones["dark"])
+        self.assertEqual(d.theme.badge_fill, Theme().badge_fill)    # the diagram's own theme is unchanged
+
+
 class CommandTests(unittest.TestCase):
     def run_cli(self, *args):
         out = io.StringIO()

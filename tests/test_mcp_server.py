@@ -21,7 +21,7 @@ with open(os.path.join(ROOT, "examples", "email_delivery.json"), encoding="utf-8
     EMAIL = fh.read()
 with open(os.path.join(ROOT, "examples", "signup_flow.mmd"), encoding="utf-8") as fh:
     SIGNUP = fh.read()
-GUIDE_EXAMPLE = mcp_server.GUIDE[mcp_server.GUIDE.index("{"): mcp_server.GUIDE.index("\n## Keys")]
+GUIDE_EXAMPLE = mcp_server.GUIDE[mcp_server.GUIDE.index("{"): mcp_server.GUIDE.index("\n## Other shapes")]
 
 
 class HelperTests(unittest.TestCase):

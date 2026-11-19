@@ -23,9 +23,11 @@ class SpecError(ValueError):
     """A problem in a diagram description, naming where it is."""
 
 
-TOP_KEYS = {"title", "subtitle", "tag", "note", "steps", "steps_label", "legend", "theme", "columns", "gap",
-            "row_gap", "valign", "groups", "links", "statuses"}
-PANEL_KEYS = {"id", "title", "sub", "status", "step", "footer", "tone", "width", "tiles", "cols", "label", "sections"}
+TOP_KEYS = {"title", "subtitle", "tag", "note", "steps", "steps_label", "legend", "theme", "columns", "panels", "ring",
+            "center", "gap", "row_gap", "valign", "start_angle", "groups", "links", "statuses"}
+LAYOUTS = ("columns", "panels", "ring")
+PANEL_KEYS = {"id", "title", "sub", "status", "step", "footer", "tone", "width", "tiles", "cols", "label", "sections",
+              "x", "y"}
 TILE_KEYS = {"label", "sub", "status"}
 LINK_KEYS = {"from", "to", "kind", "label", "start", "end", "lane", "via_x", "via_y", "cross_ok"}
 GROUP_KEYS = {"label", "members", "sub"}
@@ -84,7 +86,9 @@ def _section(obj: Any, where: str):
     raise SpecError(f"{where}: a section needs one of 'tiles', 'text', 'card', 'graph' or 'row'")
 
 
-def _panel(obj: Any, where: str) -> Panel:
+def panel_from_spec(obj: Any, where: str = "panel") -> Panel:
+    """Build one Panel from its JSON object (the same keys as in a full description). Public, for scripts that
+    place panels themselves."""
     _keys(obj, PANEL_KEYS, where, ("title",))
     body = []
     if "tiles" in obj:
@@ -95,7 +99,8 @@ def _panel(obj: Any, where: str) -> Panel:
                  name=obj.get("id") or obj["title"])
 
 
-def _theme(obj: Any) -> Theme:
+def theme_from_spec(obj: Any) -> Theme:
+    """Build a Theme from the JSON "theme" object. Public, for scripts that place panels themselves."""
     t = Theme()
     if obj is None:
         return t
@@ -115,24 +120,58 @@ def _theme(obj: Any) -> Theme:
     return t
 
 
+_panel = panel_from_spec        # older names, kept for scripts that already use them
+_theme = theme_from_spec
+
+
 def from_spec(spec: Dict[str, Any]) -> Diagram:
     """Build a Diagram from a dict (parsed JSON). Raises SpecError naming the place of any mistake."""
-    _keys(spec, TOP_KEYS, "diagram", ("title", "columns"))
+    _keys(spec, TOP_KEYS, "diagram", ("title",))
+    chosen = [k for k in LAYOUTS if k in spec]
+    if len(chosen) != 1:
+        raise SpecError("diagram: give exactly one layout: 'columns' (left to right), 'panels' (each with x and y) "
+                        "or 'ring' (around a circle)" + (f"; got {', '.join(chosen)}" if chosen else ""))
+    layout = chosen[0]
     note = None
     if spec.get("note"):
         n = spec["note"]
         _keys(n, {"title", "lines"}, "note", ("title",))
         note = Note(n["title"], *n.get("lines", []))
     d = Diagram(spec["title"], subtitle=spec.get("subtitle"), tag=spec.get("tag"), note=note,
-                theme=_theme(spec.get("theme")), legend=spec.get("legend", True),
+                theme=theme_from_spec(spec.get("theme")), legend=spec.get("legend", True),
                 steps=[tuple(s) for s in spec.get("steps", [])], steps_label=spec.get("steps_label", "Steps"))
-    cols = spec["columns"]
-    if not isinstance(cols, list) or not cols:
-        raise SpecError("columns: expected a non-empty list of columns, each a list of panels")
-    panels = [[_panel(p, f"columns[{i}][{j}]") for j, p in enumerate(col if isinstance(col, list) else [col])]
-              for i, col in enumerate(cols)]
-    placed = d.columns(panels, gap=spec.get("gap"), row_gap=spec.get("row_gap"), valign=spec.get("valign", "center"))
-    by_id = {p.name: p for col in placed for p in col}
+    if "center" in spec and layout != "ring":
+        raise SpecError("center: only works with the 'ring' layout")
+
+    def plain(obj, where):
+        if isinstance(obj, dict) and ("x" in obj or "y" in obj):
+            raise SpecError(f"{where}: x and y only work in the 'panels' layout")
+        return panel_from_spec(obj, where)
+
+    items = spec[layout]
+    if not isinstance(items, list) or not items:
+        raise SpecError(f"{layout}: expected a non-empty list")
+    if layout == "columns":
+        panels = [[plain(p, f"columns[{i}][{j}]") for j, p in enumerate(col if isinstance(col, list) else [col])]
+                  for i, col in enumerate(items)]
+        placed = [p for col in d.columns(panels, gap=spec.get("gap"), row_gap=spec.get("row_gap"),
+                                         valign=spec.get("valign", "center")) for p in col]
+    elif layout == "panels":
+        placed = []
+        for n, obj in enumerate(items):
+            where = f"panels[{n}]"
+            if not isinstance(obj, dict) or not all(isinstance(obj.get(k), (int, float)) for k in ("x", "y")):
+                raise SpecError(f"{where}: each panel needs numbers for x and y (its top-left corner, in pixels)")
+            placed.append(d.add(panel_from_spec(obj, where), obj["x"], obj["y"]))
+    else:
+        middle = spec.get("center", [])
+        if not isinstance(middle, list):
+            raise SpecError("center: expected a list of panels")
+        around, inside = d.ring([plain(p, f"ring[{n}]") for n, p in enumerate(items)], gap=spec.get("gap"),
+                                start_angle=spec.get("start_angle", -90.0),
+                                center=[plain(p, f"center[{n}]") for n, p in enumerate(middle)])
+        placed = around + inside
+    by_id = {p.name: p for p in placed}
 
     def find(name, where):
         if name not in by_id:
@@ -143,15 +182,15 @@ def from_spec(spec: Dict[str, Any]) -> Diagram:
         _keys(g, GROUP_KEYS, f"groups[{n}]", ("label", "members"))
         d.group(g["label"], [find(m, f"groups[{n}].members") for m in g["members"]], sub=g.get("sub"))
 
-    all_placed = [p for col in placed for p in col]
-    top = min(p.y for p in all_placed)
-    bottom = max(p.bottom for p in all_placed)
+    top = min(p.y for p in placed)
+    bottom = max(p.bottom for p in placed)
+    default_sides = ("right", "left") if layout == "columns" else ("auto", "auto")
     lanes = {"top": 0, "bottom": 0}
     for n, link in enumerate(spec.get("links", [])):
         where = f"links[{n}]"
         _keys(link, LINK_KEYS, where, ("from", "to"))
         a, b = find(link["from"], f"{where}.from"), find(link["to"], f"{where}.to")
-        start, end = link.get("start", "right"), link.get("end", "left")
+        start, end = link.get("start", default_sides[0]), link.get("end", default_sides[1])
         via_y = link.get("via_y")
         lane = link.get("lane")
         if lane is not None:

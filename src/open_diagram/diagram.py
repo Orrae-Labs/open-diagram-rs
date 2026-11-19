@@ -9,11 +9,11 @@ from __future__ import annotations
 import math
 import os
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from . import render as _render
-from .blocks import Block, BlockLike, Note, as_block
+from .blocks import Block, BlockLike, Note, Panel, as_block
 from .fonts import cap_height, fmt, text_width
 from .svg import Canvas
 from .theme import Theme
@@ -83,6 +83,9 @@ class Link:
     samples: List[Point] = field(default_factory=list)
     label_spots: List[Point] = field(default_factory=list)
     label_at: Point = (0.0, 0.0)
+    want_start: str = ""
+    want_end: str = ""
+    start_pt: Point = (0.0, 0.0)
 
 
 @dataclass
@@ -189,6 +192,51 @@ class Diagram:
             cx += widths[i] + gap
         return out
 
+    def ring(self, blocks: Sequence[BlockLike], x: float = 0, y: float = 0, gap: Optional[float] = None,
+             start_angle: float = -90.0, center: Sequence[BlockLike] = ()) -> Tuple[List[Placed], List[Placed]]:
+        """Place blocks evenly around a ring, clockwise from start_angle in degrees (-90 is the top), with optional
+        blocks stacked in the middle. The ring grows until every block keeps `gap` from every other.
+        Returns (ring blocks, centre blocks). Join neighbours with link(a, b, start="auto", end="auto")."""
+        t = self.theme
+        gap = t.col_gap if gap is None else gap
+        around = [as_block(b) for b in blocks]
+        if len(around) < 2:
+            raise ValueError("ring() needs at least two blocks")
+        sizes = [b.measure(t) for b in around]
+        middle = [as_block(b) for b in center]
+        mid_sizes = [b.measure(t) for b in middle]
+        mid_w = max((s[0] for s in mid_sizes), default=0.0)
+        mid_h = sum(s[1] for s in mid_sizes) + t.row_gap * max(0, len(mid_sizes) - 1)
+        n = len(around)
+        angles = [math.radians(start_angle + 360.0 * i / n) for i in range(n)]
+        stretch = min(1.8, max(1.0, (sum(s[0] for s in sizes) / n) / (sum(s[1] for s in sizes) / n)))
+
+        def rects(r):
+            return [(r * stretch * math.cos(a) - w / 2, r * math.sin(a) - h / 2, w, h)
+                    for a, (w, h) in zip(angles, sizes)]
+
+        mid_rect = (-mid_w / 2, -mid_h / 2, mid_w, mid_h) if middle else None
+        r = 40.0
+        while True:
+            rs = rects(r)
+            ok = all(_separation(rs[i], rs[j]) >= gap for i in range(n) for j in range(i + 1, n))
+            if ok and mid_rect:
+                ok = all(_separation(box, mid_rect) >= gap for box in rs)
+            if ok:
+                break
+            r += 6.0
+        everything = rs + ([mid_rect] if mid_rect else [])
+        minx = min(b[0] for b in everything)
+        miny = min(b[1] for b in everything)
+        placed = [self.add(b, x + box[0] - minx, y + box[1] - miny) for b, box in zip(around, rs)]
+        middle_placed = []
+        if middle:
+            cy = y + mid_rect[1] - miny
+            for b, (w, h) in zip(middle, mid_sizes):
+                middle_placed.append(self.add(b, x + mid_rect[0] - minx, cy, width=mid_w))
+                cy += h + t.row_gap
+        return placed, middle_placed
+
     def group(self, label: str, members: Sequence[Placed], sub: Optional[str] = None,
               pad: Optional[float] = None) -> Group:
         """Draw a shaded, dashed area with a label around some placed blocks."""
@@ -202,7 +250,8 @@ class Diagram:
         """Join two placed blocks with an arrow from a to b.
 
         kind: 'flow' (solid: data moves today) or 'planned' (dotted: a connection still to build).
-        start, end: the side of each block the line leaves and enters ('left', 'right', 'top', 'bottom').
+        start, end: the side of each block the line leaves and enters ('left', 'right', 'top', 'bottom'), or 'auto'
+            for the side that faces the other block.
         via_x / via_y: route the line with right angles through that x or y, for example a lane above everything.
         cross_ok: allow the line to pass behind other blocks without reporting it.
         """
@@ -210,13 +259,13 @@ class Diagram:
             if not isinstance(p, Placed):
                 raise TypeError("link() takes the Placed values returned by add(), right_of(), below() or columns()")
         for side in (start, end):
-            if side not in SIDES:
-                raise ValueError(f"unknown side {side!r}; use left, right, top or bottom")
+            if side not in SIDES and side != "auto":
+                raise ValueError(f"unknown side {side!r}; use left, right, top, bottom or auto")
         if kind not in self.theme.link_labels:
             raise ValueError(f"unknown line kind {kind!r}; use one of {', '.join(self.theme.link_labels)}")
         if via_x is not None and via_y is not None:
             raise ValueError("give via_x or via_y, not both")
-        line = Link(a, b, kind, label, start, end, via_x, via_y, cross_ok)
+        line = Link(a, b, kind, label, start, end, via_x, via_y, cross_ok, want_start=start, want_end=end)
         self.links.append(line)
         return line
 
@@ -224,6 +273,10 @@ class Diagram:
 
     def _route(self) -> None:
         t = self.theme
+        for line in self.links:
+            if line.want_start:
+                line.start = _facing(line.a, line.b) if line.want_start == "auto" else line.want_start
+                line.end = _facing(line.b, line.a) if line.want_end == "auto" else line.want_end
         ends: Dict[Tuple[int, str], List[Tuple[Link, int]]] = defaultdict(list)
         for line in self.links:
             ends[(id(line.a), line.start)].append((line, 0))
@@ -274,6 +327,7 @@ class Diagram:
     def _shape(self, line: Link) -> None:
         p0 = _anchor(line.a, line.start, line.offsets[0])
         tip = _anchor(line.b, line.end, line.offsets[1])
+        line.start_pt = p0
         d0, d3 = SIDES[line.start], SIDES[line.end]
         p3 = (tip[0] + d3[0] * ARROW, tip[1] + d3[1] * ARROW)
         line.tip, line.direction = tip, (-d3[0], -d3[1])
@@ -340,6 +394,16 @@ class Diagram:
                     problems.append(f"groups '{g.label}' and '{h.label}' overlap")
         for line in self.links:
             name = f"line '{line.a.name}' -> '{line.b.name}'"
+            if line.via_x is None and line.via_y is None:
+                d0, d3 = SIDES[line.start], SIDES[line.end]
+                vx, vy = line.tip[0] - line.start_pt[0], line.tip[1] - line.start_pt[1]
+                fix = "use start='auto' and end='auto', other sides, or a lane (via_x/via_y)"
+                if d0[0] * vx + d0[1] * vy < 1:
+                    problems.append(f"{name} leaves '{line.a.name}' from its {line.start} side, facing away from "
+                                    f"'{line.b.name}'; {fix}")
+                elif d3[0] * -vx + d3[1] * -vy < 1:
+                    problems.append(f"{name} enters '{line.b.name}' from its {line.end} side, facing away from "
+                                    f"'{line.a.name}'; {fix}")
             if not line.cross_ok:
                 for p in self.placed:
                     if p is line.a or p is line.b:
@@ -363,6 +427,26 @@ class Diagram:
 
     def render(self) -> Tuple[str, Report]:
         """Build the SVG and run every check. Returns the SVG text and a Report; never raises for layout problems."""
+        own = self.theme
+        self.theme = self._drawing_theme()
+        try:
+            return self._render()
+        finally:
+            self.theme = own
+
+    def _drawing_theme(self) -> Theme:
+        """Yellow should mean one thing. When a panel uses the accent (yellow) header, step numbers switch to the
+        dark tone so readers do not take a yellow circle for a yellow header's meaning."""
+        t = self.theme
+        accent = t.tones.get("accent")
+        uses_accent = accent is not None and any(
+            isinstance(p.block, Panel) and t.tone(p.block.tone) == accent for p in self.placed)
+        has_steps = bool(self.steps) or any(getattr(p.block, "step", None) is not None for p in self.placed)
+        if uses_accent and has_steps and t.badge_fill is not None and t.badge_fill != t.tones.get("dark"):
+            return replace(t, badge_fill=t.tones.get("dark", "#2B3036"), badge_text=t.header_text_on_dark)
+        return t
+
+    def _render(self) -> Tuple[str, Report]:
         t = self.theme
         if not self.placed:
             raise ValueError("the diagram has no blocks; add some with add(), right_of(), below() or columns()")
@@ -572,6 +656,15 @@ class Diagram:
 
 
 # ---------------------------------------------------------------------------------------------------- geometry
+
+def _facing(a: Placed, b: Placed) -> str:
+    """The side of a that faces b: across the wider of the horizontal and vertical gaps between them."""
+    gx = max(b.x - a.right, a.x - b.right)
+    gy = max(b.y - a.bottom, a.y - b.bottom)
+    if gx >= gy:
+        return "right" if b.cx >= a.cx else "left"
+    return "bottom" if b.cy >= a.cy else "top"
+
 
 def _anchor(p: Placed, side: str, offset: float) -> Point:
     if side == "left":

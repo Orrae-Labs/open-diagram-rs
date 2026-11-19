@@ -57,17 +57,23 @@ Write the diagram as JSON (below) or as a Mermaid flowchart. Call `check` until 
   ]
 }
 
+## Other shapes
+Use exactly one layout. "columns" (above) reads left to right. "ring" puts panels around a circle, clockwise from
+the top, for cycles: {"title": "...", "ring": [panels], "center": [panels in the middle], "gap": 84, "links": [...]}.
+"panels" places each panel where you say: give every panel "x" and "y" (its top-left corner, in pixels).
+In ring and panels layouts, links leave from the sides that face each other unless you set start and end.
+
 ## Keys
-- Top level: title (required), columns (required: a list of columns, each a list of panels, left to right),
+- Top level: title (required), one layout (columns, ring with optional center and start_angle, or panels),
   subtitle, tag, note {title, lines}, steps [[number, text]], steps_label, gap, row_gap, valign, groups, links,
   statuses {name: state}, theme.
 - Panel: title (required), id (used by links and groups; defaults to the title), sub, status, step, footer
   ("Owner: ..."; text before the colon is bold), tone (default, neutral, accent = soft yellow, dark = charcoal),
-  width, tiles (strings or {label, sub, status}) with cols and label, or sections (each {"tiles": [...]},
+  width, x and y (panels layout only), tiles (strings or {label, sub, status}) with cols and label, or sections (each {"tiles": [...]},
   {"text": "..."}, {"card": {"title", "rows": [[name, value]], "intro"}}, {"graph": {"nodes", "links", "at"}},
   or {"row": [sections]}).
-- Link: from, to (panel ids), kind (flow = solid, planned = dotted), label, start/end (left, right, top, bottom),
-  lane (top or bottom: route around the picture), via_x / via_y, cross_ok.
+- Link: from, to (panel ids), kind (flow = solid, planned = dotted), label, start/end (left, right, top, bottom,
+  or auto: the side facing the other panel), lane (top or bottom: route around the picture), via_x / via_y, cross_ok.
 - Group: label, members (panel ids), sub.
 - States: live (default look), building, trial, planned, retiring. Use them only when the user cares about state.
 
@@ -82,6 +88,10 @@ class A,B planned sets a state; a front-matter title: line sets the title.
 - "label ... sits on": shorten the label or raise gap.
 - "sits on the title of group": give the link another start/end side or a lane.
 - "needs N px": shorten the words or give the panel more width.
+- "facing away": the link leaves or enters on the wrong side; set start and end to auto, or use a lane.
+Long curved links between distant panels are hard to follow: put the two panels side by side, or use a lane.
+Yellow: the accent tone is yellow. When any panel uses it, step numbers turn charcoal so yellow keeps one meaning;
+use accent for one kind of panel only and say what it means in a note.
 Keep panel titles to two to four words and tiles to four words or fewer. Never invent owners, numbers or states.
 """
 

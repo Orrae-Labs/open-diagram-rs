@@ -17,7 +17,7 @@ Run `python3 -c "import open_diagram"`. If it fails, install it: `pip install op
 
 Write the plan in a few lines first:
 
-- **Reading direction.** Usually left to right: where things come from, what handles them, who uses the result. Use top to bottom for layers.
+- **Reading direction.** Usually left to right: where things come from, what handles them, who uses the result. Use top to bottom for layers, and a ring (`d.ring(...)`, or `"ring"` in JSON) for cycles. Avoid long lines between distant panels: place the two side by side, or use a lane.
 - **Columns.** Three to six columns. Each column holds one to three panels.
 - **Panels.** One panel for each system or team. Give each a title of two to four words. Add a `sub` line only when it adds a fact.
 - **Tiles.** Up to about nine tiles in a panel. Keep labels to four words or fewer. Put detail in `sub`.
@@ -67,6 +67,7 @@ Run the script, or `open-diagram check FILE`. `save()` writes the SVG and PNG, p
 | `overlap` or `px apart` | Move one block, raise `gap` or `row_gap`, or place it with `right_of()` / `below()` |
 | `crosses` | Route the line through a lane with `via_y` (or `via_x`), change `start` and `end` sides, or move a block. Use `cross_ok=True` only when the line should pass behind |
 | `label ... sits on` | Shorten the label, or widen the gap between the two columns |
+| `facing away` | Use `start="auto", end="auto"`, choose other sides, or route the line through a lane |
 | `sits on the title of group` | Give the line a different start or end side, route it through a lane, or move the group's blocks |
 | `group ... overlaps` | Add the block to the group, or move it out of the group's area |
 | `graph: the label ... touches` | Spread the nodes in `at`, or shorten the label |
