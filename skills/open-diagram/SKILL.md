@@ -9,6 +9,8 @@ open-diagram draws diagrams from a short Python script. It measures every label,
 
 ## 1. Check the setup
 
+If the open-diagram MCP tools are available (`format_guide`, `check`, `draw`, `describe`), use them: read `format_guide` once, write the diagram as JSON, call `check` until it reports 0 problems, then `draw` and look at the picture it returns. Skip to step 5 for the final review. Otherwise:
+
 Run `python3 -c "import open_diagram"`. If it fails, install it: `pip install open-diagram` (version 0.2.0 or later has the `open-diagram` command). PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found.
 
 ## 2. Plan before writing code

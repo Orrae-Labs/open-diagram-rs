@@ -37,6 +37,8 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
 | `src/open_diagram/spec.py` | `from_spec(dict)` / `load_spec(path)`: JSON descriptions; `SpecError` names the place of every mistake |
 | `src/open_diagram/mermaid.py` | `parse()` and `from_mermaid(text)`: Mermaid flowchart subset (listed in the module docstring) and its layered, banded layout |
 | `src/open_diagram/cli.py` | The `open-diagram` command (`draw`, `check`, `describe`, `png`) and `load(path)` for .json, .mmd and .py |
+| `src/open_diagram/mcp_server.py` | The MCP server (`open-diagram-mcp`): tools `format_guide`, `check`, `draw`, `describe`; the MCP toolkit is imported only inside `create_server()` |
+| `tests/test_mcp_server.py` | Helper tests (any Python) and protocol tests over memory and stdio (skipped without the `mcp` extra) |
 | `src/open_diagram/render.py` | `find_chrome()`, `svg_to_png()` (headless browser screenshot, optional Pillow crop) |
 | `src/open_diagram/fonts/` | Inter 4.1, four weights, under the SIL OFL (`OFL.txt`). Do not replace or subset without updating the license note |
 | `examples/` | One script per example; each defines `build() -> Diagram` and saves to `docs/images/<name>` |
@@ -82,6 +84,10 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
   and keep the README key table in step with `spec.py`.
 - **`describe()` wording is relied on** by tests and by agents comparing a picture with a request: `->` for lines,
   `labeled "..."`, state words in parentheses, `[step N, state]` after panel titles.
+- **MCP server rules.** Never print to stdout (it carries the protocol; wrap work in `redirect_stdout(sys.stderr)`
+  and never call `Diagram.save()`, which prints). Accept JSON and Mermaid only, never Python. Write only inside the
+  output folder (`safe_name()`). Keep the `GUIDE` example clean (a test draws it). The MCP toolkit stays an optional
+  extra (`mcp`, Python 3.10+); the core keeps Python 3.9 and fontTools only.
 - **Easter egg:** `open-diagram --soundtrack` prints The Gathering Field's Spotify link and is hidden from `--help`.
   Keep it, and keep it hidden.
 

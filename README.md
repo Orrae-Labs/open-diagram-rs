@@ -192,7 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: lukendeasy/open-diagram@v0.2.2
+      - uses: lukendeasy/open-diagram@v0.3.0
         with:
           files: docs/diagrams/*.json docs/diagrams/*.mmd
           statuses: docs/diagrams/states.json   # optional
@@ -200,6 +200,43 @@ jobs:
 ```
 
 Keep states in a small file, such as `{"Fraud checks": "live", "Parcel lockers": "building"}`. When work ships, change one word; the pictures follow. Names match panel titles, panel ids and tile labels, and `live` returns a part to the default look. From Python, use `d.set_statuses(...)`.
+
+## Use it from Claude Desktop, Claude Code or Cursor (MCP)
+
+open-diagram can run as an MCP server: a small program that AI apps start on your computer, so the AI can draw diagrams as one of its own actions. Nothing is hosted and nothing leaves your computer. It accepts JSON and Mermaid only, never Python, and writes files only inside one output folder.
+
+The commands below use [uv](https://docs.astral.sh/uv/), which fetches open-diagram and the Python it needs (3.10 or later) the first time.
+
+**Claude Code**
+
+```bash
+claude mcp add open-diagram -- uvx --python 3.12 --from "open-diagram[mcp]" open-diagram-mcp
+```
+
+**Claude Desktop** (`claude_desktop_config.json`) **or Cursor** (`~/.cursor/mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "open-diagram": {
+      "command": "uvx",
+      "args": ["--python", "3.12", "--from", "open-diagram[mcp]", "open-diagram-mcp",
+               "--out", "/Users/you/Documents/open-diagram"]
+    }
+  }
+}
+```
+
+Without uv: `pip install "open-diagram[mcp]"`, then use `open-diagram-mcp` as the command.
+
+| Action | What the AI gets |
+| --- | --- |
+| `format_guide` | A JSON example to copy, every key, Mermaid support, and how to fix each kind of problem |
+| `check` | The layout problems, without writing files, so it can fix and retry quickly |
+| `draw` | Writes the SVG and PNG, and returns the problems, the file paths, the plain-words description and the picture itself |
+| `describe` | What the picture says, in plain words |
+
+Files go to `--out`, else the `OPEN_DIAGRAM_OUT` environment variable, else an `open-diagram` folder where the app starts the server (or in your home folder if that one cannot be written).
 
 ## Use it with an AI agent
 
