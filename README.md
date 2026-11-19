@@ -227,7 +227,7 @@ claude mcp add open-diagram -- uvx --python 3.12 --from "open-diagram[mcp]" open
 }
 ```
 
-Without uv: `pip install "open-diagram[mcp]"`, then use `open-diagram-mcp` as the command.
+Without uv: `pip install "open-diagram[mcp]"`, then use `open-diagram-mcp` as the command. uv keeps a copy of what it downloaded; to pick up a new release, add `--refresh` once after `uvx`.
 
 | Action | What the AI gets |
 | --- | --- |
