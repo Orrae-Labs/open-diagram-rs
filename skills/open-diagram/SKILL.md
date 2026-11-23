@@ -9,7 +9,13 @@ open-diagram draws diagrams from a short Python script. It measures every label,
 
 ## 1. Check the setup
 
-If the open-diagram MCP tools are available (`format_guide`, `check`, `draw`, `describe`), use them: read `format_guide` once, write the diagram as JSON, call `check` until it reports 0 problems, then `draw` and look at the picture it returns. Skip to step 5 for the final review. Otherwise:
+For named AWS, Azure or Google Cloud services that need icons, load the companion
+[cloud-icons skill](../cloud-icons/SKILL.md). The repository's top-level [cloud-icons directory](../../cloud-icons/)
+contains separate AWS, Azure and GCP mappings. The skill's Python workflow downloads and embeds them with
+`Tile(icon=...)`. Install the companion skill if it is missing and point its `ICON_DIR` at the mappings.
+Use that Python workflow for icon diagrams; JSON, Mermaid and MCP inputs do not support tile icons.
+
+For diagrams without icons, if the open-diagram MCP tools are available (`format_guide`, `check`, `draw`, `describe`), use them: read `format_guide` once, write the diagram as JSON, call `check` until it reports 0 problems, then `draw` and look at the picture it returns. Skip to step 5 for the final review. Otherwise:
 
 Run `python3 -c "import open_diagram"`. If it fails, install it: `pip install open-diagram` (version 0.2.0 or later has the `open-diagram` command). PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found.
 
