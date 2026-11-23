@@ -6,46 +6,31 @@ The same photo upload flow, drawn by each tool from its own format with default 
 
 ![The photo upload flow drawn by open-diagram](images/compare/open-diagram.png)
 
-- Measures every label and names each layout problem before it draws. This one had 0.
-- Planned parts get a dotted outline, and the key explains every line style.
-
-[Source: photo-upload.json](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.json)
+Made in 0.60 s. 0 layout problems. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.json)
 
 ## Mermaid
 
 ![The photo upload flow drawn by Mermaid](images/compare/mermaid.png)
 
-- Shows up inside GitHub, Notion and Obsidian with nothing to install.
-- Here the dotted line to Recommendations runs alongside the line to Feed database.
-
-[Source: photo-upload.mmd](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd)
+Made in 0.76 s. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd)
 
 ## D2
 
 ![The photo upload flow drawn by D2](images/compare/d2.png)
 
-- Exports PDF, PowerPoint and GIF as well as SVG and PNG.
-- Here Feed service sits at the far end of Backend, a long line away from API gateway.
-
-[Source: photo-upload.d2](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.d2)
+Made in 0.017 s. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.d2)
 
 ## Excalidraw
 
 ![The photo upload flow drawn by Excalidraw](images/compare/excalidraw.png)
 
-- Hand-drawn style, and every shape stays editable on the canvas.
-- Here the labels "original" and "thumbnails" sit on top of their arrows.
-
-[Source: photo-upload.mmd](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd), through Excalidraw's Mermaid import
+Made in 0.020 s, inside the browser. From the Mermaid file, through Excalidraw's Mermaid import. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd)
 
 ## archify
 
 ![The photo upload flow drawn by archify](images/compare/archify.png)
 
-- Makes one interactive page: click a box to trace what it connects to.
-- Checks the layout and will not deliver a diagram that fails. This one passed.
-
-[Source: photo-upload.architecture.json](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.architecture.json)
+Made in 0.28 s. Its layout checks passed. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.architecture.json)
 
 ## At a glance
 
@@ -58,7 +43,7 @@ The same photo upload flow, drawn by each tool from its own format with default 
 | [Excalidraw](https://excalidraw.com) | Editor | By hand | Only in its paid MCP server | PNG, SVG | Yes | MIT | Free; Plus from $6 a user a month |
 | [archify](https://github.com/tt-a1i/archify) | JSON | Automatic | Yes | Interactive HTML page | No | Apache-2.0 | Free |
 
-MCP lets AI apps such as Claude and Cursor use the tool directly.
+MCP lets AI apps such as Claude and Cursor use the tool directly. Every tool above got the same boxes, with one or two items in each. Times run from the source file to the finished SVG on one Mac, median of five runs.
 
 ## When another tool fits better
 

@@ -2,29 +2,171 @@
   "title": "Photo upload flow",
   "valign": "top",
   "columns": [
-    [{"id": "mobile", "title": "Mobile app"}, {"id": "web", "title": "Web app"}],
-    [{"id": "gateway", "title": "API gateway"}],
-    [{"id": "upload", "title": "Upload service"}, {"id": "feed", "title": "Feed service"},
-     {"id": "recs", "title": "Recommendations", "status": "planned"}],
-    [{"id": "queue", "title": "Job queue"}],
-    [{"id": "workers", "title": "Thumbnail workers"}],
-    [{"id": "storage", "title": "Photo storage"}, {"id": "db", "title": "Feed database"}]
+    [
+      {
+        "id": "mobile",
+        "title": "Mobile app",
+        "tiles": [
+          "iOS",
+          "Android"
+        ]
+      },
+      {
+        "id": "web",
+        "title": "Web app",
+        "tiles": [
+          "Upload page",
+          "Feed page"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "gateway",
+        "title": "API gateway",
+        "tiles": [
+          "Sign-in check",
+          "Rate limits"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "upload",
+        "title": "Upload service",
+        "tiles": [
+          "Checks file type",
+          "Saves original"
+        ]
+      },
+      {
+        "id": "feed",
+        "title": "Feed service",
+        "tiles": [
+          "Builds each feed",
+          "Caches pages"
+        ]
+      },
+      {
+        "id": "recs",
+        "title": "Recommendations",
+        "status": "planned",
+        "tiles": [
+          "Suggested photos"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "queue",
+        "title": "Job queue",
+        "tiles": [
+          "One job per photo"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "workers",
+        "title": "Thumbnail workers",
+        "tiles": [
+          "Three sizes",
+          "Retries on failure"
+        ]
+      }
+    ],
+    [
+      {
+        "id": "storage",
+        "title": "Photo storage",
+        "tiles": [
+          "Originals",
+          "Thumbnails"
+        ]
+      },
+      {
+        "id": "db",
+        "title": "Feed database",
+        "tiles": [
+          "Posts",
+          "Follows"
+        ]
+      }
+    ]
   ],
   "groups": [
-    {"label": "Clients", "members": ["mobile", "web"]},
-    {"label": "Backend", "members": ["gateway", "upload", "feed", "queue", "workers"]},
-    {"label": "Data", "members": ["storage", "db"]}
+    {
+      "label": "Clients",
+      "members": [
+        "mobile",
+        "web"
+      ]
+    },
+    {
+      "label": "Backend",
+      "members": [
+        "gateway",
+        "upload",
+        "feed",
+        "queue",
+        "workers"
+      ]
+    },
+    {
+      "label": "Data",
+      "members": [
+        "storage",
+        "db"
+      ]
+    }
   ],
   "links": [
-    {"from": "mobile", "to": "gateway"},
-    {"from": "web", "to": "gateway"},
-    {"from": "gateway", "to": "upload"},
-    {"from": "gateway", "to": "feed"},
-    {"from": "upload", "to": "storage", "label": "original", "lane": "top"},
-    {"from": "upload", "to": "queue", "label": "new photo"},
-    {"from": "queue", "to": "workers"},
-    {"from": "workers", "to": "storage", "label": "thumbnails"},
-    {"from": "feed", "to": "db"},
-    {"from": "feed", "to": "recs", "kind": "planned", "start": "bottom", "end": "top"}
+    {
+      "from": "mobile",
+      "to": "gateway"
+    },
+    {
+      "from": "web",
+      "to": "gateway"
+    },
+    {
+      "from": "gateway",
+      "to": "upload"
+    },
+    {
+      "from": "gateway",
+      "to": "feed"
+    },
+    {
+      "from": "upload",
+      "to": "storage",
+      "label": "original",
+      "lane": "top"
+    },
+    {
+      "from": "upload",
+      "to": "queue",
+      "label": "new photo"
+    },
+    {
+      "from": "queue",
+      "to": "workers"
+    },
+    {
+      "from": "workers",
+      "to": "storage",
+      "label": "thumbnails"
+    },
+    {
+      "from": "feed",
+      "to": "db"
+    },
+    {
+      "from": "feed",
+      "to": "recs",
+      "kind": "planned",
+      "start": "bottom",
+      "end": "top"
+    }
   ]
 }

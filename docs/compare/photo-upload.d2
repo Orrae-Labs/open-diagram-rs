@@ -1,20 +1,20 @@
 direction: right
 Clients: {
-  mobile: Mobile app
-  web: Web app
+  mobile: "Mobile app\n• iOS\n• Android"
+  web: "Web app\n• Upload page\n• Feed page"
 }
 Backend: {
-  gateway: API gateway
-  upload: Upload service
-  feed: Feed service
-  queue: Job queue
-  workers: Thumbnail workers
+  gateway: "API gateway\n• Sign-in check\n• Rate limits"
+  upload: "Upload service\n• Checks file type\n• Saves original"
+  feed: "Feed service\n• Builds each feed\n• Caches pages"
+  queue: "Job queue\n• One job per photo"
+  workers: "Thumbnail workers\n• Three sizes\n• Retries on failure"
 }
 Data: {
-  storage: Photo storage
-  db: Feed database
+  storage: "Photo storage\n• Originals\n• Thumbnails"
+  db: "Feed database\n• Posts\n• Follows"
 }
-recs: Recommendations
+recs: "Recommendations\n• Suggested photos"
 Clients.mobile -> Backend.gateway
 Clients.web -> Backend.gateway
 Backend.gateway -> Backend.upload
