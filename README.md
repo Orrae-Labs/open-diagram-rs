@@ -332,6 +332,13 @@ New examples use an invented organization, never real company names, logos or da
 
 Contributions are released under the MIT license, like the rest of the project.
 
+## Contributors
+
+- [Luke Deasy](https://github.com/lukendeasy) created open-diagram.
+- [Scott Williams](https://github.com/scotttenex) added the cloud icon lists and the cloud templates ([#1](https://github.com/lukendeasy/open-diagram/pull/1), [#2](https://github.com/lukendeasy/open-diagram/pull/2)).
+
+Their backgrounds, each drawn as an open-diagram, are on the [About page](https://open-diagram.dev/about.html).
+
 ## Soundtrack
 
 We recommend listening to music by [The Gathering Field](https://open.spotify.com/artist/0BfQ8COB7K647uB6a0kMZn) while you build.
