@@ -133,9 +133,10 @@ d = Diagram("My picture", theme=theme)
 open-diagram draw plan.json       # writes plan.svg and plan.png; exits with 1 if the layout has problems
 open-diagram check docs/*.json    # checks without writing files, for scripts and CI
 open-diagram describe plan.json   # prints what the picture says, in plain words
+open-diagram new                  # lists the templates; `open-diagram new azure_web_app` writes one to start from
 ```
 
-Each command takes a JSON description (`.json`), a Mermaid flowchart (`.mmd` or `.mermaid`), or a Python script with a `build()` function that returns a `Diagram` (`.py`). Add `--statuses states.json` to set states by name before drawing.
+Each command takes a JSON description (`.json`), a Mermaid flowchart (`.mmd` or `.mermaid`), or a Python script with a `build()` function that returns a `Diagram` (`.py`). Add `--statuses states.json` to set states by name before drawing, and `--icons FOLDER` to use your own icons in JSON.
 
 ## Describe a diagram in JSON
 
@@ -156,10 +157,13 @@ Any agent or language can describe a picture as plain data, with no Python:
 
 | Part | Keys |
 | --- | --- |
-| Top level | `title` (required); one layout: `columns` (a list of columns, each a list of panels), `ring` (panels around a circle, with optional `center` and `start_angle`) or `panels` (each with `x` and `y`); `subtitle`, `tag`, `note` (`title`, `lines`), `steps` (`[[1, "First"]]`), `steps_label`, `gap`, `row_gap`, `valign`, `groups`, `links`, `statuses`, `theme` |
+| Top level | `title` (required); one layout: `columns` (a list of columns, each a list of panels), `ring` (panels around a circle, with optional `center` and `start_angle`) or `panels` (each with `x` and `y`), or `resources` (alone or with `panels`); `enclosures`; `subtitle`, `tag`, `note` (`title`, `lines`), `steps` (`[[1, "First"]]`), `steps_label`, `gap`, `row_gap`, `valign`, `groups`, `links`, `statuses`, `theme` |
 | Panel | `title` (required), `id`, `sub`, `status`, `step`, `footer`, `tone`, `width`, `x` and `y` (in `panels` only), `tiles` with `cols` and `label`, or `sections` (each `{"tiles": [...]}`, `{"text": "..."}`, `{"card": {...}}`, `{"graph": {...}}` or `{"row": [...]}`) |
-| Tile | a string, or `{"label", "sub", "status"}` |
-| Link | `from` and `to` (panel ids), `kind` (`flow` or `planned`), `label`, `start` and `end` (a side, or `auto` for the side facing the other panel: the default in `ring` and `panels`), `lane` (`top` or `bottom`, to route around the picture), `via_x`, `via_y`, `cross_ok`, `dash` (`solid`, `dashed` or `dotted`, independent of state) |
+| Tile | a string, or `{"label", "sub", "status", "icon"}` |
+| Resource | a large icon with its label under it: `label`, `x` and `y` (required), `id`, `sub` (the service name), `icon`, `icon_size`, `max_width`, `border` |
+| Enclosure | a box around resources, panels or other enclosures: `label` and `members` (required), `id`, `sub`, `pad`, `border` (`solid`, `dashed`, `dotted`), `style` (`outline` or `panel`), `fill`, `stroke`, `tone`; listed from the inside out |
+| Icon | a name inside an icon folder, such as `aws/s3`: the built-in icons, the JSON file's own folder, or a folder given with `--icons`. Full paths and `..` are refused |
+| Link | `from` and `to` (panel or resource ids), `kind` (`flow` or `planned`), `label`, `start` and `end` (a side, or `auto` for the side facing the other panel: the default in `ring` and `panels`), `lane` (`top` or `bottom`, to route around the picture), `via_x`, `via_y`, `cross_ok`, `dash` (`solid`, `dashed` or `dotted`, independent of state) |
 | Group | `label`, `members` (panel ids), `sub` |
 
 Every mistake names its place, for example `columns[0][0].tiles[2]: unknown key(s) 'colour'`. From Python, use `from_spec(data)`. The full example is [`examples/email_delivery.json`](https://github.com/lukendeasy/open-diagram/blob/main/examples/email_delivery.json).
@@ -249,8 +253,9 @@ Without uv: `pip install "open-diagram[mcp]"`, then use `open-diagram-mcp` as th
 | `check` | The layout problems, without writing files, so it can fix and retry quickly |
 | `draw` | Writes the SVG and PNG, and returns the problems, the file paths, the plain-words description and the picture itself |
 | `describe` | What the picture says, in plain words |
+| `template` | The list of templates, or one template as JSON to start from |
 
-Files go to `--out`, else the `OPEN_DIAGRAM_OUT` environment variable, else an `open-diagram` folder where the app starts the server (or in your home folder if that one cannot be written).
+Icons come only from the built-in icons and from folders you name with `--icons` (or the `OPEN_DIAGRAM_ICONS` environment variable), never from a path the AI writes. Files go to `--out`, else the `OPEN_DIAGRAM_OUT` environment variable, else an `open-diagram` folder where the app starts the server (or in your home folder if that one cannot be written).
 
 ## Use it with an AI agent
 
@@ -268,7 +273,7 @@ Agents changing the library itself should start with [AGENTS.md](https://github.
 
 The [`cloud-icons/`](https://github.com/lukendeasy/open-diagram/tree/main/cloud-icons) folder has one file each for [AWS](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/aws.json), [Azure](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/azure.json) and [Google Cloud](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/gcp.json). Each file lists service keys, such as `s3` or `lambda`, with the web address of that service's SVG icon. AWS also includes `mwaa`, `glue` and `athena` for ETL diagrams. Every address points to one fixed version of the icon file, so later changes to the icon collection do not change your diagrams. A third party, theSVG, hosts the files; once downloaded, they work offline.
 
-The [cloud-icons skill](https://github.com/lukendeasy/open-diagram/blob/main/skills/cloud-icons/SKILL.md) tells an agent how to pick icons, download them, and pass each file to `Resource(icon=...)` or `Tile(icon=...)`. The finished SVG and PNG contain the icons themselves, so you can share them without the icon links. Icons work from Python only: JSON, Mermaid and the MCP server do not take them. For Claude Code, copy the skill into your skills folder:
+The [cloud-icons skill](https://github.com/lukendeasy/open-diagram/blob/main/skills/cloud-icons/SKILL.md) tells an agent how to pick icons, download them, and pass each file to `Resource(icon=...)` or `Tile(icon=...)`. The finished SVG and PNG contain the icons themselves, so you can share them without the icon links. JSON and the MCP server take icons by name (`"icon": "aws/s3"`) from the built-in icons or from a folder you add with `--icons`; Mermaid does not take icons. For Claude Code, copy the skill into your skills folder:
 
 ```bash
 cp -r skills/cloud-icons ~/.claude/skills/
@@ -278,20 +283,27 @@ The icon lists stay in your copy of this repo. If you run the skill's example fr
 
 The icons belong to Amazon, Microsoft and Google, and keep their own terms; this project's MIT license does not cover them. The skill links each provider's terms and says how to credit the icons when you share a diagram.
 
-### Cloud resource and ETL templates
+### Cloud templates
 
-For cloud topology, start with the [cloud templates](templates/README.md). Resources have large service icons with
-labels underneath, and connect individually inside nested account, VPC, subnet or logical enclosures.
-Enclosures can use simple boundaries or the original panel's sloped lid and filled header with `style="panel"`.
-Borders can be solid, dashed or dotted. Dashed task-control connections are independent of planned status.
+A template is a finished cloud diagram to start from: keep its shape, replace its words. There are four, each a JSON file in [`templates/`](https://github.com/lukendeasy/open-diagram/tree/main/templates) with the providers' own icons, which ship with the package:
 
-The [AWS ETL template](templates/aws_etl.py) shows MWAA coordinating three Lambda extractors, with separate S3,
-Glue, catalog, Athena and QuickSight resources in six labeled pastel-yellow containers.
-The [connectivity template](templates/aws_architecture.py) shows
-nested network boundaries. Both include cached icons and render offline. The resource/enclosure API accepts
-Azure and GCP artwork too. These Python templates live in the checkout, alongside [icon credits](templates/assets/README.md).
+| Template | Shows |
+| --- | --- |
+| `aws_etl` | Data ingestion on AWS in six numbered sections, from orchestration to dashboards |
+| `aws_architecture` | An AWS account, network and subnets around an API, a function, a database and storage |
+| `azure_web_app` | A web app on Azure behind Front Door, with its database and cache inside a virtual network |
+| `gcp_event_pipeline` | An event pipeline on Google Cloud from Pub/Sub to a warehouse and a forecast model |
 
-![AWS Data Ingestion with MWAA in labeled pastel-yellow containers with sloped lids](docs/images/aws_etl.png)
+```bash
+open-diagram new azure_web_app     # writes azure_web_app.json here
+open-diagram draw azure_web_app.json
+```
+
+Over MCP, the `template` action hands an agent the same JSON. Every template follows [the template standard](https://github.com/lukendeasy/open-diagram/blob/main/templates/README.md#the-standard), which the tests check. The icons belong to Amazon, Microsoft and Google; [icon credits](https://github.com/lukendeasy/open-diagram/blob/main/templates/assets/README.md) list each source and license.
+
+![A web app on Azure, drawn from the azure_web_app template](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/azure_web_app.png)
+
+From Python, `Resource` is the same large icon and `d.enclosure()` the same box:
 
 ```python
 from open_diagram import Diagram, Resource, Theme

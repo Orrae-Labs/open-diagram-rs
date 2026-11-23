@@ -36,13 +36,14 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
 | `src/open_diagram/describe.py` | `describe(diagram)`: the plain-text description behind `Diagram.describe()` and the SVG `<desc>` |
 | `src/open_diagram/spec.py` | `from_spec(dict)` / `load_spec(path)`: JSON descriptions; `SpecError` names the place of every mistake |
 | `src/open_diagram/mermaid.py` | `parse()` and `from_mermaid(text)`: Mermaid flowchart subset (listed in the module docstring) and its layered, banded layout |
-| `src/open_diagram/cli.py` | The `open-diagram` command (`draw`, `check`, `describe`, `png`) and `load(path)` for .json, .mmd and .py |
-| `src/open_diagram/mcp_server.py` | The MCP server (`open-diagram-mcp`): tools `format_guide`, `check`, `draw`, `describe`; the MCP toolkit is imported only inside `create_server()` |
+| `src/open_diagram/cli.py` | The `open-diagram` command (`draw`, `check`, `describe`, `png`, `new`) and `load(path)` for .json, .mmd and .py |
+| `src/open_diagram/catalog.py` | Where templates and icons live (`template_dir()`, `icon_dir()`), the template table read from `templates/README.md`, and `find_icon()`, which never returns a file outside the icon folders |
+| `src/open_diagram/mcp_server.py` | The MCP server (`open-diagram-mcp`): tools `format_guide`, `check`, `draw`, `describe`, `template`; the MCP toolkit is imported only inside `create_server()` |
 | `tests/test_mcp_server.py` | Helper tests (any Python) and protocol tests over memory and stdio (skipped without the `mcp` extra) |
 | `src/open_diagram/render.py` | `find_chrome()`, `svg_to_png()` (headless browser screenshot, optional Pillow crop) |
 | `src/open_diagram/fonts/` | Inter 4.1, four weights, under the SIL OFL (`OFL.txt`). Do not replace or subset without updating the license note |
 | `examples/` | One script per example; each defines `build() -> Diagram` and saves to `docs/images/<name>` |
-| `templates/` | Python cloud resource/ETL starters, cached provider artwork and attribution; `build() -> Diagram`, offline rendering |
+| `templates/` | JSON cloud templates, their icons in `assets/` with credits, and the template standard in `README.md`. Ships in the package as `open_diagram.templates` (see `pyproject.toml`) |
 | `docs/images/` | Committed SVG and PNG output of the examples; the README embeds them |
 | `skills/open-diagram/SKILL.md` | Agent Skill for *using* the library; its fix table keys on problem-message wording |
 | `action.yml` | The GitHub Action (composite): installs the package from the action's own checkout, then runs `open-diagram check` or `draw` |
@@ -91,7 +92,8 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
   `labeled "..."`, state words in parentheses, `[step N, state]` after panel titles.
 - **MCP server rules.** Never print to stdout (it carries the protocol; wrap work in `redirect_stdout(sys.stderr)`
   and never call `Diagram.save()`, which prints). Accept JSON and Mermaid only, never Python. Write only inside the
-  output folder (`safe_name()`). Keep the `GUIDE` example clean (a test draws it). The MCP toolkit stays an optional
+  output folder (`safe_name()`). Read icons only from the built-in folder and `--icons` folders
+  (`catalog.find_icon()`), never from a path in the diagram text. Keep the `GUIDE` example clean (a test draws it). The MCP toolkit stays an optional
   extra (`mcp`, Python 3.10+); the core keeps Python 3.9 and fontTools only.
 - **Easter egg:** `open-diagram --soundtrack` prints The Gathering Field's Spotify link and is hidden from `--help`.
   Keep it, and keep it hidden.
@@ -113,9 +115,10 @@ commit the SVG and PNG files together with the code. All examples must still rep
 `Note`; never real company names, logos or data. Prefer technical subjects that show a different kind of diagram.
 Add the name to `EXAMPLES` in the tests and a row to the README examples table.
 
-Cloud resource starters live separately in `templates/`. They may name cloud services and use unmodified provider
-architecture icons, with pinned provenance and license notices in `templates/assets/README.md`. Use fictional
-workloads, test every template offline, and commit its SVG/PNG preview together with its source. Keep resource and
+**Add a template.** Follow "The standard" and "Add a template" in `templates/README.md`; `tests/test_cloud.py` checks
+each rule it can. Templates are JSON, may name cloud services and use unmodified provider architecture icons, with
+pinned provenance and license notices in `templates/assets/README.md`. Use fictional workloads, and commit the
+SVG/PNG preview together with the JSON. Keep resource and
 enclosure additions opt-in; existing example SVGs must remain byte-identical.
 Enclosures with `style="panel"` reuse the original panel frame; measure their lid and full header band,
 including nested containers. Keep section headings clear of connections in the template previews.

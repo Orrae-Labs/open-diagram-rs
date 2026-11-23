@@ -9,9 +9,9 @@ open-diagram turns a short description (JSON, Mermaid, or a Python script) into 
 
 ## 1. Pick the route
 
-- **MCP tools available** (`format_guide`, `check`, `draw`, `describe`): read `format_guide` once, write the diagram as JSON, call `check` until it reports 0 problems, then `draw` and look at the picture it returns. Skip to step 5. The MCP tools do not draw icons; for named cloud services with their icons, use Python.
-- **Otherwise** run `python3 -c "import open_diagram; print(open_diagram.__version__)"`. If it fails or prints below 0.5.0, run `pip install -U open-diagram`. Version 0.4.0 or later is needed for rings, free placement and `auto` sides; 0.5.0 or later for `Resource`, `d.enclosure()` and link `dash`. PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found. The SVG is always written.
-- **Format.** Write JSON unless the picture needs something only Python offers (icons, a `Resource`, an enclosure, a `Card`, `Graph`, `Row`, or computed positions). Given a Mermaid flowchart, run `open-diagram draw flow.mmd` directly; dotted edges become planned connections and subgraphs become groups.
+- **MCP tools available** (`format_guide`, `check`, `draw`, `describe`, `template`): read `format_guide` once, write the diagram as JSON, call `check` until it reports 0 problems, then `draw` and look at the picture it returns. Skip to step 5. For a cloud picture, call `template` first and start from the closest one; `format_guide` ends with the icon names you can use.
+- **Otherwise** run `python3 -c "import open_diagram; print(open_diagram.__version__)"`. If it fails or prints below 0.5.0, run `pip install -U open-diagram`. Version 0.4.0 or later is needed for rings, free placement and `auto` sides; 0.5.0 or later for `Resource`, `d.enclosure()` and link `dash`; 0.6.0 or later for resources, enclosures and icons in JSON, and for templates. PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found. The SVG is always written.
+- **Format.** Write JSON unless the picture needs something only Python offers (a `Card`, `Graph`, `Row`, or computed positions). Given a Mermaid flowchart, run `open-diagram draw flow.mmd` directly; dotted edges become planned connections and subgraphs become groups.
 
 ## 2. Plan before writing
 
@@ -76,7 +76,7 @@ for a, b in zip(ring, ring[1:] + ring[:1]):
     d.link(a, b, start="auto", end="auto")
 ```
 
-**Cloud resources** (Python only, 0.5.0 or later). For named AWS, Azure or Google Cloud services, load the companion [cloud-icons skill](../cloud-icons/SKILL.md): it downloads each service's icon from the lists in the repository's [`cloud-icons/`](../../cloud-icons/) folder. For an account and network picture, or a data pipeline, start from a [cloud template](../../templates/README.md).
+**Cloud resources.** Start from a [cloud template](../../templates/README.md): `open-diagram new` lists them (AWS data ingestion, AWS account and network, Azure web app, Google Cloud event pipeline) and `open-diagram new NAME` writes one as JSON; keep its shape, replace each `label`, keep each `sub` (the service name under the icon). In JSON a resource is `{"id", "label", "sub", "icon": "aws/s3", "x", "y"}` and an enclosure is `{"id", "label", "members", "border"}`, listed from the inside out; icon names come from the built-in icons or a folder given with `--icons`. For services without a built-in icon, load the companion [cloud-icons skill](../cloud-icons/SKILL.md): it downloads each service's icon from the lists in [`cloud-icons/`](../../cloud-icons/). In Python:
 
 ```python
 from open_diagram import Diagram, Resource, Theme
