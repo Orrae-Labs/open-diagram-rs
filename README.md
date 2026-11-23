@@ -258,6 +258,16 @@ cp -r skills/open-diagram ~/.claude/skills/
 
 Then ask for a picture in plain words, for example: "Draw a systems map of our checkout, warehouse and reporting, with what is live and what is planned." The skill tells the agent to plan the columns, write the script, run it, fix each named problem, and look at the PNG before it answers.
 
+For AWS, Azure or Google Cloud diagrams, [the cloud-icons skill](skills/cloud-icons/SKILL.md) provides
+[90 pinned SVG links](skills/cloud-icons/references/icons.json), grouped by provider, and a Python example that
+downloads selected icons and embeds them through `Tile(icon=...)`. Each provider uses one consistent family from
+a documented catalog snapshot. The compiled SVG includes the artwork and can be shared without live image links.
+Copy the whole skill folder to include its mapping:
+
+```bash
+cp -r skills/cloud-icons ~/.claude/skills/
+```
+
 Agents changing the library itself should start with [AGENTS.md](https://github.com/lukendeasy/open-diagram/blob/main/AGENTS.md).
 
 ## Run the tests
