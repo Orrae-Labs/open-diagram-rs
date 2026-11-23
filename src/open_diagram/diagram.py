@@ -13,7 +13,7 @@ from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from . import render as _render
-from .blocks import Block, BlockLike, Note, Panel, as_block
+from .blocks import Block, BlockLike, Note, Panel, _panel_frame, as_block
 from .fonts import cap_height, fmt, text_width
 from .svg import Canvas
 from .theme import Theme
@@ -86,6 +86,7 @@ class Link:
     want_start: str = ""
     want_end: str = ""
     start_pt: Point = (0.0, 0.0)
+    dash: Optional[str] = None
 
 
 @dataclass
@@ -95,6 +96,13 @@ class Group:
     sub: Optional[str]
     pad: float
     rect: Tuple[float, float, float, float] = (0.0, 0.0, 0.0, 0.0)
+    border: str = "dashed"
+    fill: Optional[str] = None
+    stroke: Optional[str] = None
+    children: List[Group] = field(default_factory=list)
+    enclosure: bool = False
+    style: str = "outline"
+    tone: str = "default"
 
 
 @dataclass
@@ -244,12 +252,49 @@ class Diagram:
         self.groups.append(g)
         return g
 
+    def enclosure(self, label: str, members: Sequence[Union[Placed, Group]], sub: Optional[str] = None,
+                  pad: float = 24, border: str = "dashed", fill: Optional[str] = None,
+                  stroke: Optional[str] = None, style: str = "outline", tone: str = "default") -> Group:
+        """A cloud/account/network boundary around resources or previously created enclosures.
+
+        border is solid, dashed or dotted, independently of resource or deployment state.
+        Nested bounds include each child's full boundary and heading.
+        style='panel' uses the original panel's sloped lid and a filled header in the chosen theme tone.
+        """
+        if border not in ("solid", "dashed", "dotted"):
+            raise ValueError(f"enclosure {label!r}: border must be solid, dashed or dotted")
+        if not isinstance(pad, (int, float)) or not math.isfinite(pad) or pad < 0:
+            raise ValueError(f"enclosure {label!r}: pad must be a non-negative finite number")
+        if style not in ("outline", "panel"):
+            raise ValueError(f"enclosure {label!r}: style must be outline or panel")
+        self.theme.tone(tone)
+        nodes, children = [], []
+        for member in members:
+            if isinstance(member, Placed) and any(member is p for p in self.placed):
+                found = [member]
+            elif isinstance(member, Group) and any(member is g for g in self.groups):
+                children.append(member)
+                found = member.members
+            else:
+                raise ValueError(f"enclosure {label!r}: members must belong to this diagram")
+            for node in found:
+                if node not in nodes:
+                    nodes.append(node)
+        if not nodes:
+            raise ValueError(f"enclosure {label!r}: needs at least one resource")
+        g = Group(label, nodes, sub, pad, border=border, fill=fill, stroke=stroke,
+                  children=children, enclosure=True, style=style, tone=tone)
+        self.groups.append(g)
+        return g
+
     def link(self, a: Placed, b: Placed, kind: str = "flow", label: Optional[str] = None, start: str = "right",
              end: str = "left", via_x: Optional[float] = None, via_y: Optional[float] = None,
-             cross_ok: bool = False) -> Link:
+             cross_ok: bool = False, dash: Optional[str] = None) -> Link:
         """Join two placed blocks with an arrow from a to b.
 
         kind: 'flow' (solid: data moves today) or 'planned' (dotted: a connection still to build).
+        dash: optionally 'solid', 'dashed' or 'dotted', independently of kind. For control links, give the theme
+            a separate kind such as 'control' and use dash='dashed'.
         start, end: the side of each block the line leaves and enters ('left', 'right', 'top', 'bottom'), or 'auto'
             for the side that faces the other block.
         via_x / via_y: route the line with right angles through that x or y, for example a lane above everything.
@@ -263,9 +308,12 @@ class Diagram:
                 raise ValueError(f"unknown side {side!r}; use left, right, top, bottom or auto")
         if kind not in self.theme.link_labels:
             raise ValueError(f"unknown line kind {kind!r}; use one of {', '.join(self.theme.link_labels)}")
+        if dash not in (None, "solid", "dashed", "dotted"):
+            raise ValueError("link dash must be solid, dashed, dotted or None")
         if via_x is not None and via_y is not None:
             raise ValueError("give via_x or via_y, not both")
-        line = Link(a, b, kind, label, start, end, via_x, via_y, cross_ok, want_start=start, want_end=end)
+        line = Link(a, b, kind, label, start, end, via_x, via_y, cross_ok,
+                    want_start=start, want_end=end, dash=dash)
         self.links.append(line)
         return line
 
@@ -325,24 +373,24 @@ class Diagram:
             taken.append(self._label_box(line))
 
     def _shape(self, line: Link) -> None:
-        p0 = _anchor(line.a, line.start, line.offsets[0])
-        tip = _anchor(line.b, line.end, line.offsets[1])
+        p0 = _anchor(line.a, line.start, line.offsets[0], self.theme)
+        tip = _anchor(line.b, line.end, line.offsets[1], self.theme)
         line.start_pt = p0
-        d0, d3 = SIDES[line.start], SIDES[line.end]
+        d3 = SIDES[line.end]
         p3 = (tip[0] + d3[0] * ARROW, tip[1] + d3[1] * ARROW)
         line.tip, line.direction = tip, (-d3[0], -d3[1])
         if line.via_x is None and line.via_y is None:
             along = abs(p3[0] - p0[0]) if line.start in ("left", "right") else abs(p3[1] - p0[1])
             k = max(28.0, along * 0.5)
-            c1 = (p0[0] + d0[0] * k, p0[1] + d0[1] * k)
-            c2 = (p3[0] + d3[0] * k, p3[1] + d3[1] * k)
+            c1 = _outside(line.a, p0, line.start, k)
+            c2 = _outside(line.b, p3, line.end, k)
             line.d = f"M{_p(p0)}C{_p(c1)} {_p(c2)} {_p(p3)}"
             line.samples = [_bezier(p0, c1, c2, p3, i / 80) for i in range(81)]
             line.label_spots = [_bezier(p0, c1, c2, p3, s) for s in (0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74)]
             line.label_at = line.label_spots[0]
             return
-        s0 = (p0[0] + d0[0] * STUB, p0[1] + d0[1] * STUB)
-        s3 = (p3[0] + d3[0] * STUB, p3[1] + d3[1] * STUB)
+        s0 = _outside(line.a, p0, line.start, STUB)
+        s3 = _outside(line.b, p3, line.end, STUB)
         if line.via_y is not None:
             middle = [(s0[0], line.via_y), (s3[0], line.via_y)]
         else:
@@ -360,7 +408,9 @@ class Diagram:
 
     def _group_title_box(self, g: Group) -> Tuple[float, float, float, float]:
         t = self.theme
-        x, y, _, _ = g.rect
+        x, y, w, _ = g.rect
+        if g.style == "panel":
+            return x, y, w, t.lid + (t.header_h_sub if g.sub else t.header_h)
         tw = text_width(g.label, 12.5, "semibold")
         if g.sub:
             tw = max(tw, text_width(g.sub, t.small))
@@ -441,6 +491,8 @@ class Diagram:
         accent = t.tones.get("accent")
         uses_accent = accent is not None and any(
             isinstance(p.block, Panel) and t.tone(p.block.tone) == accent for p in self.placed)
+        uses_accent = uses_accent or (accent is not None and any(
+            g.style == "panel" and t.tone(g.tone) == accent for g in self.groups))
         has_steps = bool(self.steps) or any(getattr(p.block, "step", None) is not None for p in self.placed)
         if uses_accent and has_steps and t.badge_fill is not None and t.badge_fill != t.tones.get("dark"):
             return replace(t, badge_fill=t.tones.get("dark", "#2B3036"), badge_text=t.header_text_on_dark)
@@ -451,10 +503,19 @@ class Diagram:
         if not self.placed:
             raise ValueError("the diagram has no blocks; add some with add(), right_of(), below() or columns()")
         for g in self.groups:
-            x0 = min(p.x for p in g.members) - g.pad
-            y0 = min(p.y for p in g.members) - g.pad - (t.line_h * (2 if g.sub else 1) + 6)
-            x1 = max(p.right for p in g.members) + g.pad
-            y1 = max(p.bottom for p in g.members) + g.pad
+            bounds = [p.rect() for p in g.members] + [child.rect for child in g.children]
+            x0 = min(b[0] for b in bounds) - g.pad
+            head_h = (t.lid + (t.header_h_sub if g.sub else t.header_h) if g.style == "panel"
+                      else t.line_h * (2 if g.sub else 1) + 6)
+            y0 = min(b[1] for b in bounds) - g.pad - head_h
+            x1 = max(b[0] + b[2] for b in bounds) + g.pad
+            y1 = max(b[1] + b[3] for b in bounds) + g.pad
+            if g.style == "panel":
+                title_w, _ = Panel(g.label, sub=g.sub, tone=g.tone).measure(t)
+                x1 = max(x1, x0 + title_w)
+            elif g.enclosure:
+                title_w = max(text_width(g.label, 12.5, "semibold"), text_width(g.sub or "", t.small))
+                x1 = max(x1, x0 + title_w + 28)
             g.rect = (x0, y0, x1 - x0, y1 - y0)
         self._route()
         problems = self._check()
@@ -475,18 +536,43 @@ class Diagram:
         c = Canvas(math.ceil(width), math.ceil(height))
         self._draw_header(c, head)
         c.open_group(m - minx + (width - 2 * m - (maxx - minx)) / 2 if head["centre"] else m - minx, top - miny)
-        for g in self.groups:
+        # Parent fills must precede children. Keep the old group order for existing pictures.
+        draw_groups = (sorted(self.groups, key=lambda g: g.rect[2] * g.rect[3], reverse=True)
+                       if any(g.enclosure for g in self.groups) else self.groups)
+        for g in draw_groups:
             x, y, w, h = g.rect
-            c.rect(x, y, w, h, t.group_fill, t.group_stroke, 1.1, t.radius + 4, "dashed")
+            if g.style == "panel":
+                _panel_frame(c, x, y, w, h, t, t.tone(g.tone),
+                             g.fill if g.fill is not None else t.panel_fill,
+                             g.stroke if g.stroke is not None else t.panel_stroke,
+                             dash=None if g.border == "solid" else g.border)
+            else:
+                c.rect(x, y, w, h, g.fill if g.fill is not None else t.group_fill,
+                       g.stroke if g.stroke is not None else t.group_stroke, 1.1, t.radius + 4,
+                       None if g.border == "solid" else g.border)
         for line in self.links:
             dotted = line.kind == "planned"
-            c.path(line.d, stroke=t.line, width=1.6 if dotted else 1.3, dash="dotted" if dotted else None)
+            dash = _link_dash(line)
+            c.path(line.d, stroke=t.line, width=1.6 if dotted else 1.3, dash=dash)
             c.path(_arrowhead(line.tip, line.direction), fill=t.line)
         for g in self.groups:
             # Titles go above the lines, on a backing, so a line passing through reads as passing behind.
             x, y, w, h = g.rect
+            if g.style == "panel":
+                tone = t.tone(g.tone)
+                title_color, sub_color = t.header_colors(tone)
+                y += t.lid
+                hh = t.header_h_sub if g.sub else t.header_h
+                c.rect(x, y, w, hh, tone)
+                c.text_centered(g.label, x + t.pad + text_width(g.label, t.panel_title, "semibold") / 2,
+                                y + (18 if g.sub else hh / 2), t.panel_title, "semibold", title_color)
+                if g.sub:
+                    c.text(g.sub, x + t.pad, y + 36 + cap_height(t.panel_sub) / 2,
+                           t.panel_sub, "regular", sub_color)
+                continue
             bx, by, bw, bh = self._group_title_box(g)
-            c.rect(bx, by, bw, bh, t.group_fill, None, radius=3)
+            backing = t.paper if g.fill == "none" else (g.fill if g.fill is not None else t.group_fill)
+            c.rect(bx, by, bw, bh, backing, None, radius=3)
             c.text(g.label, x + 14, y + 12 + cap_height(12.5, "semibold"), 12.5, "semibold", t.ink)
             if g.sub:
                 c.text(g.sub, x + 14, y + 12 + t.line_h + cap_height(t.small), t.small, "regular", t.muted)
@@ -576,12 +662,18 @@ class Diagram:
         if "" in used and "live" in t.statuses:
             used.add("live")
         items = [("status", key, t.statuses[key].label) for key in t.statuses if key in used]
-        kinds = {l.kind for l in self.links}
-        items += [("line", kind, t.link_labels[kind]) for kind in t.link_labels if kind in kinds]
+        for kind, label in t.link_labels.items():
+            styles = list(dict.fromkeys(_link_dash(line) for line in self.links if line.kind == kind))
+            for dash in styles:
+                default = "dotted" if kind == "planned" else None
+                style = dash or "solid"
+                item_kind = "line" if dash == default else "line-" + style
+                text = label if len(styles) == 1 else f"{label} ({style})"
+                items.append((item_kind, kind, text))
         return items
 
     def _item_w(self, item) -> float:
-        return (34 if item[0] == "line" else 30) + text_width(item[2], self.theme.legend) + 22
+        return (30 if item[0] == "status" else 34) + text_width(item[2], self.theme.legend) + 22
 
     def _header_plan(self, content_w: float) -> dict:
         t = self.theme
@@ -636,7 +728,9 @@ class Diagram:
                     lx += 30
                 else:
                     dotted = key == "planned"
-                    c.line(lx, ly, lx + 22, ly, t.line, 1.6 if dotted else 1.3, "dotted" if dotted else None)
+                    dash = ("dotted" if dotted else None) if kind == "line" else kind[len("line-"):]
+                    dash = None if dash == "solid" else dash
+                    c.line(lx, ly, lx + 22, ly, t.line, 1.6 if dotted else 1.3, dash)
                     c.path(_arrowhead((lx + 28, ly), (1.0, 0.0)), fill=t.line)
                     lx += 34
                 lx += c.text(label, lx, ly + cap_height(t.legend) / 2, t.legend, "regular", t.ink) + 22
@@ -666,14 +760,24 @@ def _facing(a: Placed, b: Placed) -> str:
     return "bottom" if b.cy >= a.cy else "top"
 
 
-def _anchor(p: Placed, side: str, offset: float) -> Point:
-    if side == "left":
-        return p.x, p.y + offset
-    if side == "right":
-        return p.right, p.y + offset
-    if side == "top":
-        return p.x + offset, p.y
-    return p.x + offset, p.bottom
+def _link_dash(line: Link) -> Optional[str]:
+    if line.dash is None:
+        return "dotted" if line.kind == "planned" else None
+    return None if line.dash == "solid" else line.dash
+
+
+def _outside(p: Placed, point: Point, side: str, minimum: float) -> Point:
+    """Leave the full measured box before turning, even when attached to an inset resource icon."""
+    dx, dy = SIDES[side]
+    edge = {"left": p.x, "right": p.right, "top": p.y, "bottom": p.bottom}[side]
+    inset = (edge - point[0]) * dx if dx else (edge - point[1]) * dy
+    distance = max(minimum, inset + STUB)
+    return point[0] + dx * distance, point[1] + dy * distance
+
+
+def _anchor(p: Placed, side: str, offset: float, theme: Theme) -> Point:
+    x, y = p.block.anchor(side, offset, p.w, p.h, theme)
+    return p.x + x, p.y + y
 
 
 def _p(pt: Point) -> str:
