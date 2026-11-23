@@ -6,31 +6,46 @@ The same photo upload flow, drawn by each tool from its own format with default 
 
 ![The photo upload flow drawn by open-diagram](images/compare/open-diagram.png)
 
-From [photo-upload.json](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.json). open-diagram checked the layout before drawing: 0 problems.
+- Measures every label and names each layout problem before it draws. This one had 0.
+- Planned parts get a dotted outline, and the key explains every line style.
+
+[Source: photo-upload.json](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.json)
 
 ## Mermaid
 
 ![The photo upload flow drawn by Mermaid](images/compare/mermaid.png)
 
-From [photo-upload.mmd](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd).
+- Shows up inside GitHub, Notion and Obsidian with nothing to install.
+- Here the dotted line to Recommendations runs alongside the line to Feed database.
+
+[Source: photo-upload.mmd](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd)
 
 ## D2
 
 ![The photo upload flow drawn by D2](images/compare/d2.png)
 
-From [photo-upload.d2](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.d2).
+- Exports PDF, PowerPoint and GIF as well as SVG and PNG.
+- Here Feed service sits at the far end of Backend, a long line away from API gateway.
+
+[Source: photo-upload.d2](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.d2)
 
 ## Excalidraw
 
 ![The photo upload flow drawn by Excalidraw](images/compare/excalidraw.png)
 
-From the same [Mermaid file](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd), through Excalidraw's Mermaid import.
+- Hand-drawn style, and every shape stays editable on the canvas.
+- Here the labels "original" and "thumbnails" sit on top of their arrows.
+
+[Source: photo-upload.mmd](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd), through Excalidraw's Mermaid import
 
 ## archify
 
 ![The photo upload flow drawn by archify](images/compare/archify.png)
 
-From [photo-upload.architecture.json](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.architecture.json). archify's layout checks passed.
+- Makes one interactive page: click a box to trace what it connects to.
+- Checks the layout and will not deliver a diagram that fails. This one passed.
+
+[Source: photo-upload.architecture.json](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.architecture.json)
 
 ## At a glance
 
