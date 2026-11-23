@@ -89,7 +89,7 @@ Each example is one script in [`examples/`](https://github.com/lukendeasy/open-d
 | --- | --- |
 | `Panel(title, *sections, sub=, status=, step=, footer=, tone=)` | The main box: a colored header, sections stacked inside, an optional footer such as "Owner: Data team" |
 | `Tiles(items, cols=, label=)` | A grid of tiles with one cell size. A plain list of labels inside a `Panel` becomes `Tiles` |
-| `Tile(label, sub=, status=, icon=)` | One small box. `icon` takes a PNG or SVG file you supply |
+| `Tile(label, sub=, status=, icon=)` | One small box. `icon` takes a PNG or SVG file you supply; for AWS, Azure and Google Cloud, see [Cloud service icons](https://github.com/lukendeasy/open-diagram#cloud-service-icons) |
 | `Card(title, rows, intro=)` | A worked example: rows of name and value |
 | `Graph(nodes, links, at)` | Things on a grid, joined by labelled lines. The build reports labels that touch nodes |
 | `Row(*sections)` | Sections side by side inside a panel |
@@ -258,28 +258,49 @@ cp -r skills/open-diagram ~/.claude/skills/
 
 Then ask for a picture in plain words, for example: "Draw a systems map of our checkout, warehouse and reporting, with what is live and what is planned." The skill tells the agent to plan the columns, write the script, run it, fix each named problem, and look at the PNG before it answers.
 
-Cloud icon mappings live in the top-level [`cloud-icons/`](cloud-icons/) directory, separate from the skills:
-[AWS](cloud-icons/aws.json), [Azure](cloud-icons/azure.json), and [GCP](cloud-icons/gcp.json). Each JSON file maps
-30 service keys directly to pinned SVG links.
+Agents changing the library itself should start with [AGENTS.md](https://github.com/lukendeasy/open-diagram/blob/main/AGENTS.md).
 
-The [cloud-icons skill](skills/cloud-icons/SKILL.md) explains how to select icons, download them, and embed local
-files through `Tile(icon=...)`. Each provider uses one consistent family from a documented catalog snapshot. The
-compiled SVG includes the artwork and can be shared without live image links. Copy the skill instructions with:
+### Cloud service icons
+
+The [`cloud-icons/`](https://github.com/lukendeasy/open-diagram/tree/main/cloud-icons) folder has one file each for [AWS](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/aws.json), [Azure](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/azure.json) and [Google Cloud](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/gcp.json). Each file lists 30 services, such as `s3` or `lambda`, with the web address of that service's SVG icon. Every address points to one fixed version of the icon file, so later changes to the icon collection do not change your diagrams. A third party, theSVG, hosts the files; once downloaded, they work offline.
+
+The [cloud-icons skill](https://github.com/lukendeasy/open-diagram/blob/main/skills/cloud-icons/SKILL.md) tells an agent how to pick icons, download them, and pass each file to `Tile(icon=...)`. The finished SVG and PNG contain the icons themselves, so you can share them without the icon links. Icons work from Python only: JSON, Mermaid and the MCP server do not take them. For Claude Code, copy the skill into your skills folder:
 
 ```bash
 cp -r skills/cloud-icons ~/.claude/skills/
 ```
 
-The mappings remain in the checkout; set the skill example's `ICON_DIR` to that checkout's `cloud-icons/` directory
-when running from another location.
+The icon lists stay in your copy of this repo. If you run the skill's example from another folder, set its `ICON_DIR` to the `cloud-icons/` folder in your copy.
 
-Agents changing the library itself should start with [AGENTS.md](https://github.com/lukendeasy/open-diagram/blob/main/AGENTS.md).
+The icons belong to Amazon, Microsoft and Google, and keep their own terms; this project's MIT license does not cover them. The skill links each provider's terms and says how to credit the icons when you share a diagram.
 
-## Run the tests
+## Contributing
 
-```bash
-python3 -m unittest discover -s tests
-```
+Issues and pull requests are welcome.
+
+**To report a bug or ask for a change,** [open an issue](https://github.com/lukendeasy/open-diagram/issues). Include the script, JSON or Mermaid file that shows the problem, and the problem message or picture you got.
+
+**To make the change yourself,** open a pull request. For a large change, such as a new block or layout, open an issue first so we can agree on the approach before you write the code.
+
+1. Fork the repo and create a branch.
+2. Make the change. [AGENTS.md](https://github.com/lukendeasy/open-diagram/blob/main/AGENTS.md) lists the commands, the rules the code must keep, and what a finished change looks like. It is written for coding agents, and people can follow it the same way.
+3. Run the tests:
+
+   ```bash
+   python3 -m unittest discover -s tests
+   ```
+
+4. If your change alters a picture, rebuild the examples and commit the new SVG and PNG files with the code:
+
+   ```bash
+   for f in examples/*.py; do PYTHONPATH=src python3 "$f"; done
+   ```
+
+5. Open the pull request. Say what changed and why, and attach a picture if the change alters how diagrams look.
+
+New examples use an invented organization, never real company names, logos or data. To add or update a cloud icon, follow "Sources, family versions and attribution" in the [cloud-icons skill](https://github.com/lukendeasy/open-diagram/blob/main/skills/cloud-icons/SKILL.md): each new address must point to a fixed version of the file and return an SVG.
+
+Contributions are released under the MIT license, like the rest of the project.
 
 ## Soundtrack
 
