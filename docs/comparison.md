@@ -44,10 +44,3 @@ Made in 0.28 s. Its layout checks passed. [Source](https://github.com/lukendeasy
 | [archify](https://github.com/tt-a1i/archify) | JSON | Automatic | Yes | Interactive HTML page | No | Apache-2.0 | Free |
 
 MCP lets AI apps such as Claude and Cursor use the tool directly. Every tool above got the same boxes, with one or two items in each. Times run from the source file to the finished SVG on one Mac, median of five runs.
-
-## When another tool fits better
-
-- **Mermaid**, for diagrams that show up inside GitHub, Notion or Obsidian with nothing to install, and for sequence, Gantt and class diagrams.
-- **draw.io** or **Excalidraw**, to move boxes by hand or edit with other people at the same time.
-- **D2**, for PowerPoint or GIF output.
-- **archify**, for a clickable page linked to your code.
