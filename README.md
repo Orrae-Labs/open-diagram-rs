@@ -2,6 +2,8 @@
 
 Python building blocks for dense architecture diagrams that check their own layout.
 
+Website and gallery: [open-diagram.dev](https://open-diagram.dev)
+
 ![A systems map for an invented video platform, drawn with open-diagram](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/systems_map.png)
 
 You describe panels, tiles, lines and groups in a short Python script. open-diagram measures every label from the font, places the blocks, and checks the result. If two panels collide or a line runs through a panel, the build says so by name. The output is an SVG (a picture made of shapes, sharp at any size) and a PNG.
