@@ -6,7 +6,7 @@ The same photo upload flow, drawn by each tool from its own format with default 
 
 ![The photo upload flow drawn by open-diagram](images/compare/open-diagram.png)
 
-Made in 0.60 s. 0 layout problems. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.json)
+Made in 0.59 s. 0 layout problems. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.json)
 
 ## Mermaid
 

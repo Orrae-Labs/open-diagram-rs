@@ -12,4 +12,4 @@ The pictures in [../comparison.md](../comparison.md) come from these files. Each
 
 Chrome saved each SVG as a PNG at twice its size.
 
-Times on the comparison page: one warm-up run, then the median of five runs, from starting the command to the finished SVG, on one Mac (November 23, 2026). open-diagram 0.60 s, Mermaid 0.76 s, archify 0.28 s, D2 0.017 s. Excalidraw has no command: its 0.020 s is the conversion and export inside Chrome, after the page and libraries loaded.
+Times on the comparison page: one warm-up run, then the median of five runs, from starting the command to the finished SVG, on one Mac (November 23, 2026). open-diagram 0.59 s, Mermaid 0.76 s, archify 0.28 s, D2 0.017 s. Excalidraw has no command: its 0.020 s is the conversion and export inside Chrome, after the page and libraries loaded.

@@ -6,17 +6,19 @@
       {
         "id": "mobile",
         "title": "Mobile app",
-        "tiles": [
-          "iOS",
-          "Android"
+        "sections": [
+          {
+            "text": "\u2022 iOS\n\u2022 Android"
+          }
         ]
       },
       {
         "id": "web",
         "title": "Web app",
-        "tiles": [
-          "Upload page",
-          "Feed page"
+        "sections": [
+          {
+            "text": "\u2022 Upload page\n\u2022 Feed page"
+          }
         ]
       }
     ],
@@ -24,9 +26,10 @@
       {
         "id": "gateway",
         "title": "API gateway",
-        "tiles": [
-          "Sign-in check",
-          "Rate limits"
+        "sections": [
+          {
+            "text": "\u2022 Sign-in check\n\u2022 Rate limits"
+          }
         ]
       }
     ],
@@ -34,25 +37,29 @@
       {
         "id": "upload",
         "title": "Upload service",
-        "tiles": [
-          "Checks file type",
-          "Saves original"
+        "sections": [
+          {
+            "text": "\u2022 Checks file type\n\u2022 Saves original"
+          }
         ]
       },
       {
         "id": "feed",
         "title": "Feed service",
-        "tiles": [
-          "Builds each feed",
-          "Caches pages"
+        "sections": [
+          {
+            "text": "\u2022 Builds each feed\n\u2022 Caches pages"
+          }
         ]
       },
       {
         "id": "recs",
         "title": "Recommendations",
         "status": "planned",
-        "tiles": [
-          "Suggested photos"
+        "sections": [
+          {
+            "text": "\u2022 Suggested photos"
+          }
         ]
       }
     ],
@@ -60,8 +67,10 @@
       {
         "id": "queue",
         "title": "Job queue",
-        "tiles": [
-          "One job per photo"
+        "sections": [
+          {
+            "text": "\u2022 One job per photo"
+          }
         ]
       }
     ],
@@ -69,9 +78,10 @@
       {
         "id": "workers",
         "title": "Thumbnail workers",
-        "tiles": [
-          "Three sizes",
-          "Retries on failure"
+        "sections": [
+          {
+            "text": "\u2022 Three sizes\n\u2022 Retries on failure"
+          }
         ]
       }
     ],
@@ -79,17 +89,19 @@
       {
         "id": "storage",
         "title": "Photo storage",
-        "tiles": [
-          "Originals",
-          "Thumbnails"
+        "sections": [
+          {
+            "text": "\u2022 Originals\n\u2022 Thumbnails"
+          }
         ]
       },
       {
         "id": "db",
         "title": "Feed database",
-        "tiles": [
-          "Posts",
-          "Follows"
+        "sections": [
+          {
+            "text": "\u2022 Posts\n\u2022 Follows"
+          }
         ]
       }
     ]
