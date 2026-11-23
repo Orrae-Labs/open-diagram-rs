@@ -1,35 +1,150 @@
 {
   "schema_version": 1,
   "diagram_type": "architecture",
-  "meta": { "title": "Photo upload flow", "locale": "en", "output": "photo-upload.html", "quality_profile": "showcase" },
-  "layout": { "mode": "auto" },
+  "meta": {
+    "title": "Photo upload flow",
+    "locale": "en",
+    "output": "photo-upload.html",
+    "quality_profile": "showcase"
+  },
+  "layout": {
+    "mode": "auto"
+  },
   "components": [
-    { "id": "mobile", "type": "frontend", "label": "Mobile app" },
-    { "id": "web", "type": "frontend", "label": "Web app" },
-    { "id": "gateway", "type": "backend", "label": "API gateway" },
-    { "id": "upload", "type": "backend", "label": "Upload service" },
-    { "id": "feed", "type": "backend", "label": "Feed service" },
-    { "id": "queue", "type": "messagebus", "label": "Job queue" },
-    { "id": "workers", "type": "backend", "label": "Thumbnail workers" },
-    { "id": "storage", "type": "database", "label": "Photo storage" },
-    { "id": "db", "type": "database", "label": "Feed database" },
-    { "id": "recs", "type": "backend", "label": "Recommendations" }
+    {
+      "id": "mobile",
+      "type": "frontend",
+      "label": "Mobile app",
+      "sublabel": "iOS \u00b7 Android"
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Web app",
+      "sublabel": "Upload page \u00b7 Feed page"
+    },
+    {
+      "id": "gateway",
+      "type": "backend",
+      "label": "API gateway",
+      "sublabel": "Sign-in check \u00b7 Rate limits"
+    },
+    {
+      "id": "upload",
+      "type": "backend",
+      "label": "Upload service",
+      "sublabel": "Checks file type \u00b7 Saves original"
+    },
+    {
+      "id": "feed",
+      "type": "backend",
+      "label": "Feed service",
+      "sublabel": "Builds each feed \u00b7 Caches pages"
+    },
+    {
+      "id": "queue",
+      "type": "messagebus",
+      "label": "Job queue",
+      "sublabel": "One job per photo"
+    },
+    {
+      "id": "workers",
+      "type": "backend",
+      "label": "Thumbnail workers",
+      "sublabel": "Three sizes \u00b7 Retries on failure"
+    },
+    {
+      "id": "storage",
+      "type": "database",
+      "label": "Photo storage",
+      "sublabel": "Originals \u00b7 Thumbnails"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Feed database",
+      "sublabel": "Posts \u00b7 Follows"
+    },
+    {
+      "id": "recs",
+      "type": "backend",
+      "label": "Recommendations",
+      "sublabel": "Suggested photos"
+    }
   ],
   "boundaries": [
-    { "kind": "region", "label": "Clients", "wraps": ["mobile", "web"] },
-    { "kind": "region", "label": "Backend", "wraps": ["gateway", "upload", "feed", "queue", "workers"] },
-    { "kind": "region", "label": "Data", "wraps": ["storage", "db"] }
+    {
+      "kind": "region",
+      "label": "Clients",
+      "wraps": [
+        "mobile",
+        "web"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Backend",
+      "wraps": [
+        "gateway",
+        "upload",
+        "feed",
+        "queue",
+        "workers"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Data",
+      "wraps": [
+        "storage",
+        "db"
+      ]
+    }
   ],
   "connections": [
-    { "from": "mobile", "to": "gateway" },
-    { "from": "web", "to": "gateway" },
-    { "from": "gateway", "to": "upload" },
-    { "from": "gateway", "to": "feed" },
-    { "from": "upload", "to": "storage", "label": "original" },
-    { "from": "upload", "to": "queue", "label": "new photo" },
-    { "from": "queue", "to": "workers" },
-    { "from": "workers", "to": "storage", "label": "thumbnails" },
-    { "from": "feed", "to": "db" },
-    { "from": "feed", "to": "recs", "variant": "dashed" }
+    {
+      "from": "mobile",
+      "to": "gateway"
+    },
+    {
+      "from": "web",
+      "to": "gateway"
+    },
+    {
+      "from": "gateway",
+      "to": "upload"
+    },
+    {
+      "from": "gateway",
+      "to": "feed"
+    },
+    {
+      "from": "upload",
+      "to": "storage",
+      "label": "original"
+    },
+    {
+      "from": "upload",
+      "to": "queue",
+      "label": "new photo"
+    },
+    {
+      "from": "queue",
+      "to": "workers"
+    },
+    {
+      "from": "workers",
+      "to": "storage",
+      "label": "thumbnails"
+    },
+    {
+      "from": "feed",
+      "to": "db"
+    },
+    {
+      "from": "feed",
+      "to": "recs",
+      "variant": "dashed"
+    }
   ]
 }

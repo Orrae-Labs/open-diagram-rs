@@ -1,20 +1,20 @@
 flowchart LR
   subgraph Clients
-    mobile[Mobile app]
-    web[Web app]
+    mobile["Mobile app<br/>• iOS<br/>• Android"]
+    web["Web app<br/>• Upload page<br/>• Feed page"]
   end
   subgraph Backend
-    gateway[API gateway]
-    upload[Upload service]
-    feed[Feed service]
-    queue[Job queue]
-    workers[Thumbnail workers]
+    gateway["API gateway<br/>• Sign-in check<br/>• Rate limits"]
+    upload["Upload service<br/>• Checks file type<br/>• Saves original"]
+    feed["Feed service<br/>• Builds each feed<br/>• Caches pages"]
+    queue["Job queue<br/>• One job per photo"]
+    workers["Thumbnail workers<br/>• Three sizes<br/>• Retries on failure"]
   end
   subgraph Data
-    storage[Photo storage]
-    db[Feed database]
+    storage["Photo storage<br/>• Originals<br/>• Thumbnails"]
+    db["Feed database<br/>• Posts<br/>• Follows"]
   end
-  recs[Recommendations]
+  recs["Recommendations<br/>• Suggested photos"]
   mobile --> gateway
   web --> gateway
   gateway --> upload

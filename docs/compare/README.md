@@ -8,6 +8,8 @@ The pictures in [../comparison.md](../comparison.md) come from these files. Each
 | Mermaid CLI 12.2.0 | `photo-upload.mmd` | `npx @mermaid-js/mermaid-cli -i photo-upload.mmd -o mermaid.svg` |
 | D2 0.9.0 | `photo-upload.d2` | `d2 photo-upload.d2 d2.svg` |
 | Excalidraw 0.18.1 | `photo-upload.mmd` | `parseMermaidToExcalidraw` (@excalidraw/mermaid-to-excalidraw 3.6.0), then `exportToSvg` |
-| archify 3.3.0 | `photo-upload.architecture.json` | `node bin/archify.mjs preview architecture photo-upload.architecture.json out.html --quality showcase` |
+| archify 3.3.0 | `photo-upload.architecture.json` | `node bin/archify.mjs export-svg architecture photo-upload.architecture.json archify.svg --theme light --quality showcase` |
 
-Chrome saved each SVG or page as a PNG at twice its size.
+Chrome saved each SVG as a PNG at twice its size.
+
+Times on the comparison page: one warm-up run, then the median of five runs, from starting the command to the finished SVG, on one Mac (November 23, 2026). open-diagram 0.59 s, Mermaid 0.76 s, archify 0.28 s, D2 0.017 s. Excalidraw has no command: its 0.020 s is the conversion and export inside Chrome, after the page and libraries loaded.

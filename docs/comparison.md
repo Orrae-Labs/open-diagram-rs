@@ -6,33 +6,33 @@ The same photo upload flow, drawn by each tool from its own format with default 
 
 ![The photo upload flow drawn by open-diagram](images/compare/open-diagram.png)
 
-From [photo-upload.json](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.json). open-diagram checked the layout before drawing: 0 problems.
+Made in 0.59 s. 0 layout problems. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.json)
 
 ## Mermaid
 
 ![The photo upload flow drawn by Mermaid](images/compare/mermaid.png)
 
-From [photo-upload.mmd](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd).
+Made in 0.76 s. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd)
 
 ## D2
 
 ![The photo upload flow drawn by D2](images/compare/d2.png)
 
-From [photo-upload.d2](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.d2).
+Made in 0.017 s. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.d2)
 
 ## Excalidraw
 
 ![The photo upload flow drawn by Excalidraw](images/compare/excalidraw.png)
 
-From the same [Mermaid file](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd), through Excalidraw's Mermaid import.
+Made in 0.020 s inside the browser, from the Mermaid file. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd)
 
 ## archify
 
 ![The photo upload flow drawn by archify](images/compare/archify.png)
 
-From [photo-upload.architecture.json](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.architecture.json). archify's layout checks passed.
+Made in 0.28 s. Its layout checks passed. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.architecture.json)
 
-## At a glance
+## Only open-diagram and archify check every layout
 
 | Tool | Input | Layout | Checks layout | Output | MCP | License | Price |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -43,11 +43,4 @@ From [photo-upload.architecture.json](https://github.com/lukendeasy/open-diagram
 | [Excalidraw](https://excalidraw.com) | Editor | By hand | Only in its paid MCP server | PNG, SVG | Yes | MIT | Free; Plus from $6 a user a month |
 | [archify](https://github.com/tt-a1i/archify) | JSON | Automatic | Yes | Interactive HTML page | No | Apache-2.0 | Free |
 
-MCP lets AI apps such as Claude and Cursor use the tool directly.
-
-## When another tool fits better
-
-- **Mermaid**, for diagrams that show up inside GitHub, Notion or Obsidian with nothing to install, and for sequence, Gantt and class diagrams.
-- **draw.io** or **Excalidraw**, to move boxes by hand or edit with other people at the same time.
-- **D2**, for PowerPoint or GIF output.
-- **archify**, for a clickable page linked to your code.
+MCP lets AI apps such as Claude and Cursor use a tool directly. Each tool drew the same boxes and bullets. Times run from source file to finished SVG on one Mac; each is the median of five runs.
