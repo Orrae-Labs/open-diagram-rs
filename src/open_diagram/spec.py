@@ -7,14 +7,19 @@
       "links": [{"from": "app", "to": "out"}]
     }
 
+Cloud resources use "resources" (each with x and y) and "enclosures" (boxes around resources, nested from the inside
+out). An icon is a name inside an icon folder, such as "aws/s3"; the built-in folder holds the templates' icons.
+
 Every mistake raises SpecError with the place it happened, for example `columns[1][0].tiles[1]: unknown key 'colour'`.
 """
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List
+import os
+from typing import Any, Dict, List, Optional, Sequence
 
-from .blocks import Card, Graph, Note, Panel, Row, Text, Tile, Tiles
+from . import catalog
+from .blocks import Card, Graph, Note, Panel, Resource, Row, Text, Tile, Tiles
 from .diagram import Diagram
 from .theme import Status, Theme
 
@@ -24,11 +29,14 @@ class SpecError(ValueError):
 
 
 TOP_KEYS = {"title", "subtitle", "tag", "note", "steps", "steps_label", "legend", "theme", "columns", "panels", "ring",
-            "center", "gap", "row_gap", "valign", "start_angle", "groups", "links", "statuses"}
+            "center", "gap", "row_gap", "valign", "start_angle", "groups", "links", "statuses", "resources",
+            "enclosures"}
 LAYOUTS = ("columns", "panels", "ring")
 PANEL_KEYS = {"id", "title", "sub", "status", "step", "footer", "tone", "width", "tiles", "cols", "label", "sections",
               "x", "y"}
-TILE_KEYS = {"label", "sub", "status"}
+TILE_KEYS = {"label", "sub", "status", "icon"}
+RESOURCE_KEYS = {"id", "label", "sub", "icon", "icon_size", "max_width", "border", "x", "y"}
+ENCLOSURE_KEYS = {"id", "label", "members", "sub", "pad", "border", "fill", "stroke", "style", "tone"}
 LINK_KEYS = {"from", "to", "kind", "label", "start", "end", "lane", "via_x", "via_y", "cross_ok", "dash"}
 GROUP_KEYS = {"label", "members", "sub"}
 
@@ -44,29 +52,50 @@ def _keys(obj: Any, allowed: set, where: str, required: tuple = ()) -> None:
             raise SpecError(f"{where}: missing required key '{key}'")
 
 
-def _tile(item: Any, where: str) -> Tile:
+def default_icons() -> List[str]:
+    """The icon folders a description can use when none are given: the built-in one."""
+    return [catalog.icon_dir()]
+
+
+def _icon(name: Any, where: str, icons: Optional[Sequence[str]]) -> str:
+    folders = default_icons() if icons is None else list(icons)
+    if not isinstance(name, str) or not name.strip():
+        raise SpecError(f"{where}: an icon is a name inside an icon folder, such as 'aws/s3'")
+    found = catalog.find_icon(name, folders)
+    if found:
+        return found
+    if name.startswith(("/", "\\")) or ":" in name or ".." in name.replace("\\", "/").split("/"):
+        raise SpecError(f"{where}: icon {name!r} must be a name inside an icon folder, such as 'aws/s3'; "
+                        "full paths and '..' are not allowed")
+    known = [n for f in folders for n in catalog.icon_names(f)][:40]
+    hint = f"; icons available: {', '.join(known)}" if known else "; no icon folder holds any icons"
+    raise SpecError(f"{where}: no icon named {name!r}{hint}")
+
+
+def _tile(item: Any, where: str, icons=None) -> Tile:
     if isinstance(item, str):
         return Tile(item)
     _keys(item, TILE_KEYS, where, ("label",))
-    return Tile(item["label"], sub=item.get("sub"), status=item.get("status"))
+    icon = _icon(item["icon"], f"{where}.icon", icons) if "icon" in item else None
+    return Tile(item["label"], sub=item.get("sub"), status=item.get("status"), icon=icon)
 
 
-def _tiles(items: Any, where: str, cols=None, label=None) -> Tiles:
+def _tiles(items: Any, where: str, cols=None, label=None, icons=None) -> Tiles:
     if not isinstance(items, list) or not items:
         raise SpecError(f"{where}: tiles must be a non-empty list")
-    return Tiles([_tile(i, f"{where}[{n}]") for n, i in enumerate(items)], cols=cols, label=label)
+    return Tiles([_tile(i, f"{where}[{n}]", icons) for n, i in enumerate(items)], cols=cols, label=label)
 
 
-def _section(obj: Any, where: str):
+def _section(obj: Any, where: str, icons=None):
     if isinstance(obj, list):
-        return _tiles(obj, where)
+        return _tiles(obj, where, icons=icons)
     if isinstance(obj, str):
         return Text(obj)
     if not isinstance(obj, dict):
         raise SpecError(f"{where}: a section is a list of tiles, a string, or an object")
     if "tiles" in obj:
         _keys(obj, {"tiles", "cols", "label"}, where)
-        return _tiles(obj["tiles"], f"{where}.tiles", obj.get("cols"), obj.get("label"))
+        return _tiles(obj["tiles"], f"{where}.tiles", obj.get("cols"), obj.get("label"), icons)
     if "text" in obj:
         _keys(obj, {"text"}, where)
         return Text(obj["text"])
@@ -82,18 +111,18 @@ def _section(obj: Any, where: str):
         return Graph(g["nodes"], [tuple(x) for x in g["links"]], {k: tuple(v) for k, v in g["at"].items()})
     if "row" in obj:
         _keys(obj, {"row"}, where)
-        return Row(*[_section(s, f"{where}.row[{n}]") for n, s in enumerate(obj["row"])])
+        return Row(*[_section(s, f"{where}.row[{n}]", icons) for n, s in enumerate(obj["row"])])
     raise SpecError(f"{where}: a section needs one of 'tiles', 'text', 'card', 'graph' or 'row'")
 
 
-def panel_from_spec(obj: Any, where: str = "panel") -> Panel:
+def panel_from_spec(obj: Any, where: str = "panel", icons: Optional[Sequence[str]] = None) -> Panel:
     """Build one Panel from its JSON object (the same keys as in a full description). Public, for scripts that
-    place panels themselves."""
+    place panels themselves. icons: the folders tile icons are looked up in (default: the built-in folder)."""
     _keys(obj, PANEL_KEYS, where, ("title",))
     body = []
     if "tiles" in obj:
-        body.append(_tiles(obj["tiles"], f"{where}.tiles", obj.get("cols"), obj.get("label")))
-    body += [_section(s, f"{where}.sections[{n}]") for n, s in enumerate(obj.get("sections", []))]
+        body.append(_tiles(obj["tiles"], f"{where}.tiles", obj.get("cols"), obj.get("label"), icons))
+    body += [_section(s, f"{where}.sections[{n}]", icons) for n, s in enumerate(obj.get("sections", []))]
     return Panel(obj["title"], *body, sub=obj.get("sub"), status=obj.get("status"), step=obj.get("step"),
                  footer=obj.get("footer"), tone=obj.get("tone", "default"), width=obj.get("width"),
                  name=obj.get("id") or obj["title"])
@@ -124,14 +153,33 @@ _panel = panel_from_spec        # older names, kept for scripts that already use
 _theme = theme_from_spec
 
 
-def from_spec(spec: Dict[str, Any]) -> Diagram:
-    """Build a Diagram from a dict (parsed JSON). Raises SpecError naming the place of any mistake."""
+def _resource(obj: Any, where: str, icons) -> Resource:
+    _keys(obj, RESOURCE_KEYS, where, ("label", "x", "y"))
+    if not all(isinstance(obj.get(k), (int, float)) for k in ("x", "y")):
+        raise SpecError(f"{where}: each resource needs numbers for x and y (its top-left corner, in pixels)")
+    icon = _icon(obj["icon"], f"{where}.icon", icons) if "icon" in obj else None
+    try:
+        return Resource(obj["label"], icon=icon, sub=obj.get("sub"), icon_size=obj.get("icon_size", 64),
+                        max_width=obj.get("max_width", 180), border=obj.get("border"),
+                        name=obj.get("id") or obj["label"])
+    except ValueError as e:
+        raise SpecError(f"{where}: {e}") from None
+
+
+def from_spec(spec: Dict[str, Any], icons: Optional[Sequence[str]] = None) -> Diagram:
+    """Build a Diagram from a dict (parsed JSON). Raises SpecError naming the place of any mistake.
+
+    icons: the folders icon names are looked up in, in order (default: the built-in icon folder only)."""
     _keys(spec, TOP_KEYS, "diagram", ("title",))
     chosen = [k for k in LAYOUTS if k in spec]
-    if len(chosen) != 1:
+    if "resources" in spec and chosen and chosen != ["panels"]:
+        raise SpecError(f"resources: each resource is placed with x and y, so they work alone or with the 'panels' "
+                        f"layout, not with '{chosen[0]}'")
+    if len(chosen) > 1 or (not chosen and "resources" not in spec):
         raise SpecError("diagram: give exactly one layout: 'columns' (left to right), 'panels' (each with x and y) "
-                        "or 'ring' (around a circle)" + (f"; got {', '.join(chosen)}" if chosen else ""))
-    layout = chosen[0]
+                        "or 'ring' (around a circle); cloud resources use 'resources', each with x and y"
+                        + (f"; got {', '.join(chosen)}" if chosen else ""))
+    layout = chosen[0] if chosen else "resources"
     note = None
     if spec.get("note"):
         n = spec["note"]
@@ -146,24 +194,25 @@ def from_spec(spec: Dict[str, Any]) -> Diagram:
     def plain(obj, where):
         if isinstance(obj, dict) and ("x" in obj or "y" in obj):
             raise SpecError(f"{where}: x and y only work in the 'panels' layout")
-        return panel_from_spec(obj, where)
+        return panel_from_spec(obj, where, icons)
 
-    items = spec[layout]
-    if not isinstance(items, list) or not items:
-        raise SpecError(f"{layout}: expected a non-empty list")
+    placed = []
+    if layout != "resources":
+        items = spec[layout]
+        if not isinstance(items, list) or not items:
+            raise SpecError(f"{layout}: expected a non-empty list")
     if layout == "columns":
         panels = [[plain(p, f"columns[{i}][{j}]") for j, p in enumerate(col if isinstance(col, list) else [col])]
                   for i, col in enumerate(items)]
         placed = [p for col in d.columns(panels, gap=spec.get("gap"), row_gap=spec.get("row_gap"),
                                          valign=spec.get("valign", "center")) for p in col]
     elif layout == "panels":
-        placed = []
         for n, obj in enumerate(items):
             where = f"panels[{n}]"
             if not isinstance(obj, dict) or not all(isinstance(obj.get(k), (int, float)) for k in ("x", "y")):
                 raise SpecError(f"{where}: each panel needs numbers for x and y (its top-left corner, in pixels)")
-            placed.append(d.add(panel_from_spec(obj, where), obj["x"], obj["y"]))
-    else:
+            placed.append(d.add(panel_from_spec(obj, where, icons), obj["x"], obj["y"]))
+    elif layout == "ring":
         middle = spec.get("center", [])
         if not isinstance(middle, list):
             raise SpecError("center: expected a list of panels")
@@ -172,15 +221,56 @@ def from_spec(spec: Dict[str, Any]) -> Diagram:
                                 center=[plain(p, f"center[{n}]") for n, p in enumerate(middle)])
         placed = around + inside
     by_id = {p.name: p for p in placed}
+    if "resources" in spec:
+        res = spec["resources"]
+        if not isinstance(res, list) or not res:
+            raise SpecError("resources: expected a non-empty list")
+        for n, obj in enumerate(res):
+            where = f"resources[{n}]"
+            r = _resource(obj, where, icons)
+            if r.name in by_id:
+                raise SpecError(f"{where}.id: '{r.name}' is already used; give each resource its own id")
+            by_id[r.name] = d.add(r, obj["x"], obj["y"])
+            placed.append(by_id[r.name])
 
     def find(name, where):
         if name not in by_id:
-            raise SpecError(f"{where}: no panel with id '{name}'; ids: {', '.join(by_id)}")
+            kind = "panel or resource" if "resources" in spec else "panel"
+            raise SpecError(f"{where}: no {kind} with id '{name}'; ids: {', '.join(by_id)}")
         return by_id[name]
 
     for n, g in enumerate(spec.get("groups", [])):
         _keys(g, GROUP_KEYS, f"groups[{n}]", ("label", "members"))
         d.group(g["label"], [find(m, f"groups[{n}].members") for m in g["members"]], sub=g.get("sub"))
+
+    boxes = {}
+    later = {e.get("id") or e.get("label") for e in spec.get("enclosures", []) if isinstance(e, dict)}
+    for n, e in enumerate(spec.get("enclosures", [])):
+        where = f"enclosures[{n}]"
+        _keys(e, ENCLOSURE_KEYS, where, ("label", "members"))
+        if not isinstance(e["members"], list) or not e["members"]:
+            raise SpecError(f"{where}.members: expected a non-empty list of resource, panel or enclosure ids")
+        members = []
+        for m in e["members"]:
+            if m in boxes:
+                members.append(boxes[m])
+            elif m in by_id:
+                members.append(by_id[m])
+            elif m in later:
+                raise SpecError(f"{where}.members: enclosure '{m}' is listed after this one; list enclosures from "
+                                "the inside out, so each one comes before the enclosures that hold it")
+            else:
+                raise SpecError(f"{where}.members: no resource, panel or enclosure with id '{m}'; "
+                                f"ids: {', '.join(list(by_id) + list(boxes))}")
+        key = e.get("id") or e["label"]
+        if key in boxes or key in by_id:
+            raise SpecError(f"{where}.id: '{key}' is already used; give each enclosure its own id")
+        try:
+            boxes[key] = d.enclosure(e["label"], members, sub=e.get("sub"), pad=e.get("pad", 24),
+                                     border=e.get("border", "dashed"), fill=e.get("fill"), stroke=e.get("stroke"),
+                                     style=e.get("style", "outline"), tone=e.get("tone", "default"))
+        except (KeyError, ValueError) as err:
+            raise SpecError(f"{where}: {err}") from None
 
     top = min(p.y for p in placed)
     bottom = max(p.bottom for p in placed)
@@ -210,10 +300,13 @@ def from_spec(spec: Dict[str, Any]) -> Diagram:
     return d
 
 
-def load_spec(path: str) -> Diagram:
+def load_spec(path: str, icons: Optional[Sequence[str]] = None) -> Diagram:
+    """Read a JSON description from a file. Icon names are looked up next to the file, then in each folder in icons,
+    then in the built-in icon folder."""
     with open(path, encoding="utf-8") as fh:
         try:
             data = json.load(fh)
         except json.JSONDecodeError as e:
             raise SpecError(f"{path}: not valid JSON ({e})") from None
-    return from_spec(data)
+    folders = [os.path.dirname(os.path.abspath(path))] + list(icons or []) + default_icons()
+    return from_spec(data, icons=folders)

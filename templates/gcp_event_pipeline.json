@@ -1,0 +1,29 @@
+{
+  "title": "Event pipeline on Google Cloud",
+  "tag": "TEMPLATE",
+  "subtitle": "Order events go from Pub/Sub through Cloud Run into storage, a warehouse and a forecast model.",
+  "note": {"title": "Fictional workload", "lines": ["No deployed resources", "Replace the labels; keep each service name under its icon"]},
+  "theme": {"link_labels": {"flow": "Events and data"}},
+  "resources": [
+    {"id": "events", "label": "Order events", "sub": "Pub/Sub", "icon": "gcp/pub-sub", "x": 0, "y": 100},
+    {"id": "process", "label": "Event processor", "sub": "Cloud Run", "icon": "gcp/cloud-run", "x": 320, "y": 100},
+    {"id": "check", "label": "Address check", "sub": "Cloud Functions", "icon": "gcp/cloud-functions", "x": 320, "y": 340},
+    {"id": "raw", "label": "Raw events", "sub": "Cloud Storage", "icon": "gcp/cloud-storage", "x": 640, "y": 100},
+    {"id": "warehouse", "label": "Orders warehouse", "sub": "BigQuery", "icon": "gcp/bigquery", "x": 640, "y": 340},
+    {"id": "forecast", "label": "Demand forecast", "sub": "Vertex AI", "icon": "gcp/vertex-ai", "x": 960, "y": 340}
+  ],
+  "enclosures": [
+    {"id": "ingest", "label": "01  Ingest", "members": ["events"], "border": "solid", "style": "panel"},
+    {"id": "processing", "label": "02  Process", "members": ["process", "check"], "border": "solid", "style": "panel"},
+    {"id": "store", "label": "03  Store", "members": ["raw", "warehouse"], "border": "solid", "style": "panel"},
+    {"id": "predict", "label": "04  Predict", "members": ["forecast"], "border": "solid", "style": "panel"},
+    {"id": "project", "label": "Google Cloud project", "members": ["ingest", "processing", "store", "predict"], "sub": "Networking and access rules left out", "pad": 40, "border": "dashed"}
+  ],
+  "links": [
+    {"from": "events", "to": "process", "label": "push"},
+    {"from": "process", "to": "check", "label": "address", "start": "bottom", "end": "top"},
+    {"from": "process", "to": "raw", "label": "JSON"},
+    {"from": "check", "to": "warehouse", "label": "rows"},
+    {"from": "warehouse", "to": "forecast", "label": "training data"}
+  ]
+}

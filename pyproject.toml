@@ -29,8 +29,12 @@ open-diagram-mcp = "open_diagram.mcp_server:main"
 [project.urls]
 Homepage = "https://github.com/lukendeasy/open-diagram"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+# The repository's templates/ folder ships inside the package as open_diagram/templates, so `open-diagram new` and
+# the MCP server's template tool work after pip install.
+packages = ["open_diagram", "open_diagram.templates"]
+package-dir = {"" = "src", "open_diagram.templates" = "templates"}
 
 [tool.setuptools.package-data]
 open_diagram = ["fonts/*.ttf", "fonts/*.txt"]
+"open_diagram.templates" = ["*.json", "*.mmd", "README.md", "assets/README.md", "assets/*/*"]

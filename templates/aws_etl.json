@@ -1,0 +1,41 @@
+{
+  "title": "AWS Data Ingestion with MWAA",
+  "legend": false,
+  "theme": {"paper": "#FFF9E8", "panel_fill": "#FFF3C8", "panel_stroke": "#CCB776", "tones": {"accent": "#F4DEA0"}, "link_labels": {"flow": "Data and metadata", "control": "MWAA task control"}},
+  "resources": [
+    {"id": "mwaa", "label": "ETL orchestration", "sub": "Amazon MWAA", "icon": "aws/mwaa", "x": 0, "y": 0},
+    {"id": "api", "label": "API extractor", "sub": "AWS Lambda", "icon": "aws/lambda", "x": 0, "y": 240},
+    {"id": "saas", "label": "SaaS extractor", "sub": "AWS Lambda", "icon": "aws/lambda", "x": 0, "y": 400},
+    {"id": "database", "label": "Database extractor", "sub": "AWS Lambda", "icon": "aws/lambda", "x": 0, "y": 560},
+    {"id": "raw", "label": "Raw landing", "sub": "Amazon S3", "icon": "aws/s3", "x": 300, "y": 400},
+    {"id": "glue", "label": "Transform + validate", "sub": "AWS Glue", "icon": "aws/glue", "x": 600, "y": 400},
+    {"id": "curated", "label": "Curated Parquet", "sub": "Amazon S3", "icon": "aws/s3", "x": 900, "y": 400},
+    {"id": "catalog", "label": "Table metadata", "sub": "Glue Data Catalog", "icon": "aws/glue", "x": 900, "y": 80},
+    {"id": "athena", "label": "Analytics SQL", "sub": "Amazon Athena", "icon": "aws/athena", "x": 1200, "y": 400},
+    {"id": "dashboards", "label": "Business dashboards", "sub": "Amazon QuickSight", "icon": "aws/quicksight", "x": 1500, "y": 400}
+  ],
+  "enclosures": [
+    {"id": "orchestrate", "label": "01  Orchestrate", "members": ["mwaa"], "border": "solid", "style": "panel", "tone": "accent"},
+    {"id": "extract", "label": "02  Extract", "members": ["api", "saas", "database"], "border": "solid", "style": "panel", "tone": "accent"},
+    {"id": "land", "label": "03  Land", "members": ["raw"], "border": "solid", "style": "panel", "tone": "accent"},
+    {"id": "transform", "label": "04  Transform", "members": ["glue"], "border": "solid", "style": "panel", "tone": "accent"},
+    {"id": "curate", "label": "05  Curate + catalog", "members": ["curated", "catalog"], "border": "solid", "style": "panel", "tone": "accent"},
+    {"id": "query", "label": "06  Query + visualize", "members": ["athena", "dashboards"], "border": "solid", "style": "panel", "tone": "accent"},
+    {"id": "account", "label": "AWS account / Data platform", "members": ["orchestrate", "extract", "land", "transform", "curate", "query"], "sub": "Logical service sections; networking and IAM omitted", "pad": 64, "border": "solid", "style": "panel", "tone": "accent", "fill": "#FFFCF1"}
+  ],
+  "links": [
+    {"from": "api", "to": "raw"},
+    {"from": "saas", "to": "raw"},
+    {"from": "database", "to": "raw"},
+    {"from": "raw", "to": "glue", "label": "read"},
+    {"from": "glue", "to": "curated", "label": "Parquet"},
+    {"from": "curated", "to": "athena", "label": "query"},
+    {"from": "athena", "to": "dashboards", "label": "results"},
+    {"from": "curated", "to": "catalog", "start": "top", "end": "bottom", "label": "register"},
+    {"from": "catalog", "to": "athena", "start": "right", "end": "top", "via_x": 1140, "label": "schema"},
+    {"from": "mwaa", "to": "api", "kind": "control", "dash": "dashed", "start": "left", "end": "left", "via_x": -36},
+    {"from": "mwaa", "to": "saas", "kind": "control", "dash": "dashed", "start": "left", "end": "left", "via_x": -52},
+    {"from": "mwaa", "to": "database", "kind": "control", "dash": "dashed", "start": "left", "end": "left", "via_x": -68},
+    {"from": "mwaa", "to": "glue", "kind": "control", "dash": "dashed", "label": "after extraction", "start": "right", "end": "top", "via_x": 550}
+  ]
+}

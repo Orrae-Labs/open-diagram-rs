@@ -1,0 +1,28 @@
+{
+  "title": "Web app on Azure",
+  "tag": "TEMPLATE",
+  "subtitle": "A public site behind Front Door, with the app and its data inside one virtual network.",
+  "note": {"title": "Fictional workload", "lines": ["No deployed resources", "Replace the labels; keep each service name under its icon"]},
+  "theme": {"link_labels": {"flow": "Requests and data"}},
+  "resources": [
+    {"id": "edge", "label": "Public entry", "sub": "Azure Front Door", "icon": "azure/front-door", "x": 0, "y": 300},
+    {"id": "web", "label": "Web app", "sub": "Azure App Service", "icon": "azure/app-service", "x": 330, "y": 300},
+    {"id": "db", "label": "Orders database", "sub": "Azure SQL Database", "icon": "azure/sql-database", "x": 660, "y": 200},
+    {"id": "cache", "label": "Session cache", "sub": "Azure Cache for Redis", "icon": "azure/cache-for-redis", "x": 660, "y": 400},
+    {"id": "secrets", "label": "App secrets", "sub": "Azure Key Vault", "icon": "azure/key-vault", "x": 330, "y": -90},
+    {"id": "files", "label": "Uploaded files", "sub": "Azure Blob Storage", "icon": "azure/block-blob", "x": 330, "y": 660}
+  ],
+  "enclosures": [
+    {"id": "app", "label": "App subnet", "members": ["web"], "border": "dotted", "fill": "#FFFFFF", "pad": 40},
+    {"id": "data", "label": "Data subnet", "members": ["db", "cache"], "border": "dotted", "fill": "#FFFFFF"},
+    {"id": "vnet", "label": "Virtual network", "members": ["app", "data"], "border": "dashed", "fill": "#FFFFFF"},
+    {"id": "group", "label": "Resource group", "members": ["edge", "vnet", "secrets", "files"], "border": "solid", "pad": 40, "fill": "#FFFFFF"}
+  ],
+  "links": [
+    {"from": "edge", "to": "web", "label": "HTTPS"},
+    {"from": "web", "to": "db", "label": "SQL"},
+    {"from": "web", "to": "cache", "label": "sessions"},
+    {"from": "web", "to": "secrets", "label": "secrets", "start": "top", "end": "bottom"},
+    {"from": "web", "to": "files", "label": "files", "start": "bottom", "end": "top"}
+  ]
+}
