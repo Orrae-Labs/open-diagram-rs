@@ -1,0 +1,30 @@
+{
+  "title": "Photo upload flow",
+  "valign": "top",
+  "columns": [
+    [{"id": "mobile", "title": "Mobile app"}, {"id": "web", "title": "Web app"}],
+    [{"id": "gateway", "title": "API gateway"}],
+    [{"id": "upload", "title": "Upload service"}, {"id": "feed", "title": "Feed service"},
+     {"id": "recs", "title": "Recommendations", "status": "planned"}],
+    [{"id": "queue", "title": "Job queue"}],
+    [{"id": "workers", "title": "Thumbnail workers"}],
+    [{"id": "storage", "title": "Photo storage"}, {"id": "db", "title": "Feed database"}]
+  ],
+  "groups": [
+    {"label": "Clients", "members": ["mobile", "web"]},
+    {"label": "Backend", "members": ["gateway", "upload", "feed", "queue", "workers"]},
+    {"label": "Data", "members": ["storage", "db"]}
+  ],
+  "links": [
+    {"from": "mobile", "to": "gateway"},
+    {"from": "web", "to": "gateway"},
+    {"from": "gateway", "to": "upload"},
+    {"from": "gateway", "to": "feed"},
+    {"from": "upload", "to": "storage", "label": "original", "lane": "top"},
+    {"from": "upload", "to": "queue", "label": "new photo"},
+    {"from": "queue", "to": "workers"},
+    {"from": "workers", "to": "storage", "label": "thumbnails"},
+    {"from": "feed", "to": "db"},
+    {"from": "feed", "to": "recs", "kind": "planned", "start": "bottom", "end": "top"}
+  ]
+}

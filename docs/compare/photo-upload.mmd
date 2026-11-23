@@ -1,0 +1,27 @@
+flowchart LR
+  subgraph Clients
+    mobile[Mobile app]
+    web[Web app]
+  end
+  subgraph Backend
+    gateway[API gateway]
+    upload[Upload service]
+    feed[Feed service]
+    queue[Job queue]
+    workers[Thumbnail workers]
+  end
+  subgraph Data
+    storage[Photo storage]
+    db[Feed database]
+  end
+  recs[Recommendations]
+  mobile --> gateway
+  web --> gateway
+  gateway --> upload
+  gateway --> feed
+  upload -->|original| storage
+  upload -->|new photo| queue
+  queue --> workers
+  workers -->|thumbnails| storage
+  feed --> db
+  feed -.-> recs

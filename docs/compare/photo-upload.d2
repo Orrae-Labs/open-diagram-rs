@@ -1,0 +1,27 @@
+direction: right
+Clients: {
+  mobile: Mobile app
+  web: Web app
+}
+Backend: {
+  gateway: API gateway
+  upload: Upload service
+  feed: Feed service
+  queue: Job queue
+  workers: Thumbnail workers
+}
+Data: {
+  storage: Photo storage
+  db: Feed database
+}
+recs: Recommendations
+Clients.mobile -> Backend.gateway
+Clients.web -> Backend.gateway
+Backend.gateway -> Backend.upload
+Backend.gateway -> Backend.feed
+Backend.upload -> Data.storage: original
+Backend.upload -> Backend.queue: new photo
+Backend.queue -> Backend.workers
+Backend.workers -> Data.storage: thumbnails
+Backend.feed -> Data.db
+Backend.feed -> recs: {style.stroke-dash: 4}
