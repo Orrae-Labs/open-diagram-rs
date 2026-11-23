@@ -1,6 +1,6 @@
 # How open-diagram compares
 
-How open-diagram compares with Mermaid, D2, draw.io, Excalidraw and archify, checked November 23, 2026. Every fact comes from the tool's own docs, repository or pricing page, listed under Sources. These tools change often. If a fact here is out of date, open an issue.
+Mermaid, D2, draw.io, Excalidraw and archify, checked November 23, 2026. Every fact comes from the tool's own docs, repository or pricing page, listed under Sources. These tools change often. If a fact here is out of date, [open an issue](https://github.com/lukendeasy/open-diagram/issues).
 
 ## The short answer
 
