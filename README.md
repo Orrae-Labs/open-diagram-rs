@@ -2,7 +2,7 @@
 
 Python building blocks for dense architecture diagrams that check their own layout.
 
-Website and gallery: [open-diagram.dev](https://open-diagram.dev)
+Website and gallery: [open-diagram.dev](https://open-diagram.dev) · How it compares with Mermaid, D2, draw.io, Excalidraw and archify: [docs/comparison.md](https://github.com/lukendeasy/open-diagram/blob/main/docs/comparison.md)
 
 ![A systems map for an invented video platform, drawn with open-diagram](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/systems_map.png)
 
@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: lukendeasy/open-diagram@v0.4.0
+      - uses: lukendeasy/open-diagram@v0.5.0
         with:
           files: docs/diagrams/*.json docs/diagrams/*.mmd
           statuses: docs/diagrams/states.json   # optional

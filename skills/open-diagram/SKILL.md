@@ -1,48 +1,49 @@
 ---
 name: open-diagram
-description: Draw dense architecture and systems diagrams (systems maps, layered stacks, data flows, concept maps) as SVG and PNG with the open-diagram Python library, which measures every label and reports layout problems by name. Use when asked for an architecture diagram, systems map, stack picture, data flow, "what is live and what is planned" picture, or concept map that should look finished on the first pass.
+description: Draw architecture diagrams, systems maps, layered stacks, data flows, cycles, cloud resource diagrams and concept maps as SVG and PNG with the open-diagram library, which measures every label and names each layout problem. Use when asked for an architecture diagram, systems map, stack picture, data flow, cloud architecture picture, "what is live and what is planned" picture, or concept map that should look finished on the first pass.
 ---
 
 # open-diagram
 
-open-diagram draws diagrams from a short Python script. It measures every label, places blocks, and checks the layout. Each problem comes back as a plain sentence that names the parts involved. Follow these steps in order.
+open-diagram turns a short description (JSON, Mermaid, or a Python script) into a finished diagram. It measures every label from the font, places the blocks, and checks the layout. Each problem comes back as a plain sentence that names the parts involved, so you can fix it without looking at the picture. Follow these steps in order.
 
-## 1. Check the setup
+## 1. Pick the route
 
-For named AWS, Azure or Google Cloud services that need icons, load the companion
-[cloud-icons skill](../cloud-icons/SKILL.md). The repository's top-level [cloud-icons directory](../../cloud-icons/)
-contains separate AWS, Azure and GCP mappings. The skill's Python workflow downloads and embeds them with
-`Resource(icon=...)` or `Tile(icon=...)`. For cloud topology and ETL DAGs, start with the repository's
-[cloud templates](../../templates/README.md): place each `Resource` independently with its large icon and label,
-then use `d.enclosure()` to nest account, network, subnet or logical boundaries. Choose `border="solid"`, `"dashed"`
-or `"dotted"` independently of deployment status; use link `dash="dashed"` and a separate `control` kind for job
-orchestration. For filled section containers with the original sloped panel lids, set `style="panel", tone="accent"`
-on enclosures; the AWS ETL template demonstrates a pastel-yellow background and six labeled sections.
-Use compact `Tile` panels for summaries. Install the companion skill if it is missing and point its `ICON_DIR` at the mappings.
-Use that Python workflow for icon diagrams; JSON, Mermaid and MCP inputs do not support tile icons.
+- **MCP tools available** (`format_guide`, `check`, `draw`, `describe`): read `format_guide` once, write the diagram as JSON, call `check` until it reports 0 problems, then `draw` and look at the picture it returns. Skip to step 5. The MCP tools do not draw icons; for named cloud services with their icons, use Python.
+- **Otherwise** run `python3 -c "import open_diagram; print(open_diagram.__version__)"`. If it fails or prints below 0.5.0, run `pip install -U open-diagram`. Version 0.4.0 or later is needed for rings, free placement and `auto` sides; 0.5.0 or later for `Resource`, `d.enclosure()` and link `dash`. PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found. The SVG is always written.
+- **Format.** Write JSON unless the picture needs something only Python offers (icons, a `Resource`, an enclosure, a `Card`, `Graph`, `Row`, or computed positions). Given a Mermaid flowchart, run `open-diagram draw flow.mmd` directly; dotted edges become planned connections and subgraphs become groups.
 
-For diagrams without icons, if the open-diagram MCP tools are available (`format_guide`, `check`, `draw`, `describe`), use them: read `format_guide` once, write the diagram as JSON, call `check` until it reports 0 problems, then `draw` and look at the picture it returns. Skip to step 5 for the final review. Otherwise:
+## 2. Plan before writing
 
-Run `python3 -c "import open_diagram"`. If it fails, install it: `pip install open-diagram` (version 0.2.0 or later has the `open-diagram` command). PNG output needs Chrome, Chromium or Edge; set `CHROME` to its path if it is not found.
+Write the plan in a few lines first. Use only facts the user gave. Never invent systems, owners, numbers or statuses; if a fact the picture needs is missing, ask, or write "Owner: Not yet named" when owner lines are wanted but no owner was named.
 
-## 2. Plan before writing code
+- **Layout.** `columns` for flows, read left to right (where things come from, what handles them, who uses the result) or top to bottom for layers. `ring` for cycles, with goals or shared parts in `center`. `panels` with an `x` and `y` for any other shape.
+- **Columns.** Three to six columns, each holding one to three panels. Avoid long lines between distant panels: place the two side by side, or route through a lane.
+- **Panels.** One panel per system or team, titled in two to four words. Add a `sub` line only when it adds a fact.
+- **Tiles.** Up to about nine per panel, labels of four words or fewer. Put detail in `sub`.
+- **Statuses.** Only if the user cares about state: `live`, `building`, `trial`, `planned`, `retiring`.
+- **Lines.** Only the flows that matter. `kind="planned"` for connections still to build. A line that must jump past a column goes through a lane (`"lane": "top"` in JSON, `via_y` in Python).
+- **Extras.** Steps, owners (`footer="Owner: ..."`), groups and a `Note` only when the user's material supports them.
 
-Write the plan in a few lines first:
+## 3. Write it
 
-- **Reading direction.** Usually left to right: where things come from, what handles them, who uses the result. Use top to bottom for layers, and a ring (`d.ring(...)`, or `"ring"` in JSON) for cycles. Avoid long lines between distant panels: place the two side by side, or use a lane.
-- **Columns.** Three to six columns. Each column holds one to three panels.
-- **Panels.** One panel for each system or team. Give each a title of two to four words. Add a `sub` line only when it adds a fact.
-- **Tiles.** Up to about nine tiles in a panel. Keep labels to four words or fewer. Put detail in `sub`.
-- **Statuses.** Use them only if the user cares about state: `live`, `building`, `trial`, `planned`, `retiring`.
-- **Lines.** Draw only the flows that matter. Use `kind="planned"` for connections still to build. A line that must jump past a column goes through a lane: `via_y` above or below everything.
-- **Extras.** Add steps, owners (`footer="Owner: ..."`), groups and a `Note` only when the user's material supports them. Never invent owners, numbers or statuses; write "Owner: Not yet named" if the user wants owner lines but did not name one.
+**JSON** (run `open-diagram draw plan.json`):
 
-## 3. Write the script
+```json
+{"title": "Order flow",
+ "columns": [[{"id": "web", "title": "Website", "tiles": ["Checkout", {"label": "Wallets", "status": "planned"}]}],
+             [{"id": "orders", "title": "Order service", "tiles": ["Orders", "Payments"]}],
+             [{"id": "ops", "title": "Operations", "tiles": ["Warehouse", "Finance"]}]],
+ "links": [{"from": "web", "to": "orders"}, {"from": "orders", "to": "ops", "label": "hourly"},
+           {"from": "web", "to": "ops", "lane": "top", "kind": "planned", "label": "direct"}]}
+```
 
-Keep all words in lists at the top. Build in a `build()` function that returns the `Diagram`.
+Top-level keys: `title` (required); one layout of `columns`, `ring` (with optional `center`, `start_angle`) or `panels`; plus `subtitle`, `tag`, `note` (`title`, `lines`), `steps` (`[[1, "First"]]`), `steps_label`, `gap`, `row_gap`, `valign`, `groups`, `links`, `statuses`, `theme`. Panel keys: `title` (required), `id`, `sub`, `status`, `step`, `footer`, `tone`, `width`, `x`/`y` (in `panels` only), `tiles` with `cols` and `label`, or `sections`. Link keys: `from`, `to`, `kind`, `label`, `start`, `end` (a side or `auto`), `lane`, `via_x`, `via_y`, `cross_ok`, `dash` (`solid`, `dashed` or `dotted`).
+
+**Python** (keep all words in lists at the top; build in a `build()` that returns the `Diagram`):
 
 ```python
-from open_diagram import Card, Diagram, Graph, Note, Panel, Row, Tile, Tiles
+from open_diagram import Diagram, Note, Panel, Tile, Tiles
 
 def build():
     d = Diagram("Title in plain words", subtitle="Optional one-line scope", tag="DRAFT",
@@ -66,18 +67,43 @@ if __name__ == "__main__":
     build().save("out/picture")
 ```
 
-No Python? Write the same picture as JSON and run `open-diagram draw plan.json` (keys: README, "Describe a diagram in JSON"). Given a Mermaid flowchart, run `open-diagram draw flow.mmd` to lay it out with the checks; dotted edges become planned connections and subgraphs become groups.
+A cycle as a ring:
 
-Other blocks: `Card(title, [(name, value), ...], intro=)` for a worked example; `Graph(nodes, links, at)` for a map of things and links, with `at` giving each node a `(column, row)` on a grid; `Row(a, b)` to put sections side by side; `Text(...)` for a short paragraph. Placing: `add(block, x, y)`, `right_of(ref, block, align="center")`, `below(ref, block)`, `stack([...])`, `columns([[...], ...])`.
+```python
+ring, (goal,) = d.ring([Panel("Plan", ["Scope"]), Panel("Build", ["Code"]), Panel("Ship", ["Release"])],
+                       center=[Panel("Goals", ["Fewer bugs"], tone="neutral")])
+for a, b in zip(ring, ring[1:] + ring[:1]):
+    d.link(a, b, start="auto", end="auto")
+```
+
+**Cloud resources** (Python only, 0.5.0 or later). For named AWS, Azure or Google Cloud services, load the companion [cloud-icons skill](../cloud-icons/SKILL.md): it downloads each service's icon from the lists in the repository's [`cloud-icons/`](../../cloud-icons/) folder. For an account and network picture, or a data pipeline, start from a [cloud template](../../templates/README.md).
+
+```python
+from open_diagram import Diagram, Resource, Theme
+
+d = Diagram("Upload flow", theme=Theme(link_labels={"flow": "Data", "control": "Task control"}))
+api = d.add(Resource("Upload API", sub="AWS Lambda", icon="icons/lambda.svg"))
+raw = d.right_of(api, Resource("Raw files", sub="Amazon S3", icon="icons/s3.svg"))
+d.link(api, raw, label="objects")
+work = d.enclosure("Processing", [api], border="dashed")
+d.enclosure("Cloud account", [work, raw], border="solid", pad=40)
+```
+
+- `Resource(label, sub=, icon=, icon_size=64)` is one service with a large icon and its name underneath. Lines attach to the icon. A missing icon file raises an error that names it.
+- `d.enclosure(label, members, border=)` draws an account, network, subnet or other boundary around resources, and one enclosure can contain another. `border` is `solid`, `dashed` or `dotted`. Add `style="panel", tone="accent"` for a filled header with the panel's sloped lid.
+- A border style says nothing about whether a part is live or planned; use statuses for that. For job orchestration, give the line its own kind with `dash="dashed"` (for example `kind="control"`) and name that kind in `Theme(link_labels=...)`, so the key explains it.
+- For a small icon beside a tile label inside a panel, use `Tile(label, icon=...)`.
+
+Other blocks: `Card(title, [(name, value), ...], intro=)` for a worked example; `Graph(nodes, links, at)` for a map of things and links, with `at` giving each node a `(column, row)`; `Row(a, b)` to put sections side by side; `Text(...)` for a short paragraph. Placing: `add(block, x, y)`, `right_of(ref, block, align=)`, `below(ref, block)`, `stack([...])`, `columns([[...], ...])`, `ring([...], center=[...])`. Tones: `neutral`, `accent` (soft yellow header), `dark` (charcoal header).
 
 ## 4. Run it and fix every named problem
 
-Run the script, or `open-diagram check FILE`. `save()` writes the SVG and PNG, prints a summary, then raises `LayoutError` listing every problem. Fix them all and run again until the summary says `0 layout problem(s)`.
+Run `open-diagram check FILE` (works for `.json`, `.mmd` and `.py`) or run the script; `save()` writes the files, prints a summary, then raises `LayoutError` listing every problem. Fix them all and run again until it says `0 layout problem(s)`.
 
 | Message contains | Fix |
 | --- | --- |
 | `overlap` or `px apart` | Move one block, raise `gap` or `row_gap`, or place it with `right_of()` / `below()` |
-| `crosses` | Route the line through a lane with `via_y` (or `via_x`), change `start` and `end` sides, or move a block. Use `cross_ok=True` only when the line should pass behind |
+| `crosses` | Route the line through a lane (`lane`, `via_y` or `via_x`), change `start` and `end` sides, or move a block. Use `cross_ok` only when the line should pass behind |
 | `label ... sits on` | Shorten the label, or widen the gap between the two columns |
 | `facing away` | Use `start="auto", end="auto"`, choose other sides, or route the line through a lane |
 | `sits on the title of group` | Give the line a different start or end side, route it through a lane, or move the group's blocks |
@@ -87,16 +113,22 @@ Run the script, or `open-diagram check FILE`. `save()` writes the SVG and PNG, p
 | `needs N px` | Give the block more width, or shorten the words |
 | `smallest text` | Do not shrink text below the theme minimum; shorten the words instead |
 
-## 5. Look at the PNG before answering
+JSON and Mermaid mistakes name their place (`columns[1][0].tiles[2]`, `line 7`); fix that spot.
 
-Run `d.describe()` (or `open-diagram describe FILE`) and compare the text with the request: every system, state, owner and line the user named should be there, and nothing they did not. Then open the PNG and check it as a reader would:
+## 5. Check the picture before answering
+
+Run `open-diagram describe FILE` (or `d.describe()`) and compare the text with the request: every system, state, owner and line the user named is there, and nothing they did not name. Then open the PNG and check it as a reader would:
 
 - The reading direction is obvious and the main flow has few bends.
 - No line is ambiguous where it meets a panel.
-- The key matches what the picture uses (it is built from what is used).
-- Every word is one the user would use. No placeholder text is left.
+- The key matches what the picture uses.
+- Every word is one the user would use, and no placeholder text is left.
 
 Tell the user where the SVG and PNG are, and say which facts in the picture are your assumptions.
+
+## Keeping diagrams current
+
+Keep states in a small file such as `{"Fraud checks": "live", "Parcel lockers": "building"}` and draw with `--statuses states.json` (or `d.set_statuses(...)`). Names match panel titles, panel ids and tile labels. When work ships, change one word and redraw.
 
 ## Soundtrack
 
