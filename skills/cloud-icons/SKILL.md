@@ -5,9 +5,17 @@ description: Select consistent AWS, Azure, and Google Cloud service icons from p
 
 # Cloud icons
 
-Use [references/icons.json](references/icons.json) for 30 common services per cloud. Its only top-level keys are
-`aws`, `azure`, and `gcp`; each maps service keys directly to SVG URLs. For example, `icons["aws"]["s3"]` is the
-Amazon S3 icon. Read the selected provider's keys before choosing services; do not construct URLs from names.
+The mappings live separately from this skill in the repository's top-level `cloud-icons/` directory:
+
+| Provider | Mapping file |
+| --- | --- |
+| AWS | [cloud-icons/aws.json](../../cloud-icons/aws.json) |
+| Azure | [cloud-icons/azure.json](../../cloud-icons/azure.json) |
+| GCP | [cloud-icons/gcp.json](../../cloud-icons/gcp.json) |
+
+Each file maps 30 service keys directly to SVG URLs, without a provider wrapper. For example, the `s3` entry in
+`aws.json` is the Amazon S3 icon. Read the selected provider's keys before choosing services; do not construct URLs
+from names.
 
 ## Choose icons that explain the diagram
 
@@ -32,10 +40,11 @@ icon. `Tile` already uses a consistent 16 px icon box; use spacing and labels to
 `Tile(icon=...)` accepts a local PNG or SVG path, not an HTTP URL. The Python API is the icon workflow: JSON tile
 specs, Mermaid input and MCP tools do not accept an icon field. Keep using those formats for diagrams without icons.
 
-Copy the complete `cloud-icons` folder when installing the skill, including `references/icons.json`. It is a
-repository skill, not a resource bundled in the Python package. In the example below, run from the repository root;
-if the skill is installed elsewhere, set `SKILL_DIR` to that folder. Set `ASSET_DIR` to a local directory for this
-diagram's downloaded assets. All imports and asset preparation belong at module scope, before `build()`.
+The mapping files stay in the repository even when the skill is copied to an agent's skills folder. Neither the
+skill nor the mappings are bundled in the Python package. In the example below, run from the repository root;
+when running elsewhere, set `ICON_DIR` to the checkout's `cloud-icons/` directory (or a separate copy of those three
+JSON files). Set `ASSET_DIR` to a local directory for this diagram's downloaded assets. All imports and asset
+preparation belong at module scope, before `build()`.
 
 ```python
 import hashlib
@@ -47,9 +56,12 @@ import xml.etree.ElementTree as ET
 
 from open_diagram import Diagram, Panel, Tile
 
-SKILL_DIR = Path("skills/cloud-icons").resolve()
+ICON_DIR = Path("cloud-icons").resolve()
 ASSET_DIR = Path("out/cloud-icons/assets")
-ICONS = json.loads((SKILL_DIR / "references/icons.json").read_text(encoding="utf-8"))
+ICONS = {
+    provider: json.loads((ICON_DIR / f"{provider}.json").read_text(encoding="utf-8"))
+    for provider in ("aws", "azure", "gcp")
+}
 
 
 def icon_file(provider, service):
