@@ -24,7 +24,7 @@ Made in 0.017 s. [Source](https://github.com/lukendeasy/open-diagram/blob/main/d
 
 ![The photo upload flow drawn by Excalidraw](images/compare/excalidraw.png)
 
-Made in 0.020 s, inside the browser. From the Mermaid file, through Excalidraw's Mermaid import. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd)
+Made in 0.020 s inside the browser, from the Mermaid file. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.mmd)
 
 ## archify
 
@@ -32,7 +32,7 @@ Made in 0.020 s, inside the browser. From the Mermaid file, through Excalidraw's
 
 Made in 0.28 s. Its layout checks passed. [Source](https://github.com/lukendeasy/open-diagram/blob/main/docs/compare/photo-upload.architecture.json)
 
-## At a glance
+## Only open-diagram and archify check every layout
 
 | Tool | Input | Layout | Checks layout | Output | MCP | License | Price |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -43,4 +43,4 @@ Made in 0.28 s. Its layout checks passed. [Source](https://github.com/lukendeasy
 | [Excalidraw](https://excalidraw.com) | Editor | By hand | Only in its paid MCP server | PNG, SVG | Yes | MIT | Free; Plus from $6 a user a month |
 | [archify](https://github.com/tt-a1i/archify) | JSON | Automatic | Yes | Interactive HTML page | No | Apache-2.0 | Free |
 
-MCP lets AI apps such as Claude and Cursor use the tool directly. Every tool above got the same boxes, with one or two items in each. Times run from the source file to the finished SVG on one Mac, median of five runs.
+MCP lets AI apps such as Claude and Cursor use a tool directly. Each tool drew the same boxes and bullets. Times run from source file to finished SVG on one Mac; each is the median of five runs.
