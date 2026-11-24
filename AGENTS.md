@@ -1,10 +1,10 @@
-# open-diagram
+# open-diagram-rs
 
-Rust library and `open-diagram` command. Every label is measured from the bundled Inter fonts, then the layout is checked. SVG bytes are deterministic.
+Rust library and `open-diagram-rs` command. Every label is measured from the bundled Inter fonts, then the layout is checked. SVG bytes are deterministic.
 
 ## Change
 
-1. Edit the crates under `crates/`. The library is `open-diagram`. The command crate is `open-diagram-cli` (binary `open-diagram`). The MCP crate is `open-diagram-mcp` (binary `open-diagram-mcp`). `quickstart-consumer` is `publish = false`.
+1. Edit the crates under `crates/`. The library is `open-diagram-rs`. The command crate is `open-diagram-rs-cli` (binary `open-diagram-rs`). The MCP crate is `open-diagram-rs-mcp` (binary `open-diagram-rs-mcp`). `quickstart-consumer` is `publish = false`.
 2. Run `cargo test --workspace --all-features`, then `cargo clippy --workspace --all-targets --all-features -- -D warnings`, then `cargo audit`.
 3. Done when all three succeed and every picture in `examples::pictures()` still matches the git blob of `docs/images/<name>.svg`.
 
@@ -30,7 +30,7 @@ Rust library and `open-diagram` command. Every label is measured from the bundle
 | `examples/` | JSON and Mermaid files a person can pass to the command. Copies used by the library live in the crate and the tests require the bytes to match |
 | `.github/workflows/ci.yml` | Test, clippy, rustfmt, and `cargo audit` on pinned runners. Push to `main`, or a pull request after `borrow-checker` approves it |
 | `.github/workflows/crate-provenance.yml` | Reusable build. The package job has no OIDC permission. A second job attests the uploaded `.crate` |
-| `server.json` | MCP Registry metadata for the `open-diagram-mcp` package |
+| `server.json` | MCP Registry metadata for the `open-diagram-rs-mcp` package |
 | `.github/workflows/publish.yml` | Trusted publishing, then the MCP Registry entry |
 
 ## Invariants
@@ -61,7 +61,7 @@ Trusted publishing only. The OIDC exchange is `rust-lang/crates-io-auth-action` 
 
 The attested files are the `.crate` packages from the package job in `crate-provenance.yml`. The publish job verifies that attestation and refuses to continue when a fresh `cargo package --locked` digest differs. `cargo publish` packs again and cannot upload the attested file. The registry token stays on the publish step. `quickstart-consumer` is not published.
 
-After `open-diagram-mcp` is on crates.io, the same tag runs `mcp-publisher login github-oidc` and publishes `server.json`. The registry name is `io.github.Orrae-Labs/open-diagram`. `server.json` and the three published crate versions use the same version number. The MCP crate README carries the visible `mcp-name:` line the registry checks.
+After `open-diagram-rs-mcp` is on crates.io, the same tag runs `mcp-publisher login github-oidc` and publishes `server.json`. The registry name is `io.github.Orrae-Labs/open-diagram-rs`. `server.json` and the three published crate versions use the same version number. The MCP crate README carries the visible `mcp-name:` line the registry checks.
 
 The library license field is `MIT AND OFL-1.1 AND Apache-2.0 AND CC-BY-ND-2.0`. Azure artwork also keeps Microsoft's icon terms, which are not SPDX. Leave those identifiers in place.
 
@@ -69,6 +69,6 @@ Push this tree to `git@github.com:Orrae-Labs/open-diagram-rs.git`. The remote na
 
 ## MCP
 
-`open-diagram-mcp` speaks MCP over stdio. Its tools are `format_guide`, `template`, `check`, `describe`, and `draw`. Input is JSON or Mermaid. Files go in the folder named by `--out`, `$OPEN_DIAGRAM_OUT`, or `./open-diagram`. When `skills/` is visible, or `$OPEN_DIAGRAM_SKILLS` points at it, the SDK skill catalog serves those folders. Host setup is in `docs/agents.md`.
+`open-diagram-rs-mcp` speaks MCP over stdio. Its tools are `format_guide`, `template`, `check`, `describe`, and `draw`. Input is JSON or Mermaid. Files go in the folder named by `--out`, `$OPEN_DIAGRAM_RS_OUT`, or `./open-diagram-rs`. When `skills/` is visible, or `$OPEN_DIAGRAM_RS_SKILLS` points at it, the SDK skill catalog serves those folders and the server advertises Skills over MCP (`io.modelcontextprotocol/skills`, directory read included). The skill files are found from the checkout or from that variable. Host setup is in `docs/agents.md`.
 
 The command reads `.json`, `.mmd`, and `.mermaid`. It does not run a `.py` file. A Rust picture is a function that returns `Result<Diagram, DiagramError>`. `examples::pictures` and `quickstart-consumer` are that function.

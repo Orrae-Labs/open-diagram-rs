@@ -1,7 +1,7 @@
 //! Architecture diagrams that measure every label and check their own layout.
 //!
 //! Build a [`Diagram`] in Rust, or load JSON with [`from_spec`] and Mermaid
-//! with [`from_mermaid`]. The `open-diagram` command and the `open-diagram-mcp`
+//! with [`from_mermaid`]. The `open-diagram-rs` command and the `open-diagram-rs-mcp`
 //! server are separate crates.
 
 mod blocks;

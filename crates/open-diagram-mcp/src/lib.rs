@@ -1,4 +1,4 @@
-//! Stdio MCP server for open-diagram.
+//! Stdio MCP server for open-diagram-rs.
 //!
 //! [`DiagramServer`] serves `format_guide`, `template`, `check`, `describe`, and `draw`.
 

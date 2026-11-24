@@ -2,19 +2,19 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Parser;
-use open_diagram_mcp::DiagramServer;
+use open_diagram_rs_mcp::DiagramServer;
 
 #[derive(Parser)]
 #[command(
-    name = "open-diagram-mcp",
+    name = "open-diagram-rs-mcp",
     disable_version_flag = true,
-    about = "Run open-diagram as an MCP server over stdio (started by an MCP app)."
+    about = "Run open-diagram-rs as an MCP server over stdio (started by an MCP app)."
 )]
 struct Cli {
-    /// Folder for SVG and PNG files (default: `$OPEN_DIAGRAM_OUT`, else `./open-diagram`).
+    /// Folder for SVG and PNG files (default: `$OPEN_DIAGRAM_RS_OUT`, else `./open-diagram-rs`).
     #[arg(long)]
     out: Option<PathBuf>,
-    /// A folder of icons diagrams may use (default: `$OPEN_DIAGRAM_ICONS`). The built-in icons are always included.
+    /// A folder of icons diagrams may use (default: `$OPEN_DIAGRAM_RS_ICONS`). The built-in icons are always included.
     #[arg(long, action = clap::ArgAction::Append)]
     icons: Vec<PathBuf>,
 }
@@ -22,7 +22,7 @@ struct Cli {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|arg| arg == "--version") {
-        println!("open-diagram {}", env!("CARGO_PKG_VERSION"));
+        println!("open-diagram-rs {}", env!("CARGO_PKG_VERSION"));
         return ExitCode::SUCCESS;
     }
     let cli = Cli::parse();

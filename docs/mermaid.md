@@ -2,15 +2,15 @@
 
 Draw a Mermaid flowchart you already have, and see what changes.
 
-open-diagram lays the flowchart out again, with the same measuring and checks as any other diagram:
+open-diagram-rs lays the flowchart out again, with the same measuring and checks as any other diagram:
 
 ```bash
-open-diagram draw signup_flow.mmd
+open-diagram-rs draw signup_flow.mmd
 ```
 
-![A Mermaid flowchart drawn by open-diagram](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/signup_flow.png)
+![A Mermaid flowchart drawn by open-diagram-rs](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/signup_flow.png)
 
-It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, chains, `&`, edge labels, and front-matter titles. Dotted edges (`-.->`) become planned connections. Each top-level `subgraph` becomes a shaded group with its own band, so groups never cover other nodes. A class named like a state (`A:::building`, or `class A,B planned`) sets that state. Lines that skip a step or point backwards travel above or below the picture. From Rust, call `open_diagram::from_mermaid`. The example is [`examples/signup_flow.mmd`](https://github.com/Orrae-Labs/open-diagram-rs/blob/main/examples/signup_flow.mmd).
+It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, chains, `&`, edge labels, and front-matter titles. Dotted edges (`-.->`) become planned connections. Each top-level `subgraph` becomes a shaded group with its own band, so groups never cover other nodes. A class named like a state (`A:::building`, or `class A,B planned`) sets that state. Lines that skip a step or point backwards travel above or below the picture. From Rust, call `open_diagram_rs::from_mermaid`. The example is [`examples/signup_flow.mmd`](https://github.com/Orrae-Labs/open-diagram-rs/blob/main/examples/signup_flow.mmd).
 
 ## What carries over
 
@@ -32,10 +32,10 @@ It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, c
 - A subgraph inside another subgraph is merged into the outer one.
 - Class names that are not states are ignored, and so are styling lines: `classDef`, `style`, `linkStyle`, `click` and `direction`.
 - Markdown strings and icons such as `fa:fa-car` are shown exactly as typed.
-- open-diagram chooses the layout. Boxes go in steps by their longest path, and lines that skip a step or point backwards run in a lane above or below the picture.
+- open-diagram-rs chooses the layout. Boxes go in steps by their longest path, and lines that skip a step or point backwards run in a lane above or below the picture.
 
 ## What it does not read
 
 - Other Mermaid diagram types, such as `sequenceDiagram`. The command stops and names the line.
 - The newer shape syntax, `A@{ shape: … }`. The command stops and names the node.
-- D2 files. open-diagram has no D2 reader.
+- D2 files. open-diagram-rs has no D2 reader.

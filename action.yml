@@ -1,4 +1,4 @@
-name: open-diagram
+name: open-diagram-rs
 description: 'Redraw diagrams on every push and fail the check when a layout problem appears, so pictures never go stale.'
 author: Luke Deasy
 branding:
@@ -26,9 +26,9 @@ runs:
         toolchain: 1.100.0
     - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       with:
-        shared-key: open-diagram-action
+        shared-key: open-diagram-rs-action
         save-if: ${{ github.ref == 'refs/heads/main' }}
-    - name: Install open-diagram
+    - name: Install open-diagram-rs
       shell: bash
       run: cargo install --path "$ACTION_PATH/crates/open-diagram-cli" --locked
       env:
@@ -54,10 +54,10 @@ runs:
         if [ -n "$STATUSES" ]; then extra=(--statuses "$STATUSES"); fi
         if [ "$MODE" = "draw" ]; then
           status=0
-          for f in "${files[@]}"; do open-diagram draw "$f" "${extra[@]}" || status=1; done
+          for f in "${files[@]}"; do open-diagram-rs draw "$f" "${extra[@]}" || status=1; done
           exit $status
         elif [ "$MODE" = "check" ]; then
-          open-diagram check "${files[@]}" "${extra[@]}"
+          open-diagram-rs check "${files[@]}" "${extra[@]}"
         else
           echo "::error::mode must be 'check' or 'draw', not '$MODE'"; exit 1
         fi

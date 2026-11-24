@@ -8,7 +8,7 @@ fn main() -> ExitCode {
         eprintln!("usage: quickstart-consumer OUT.svg");
         return ExitCode::from(2);
     };
-    let mut diagram = match open_diagram::examples::quickstart() {
+    let mut diagram = match open_diagram_rs::examples::quickstart() {
         Ok(diagram) => diagram,
         Err(err) => {
             eprintln!("error: {err}");

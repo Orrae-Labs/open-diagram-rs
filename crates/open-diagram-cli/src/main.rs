@@ -3,13 +3,13 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use indexmap::IndexMap;
-use open_diagram::Diagram;
+use open_diagram_rs::Diagram;
 
 const SOUNDTRACK: &str =
     "The Gathering Field: https://open.spotify.com/artist/0BfQ8COB7K647uB6a0kMZn";
 
 #[derive(Parser)]
-#[command(name = "open-diagram", version = env!("CARGO_PKG_VERSION"), about = "Draw and check diagrams that check their own layout.")]
+#[command(name = "open-diagram-rs", version = env!("CARGO_PKG_VERSION"), about = "Draw and check diagrams that check their own layout.")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -92,7 +92,7 @@ fn main() -> ExitCode {
     {
         args.insert(0, "png".to_owned());
     }
-    let mut full = vec!["open-diagram".to_owned()];
+    let mut full = vec!["open-diagram-rs".to_owned()];
     full.append(&mut args);
     match execute(&full) {
         Ok(code) => ExitCode::from(code),
@@ -204,7 +204,7 @@ fn png(svg: &str, scale: f64) -> Result<u8, String> {
         format!("{svg}.png")
     };
     if let Err(err) =
-        open_diagram::svg_to_png(Path::new(svg), Path::new(&out), width, height, scale, None)
+        open_diagram_rs::svg_to_png(Path::new(svg), Path::new(&out), width, height, scale, None)
     {
         eprintln!("PNG not written: {err}");
         Ok(2)
@@ -216,7 +216,7 @@ fn png(svg: &str, scale: f64) -> Result<u8, String> {
 
 fn fresh(template: Option<&str>, out: Option<&str>, force: bool) -> Result<u8, String> {
     let Some(template) = template else {
-        let rows = open_diagram::catalog::table(None)?;
+        let rows = open_diagram_rs::catalog::table(None)?;
         let stems: Vec<(String, String)> = rows
             .into_iter()
             .map(|(file, purpose)| (stem_of(&file), purpose))
@@ -225,10 +225,10 @@ fn fresh(template: Option<&str>, out: Option<&str>, force: bool) -> Result<u8, S
         for (name, purpose) in &stems {
             println!("{name:<width$}  {purpose}");
         }
-        println!("\nopen-diagram new NAME writes NAME.json here to start from.");
+        println!("\nopen-diagram-rs new NAME writes NAME.json here to start from.");
         return Ok(0);
     };
-    let source = open_diagram::catalog::path(template)?;
+    let source = open_diagram_rs::catalog::path(template)?;
     let target = out.map_or_else(
         || {
             source.file_name().map_or_else(
@@ -244,14 +244,14 @@ fn fresh(template: Option<&str>, out: Option<&str>, force: bool) -> Result<u8, S
         );
         return Ok(2);
     }
-    let bytes = open_diagram::catalog::read(template)?;
+    let bytes = open_diagram_rs::catalog::read(template)?;
     if let Some(parent) = Path::new(&target).parent()
         && !parent.as_os_str().is_empty()
     {
         std::fs::create_dir_all(parent).map_err(|err| format!("{target}: {err}"))?;
     }
     std::fs::write(&target, bytes).map_err(|err| format!("{target}: {err}"))?;
-    println!("wrote {target}; change its labels, then: open-diagram check {target}");
+    println!("wrote {target}; change its labels, then: open-diagram-rs check {target}");
     Ok(0)
 }
 
@@ -268,9 +268,9 @@ fn load(
         .to_ascii_lowercase();
     let extra: Vec<PathBuf> = icons.iter().map(PathBuf::from).collect();
     let mut diagram = match ext.as_str() {
-        "json" => open_diagram::load_spec_with(path, &extra).map_err(|err| err.to_string())?,
+        "json" => open_diagram_rs::load_spec_with(path, &extra).map_err(|err| err.to_string())?,
         "mmd" | "mermaid" => {
-            open_diagram::load_mermaid(path, title).map_err(|err| err.to_string())?
+            open_diagram_rs::load_mermaid(path, title).map_err(|err| err.to_string())?
         }
         "py" => {
             return Err(format!(
@@ -367,24 +367,24 @@ mod tests {
         let _guard = DIR_LOCK
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let dir = std::env::temp_dir().join(format!("open-diagram-new-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("open-diagram-rs-new-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap_or_else(|err| panic!("{err}"));
         let previous = std::env::current_dir().unwrap_or_else(|err| panic!("{err}"));
         std::env::set_current_dir(&dir).unwrap_or_else(|err| panic!("{err}"));
-        let listed = execute(&["open-diagram".to_owned(), "new".to_owned()]);
+        let listed = execute(&["open-diagram-rs".to_owned(), "new".to_owned()]);
         let written = execute(&[
-            "open-diagram".to_owned(),
+            "open-diagram-rs".to_owned(),
             "new".to_owned(),
             "azure_web_app".to_owned(),
         ]);
         let again = execute(&[
-            "open-diagram".to_owned(),
+            "open-diagram-rs".to_owned(),
             "new".to_owned(),
             "azure_web_app".to_owned(),
         ]);
         let checked = execute(&[
-            "open-diagram".to_owned(),
+            "open-diagram-rs".to_owned(),
             "check".to_owned(),
             "azure_web_app.json".to_owned(),
         ]);

@@ -1,6 +1,6 @@
 ---
 name: cloud-icons
-description: Select consistent AWS, Azure, and Google Cloud service icons from pinned SVG links and embed them in open-diagram architecture, deployment, network, and data-flow diagrams.
+description: Select consistent AWS, Azure, and Google Cloud service icons from pinned SVG links and embed them in open-diagram-rs architecture, deployment, network, and data-flow diagrams.
 ---
 
 # Cloud icons
@@ -54,7 +54,7 @@ The rendered SVG embeds the icon bytes, so the PNG and SVG can be shared without
 
 Enclosure borders and `"dash": "dashed"` are visual styles. Do not set `"status": "planned"` or `"kind": "planned"` just to obtain dashes. Give orchestration its own theme line kind, such as `control`, so the key explains the connection.
 
-After the icons are named, run `open-diagram check` on the JSON file, fix every named layout problem, and inspect the PNG. Compare `open-diagram describe` with the requested services and connections. Use the [open-diagram skill](../open-diagram/SKILL.md) for layout and review.
+After the icons are named, run `open-diagram-rs check` on the JSON file, fix every named layout problem, and inspect the PNG. Compare `open-diagram-rs describe` with the requested services and connections. Use the [open-diagram-rs skill](../open-diagram-rs/SKILL.md) for layout and review.
 
 ## Sources, family versions and attribution
 

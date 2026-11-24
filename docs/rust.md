@@ -1,6 +1,6 @@
 # Rust
 
-Build a diagram from blocks, place them, and set its colors and sizes with a theme. The crate is `open-diagram`.
+Build a diagram from blocks, place them, and set its colors and sizes with a theme. The crate is `open-diagram-rs`.
 
 ## Building blocks
 

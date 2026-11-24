@@ -13,7 +13,7 @@ edition = "2024"
 license = "MIT AND OFL-1.1 AND Apache-2.0 AND CC-BY-ND-2.0"
 rust-version = "1.100"
 repository = "https://github.com/Orrae-Labs/open-diagram-rs"
-homepage = "https://open-diagram.dev"
+homepage = "https://github.com/Orrae-Labs/open-diagram-rs"
 description = "Building blocks for dense architecture diagrams that check their own layout."
 
 [workspace.lints.clippy]

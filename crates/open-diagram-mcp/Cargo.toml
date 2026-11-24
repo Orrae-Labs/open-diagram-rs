@@ -1,5 +1,5 @@
 [package]
-name = "open-diagram-mcp"
+name = "open-diagram-rs-mcp"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -16,17 +16,17 @@ categories = ["command-line-utilities", "visualization"]
 workspace = true
 
 [lib]
-name = "open_diagram_mcp"
+name = "open_diagram_rs_mcp"
 path = "src/lib.rs"
 
 [[bin]]
-name = "open-diagram-mcp"
+name = "open-diagram-rs-mcp"
 path = "src/main.rs"
 
 [dependencies]
 base64.workspace = true
 clap = { workspace = true, features = ["derive"] }
-open-diagram = { path = "../open-diagram", version = "0.1.0" }
+open-diagram-rs = { path = "../open-diagram", version = "0.1.0" }
 rmcp = { workspace = true, features = ["transport-io", "skills-fs"] }
 schemars.workspace = true
 serde = { workspace = true, features = ["derive"] }

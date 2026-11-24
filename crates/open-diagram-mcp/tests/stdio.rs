@@ -10,7 +10,7 @@ use tokio::process::Command;
 #[tokio::test]
 async fn stdio_tools_draw_inside_the_output_folder() {
     let out = scratch();
-    let mut command = Command::new(env!("CARGO_BIN_EXE_open-diagram-mcp"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_open-diagram-rs-mcp"));
     command.arg("--out").arg(&out).kill_on_drop(true);
     let client =
         ().serve(TokioChildProcess::new(command).expect("spawn"))
@@ -36,7 +36,7 @@ async fn stdio_tools_draw_inside_the_output_folder() {
 
     let info = client.peer_info().expect("server info");
     let server = info.server_info.as_ref().expect("implementation");
-    assert_eq!(server.name, "open-diagram");
+    assert_eq!(server.name, "open-diagram-rs");
     assert!(
         info.instructions
             .as_deref()
@@ -118,7 +118,7 @@ async fn stdio_tools_draw_inside_the_output_folder() {
     let uris: Vec<_> = skills.iter().map(|skill| skill.uri.clone()).collect();
     assert!(
         uris.iter()
-            .any(|uri| uri == "skill://open-diagram/SKILL.md"),
+            .any(|uri| uri == "skill://open-diagram-rs/SKILL.md"),
         "{uris:?}"
     );
     assert!(
@@ -149,7 +149,7 @@ fn text_of(result: &rmcp::model::CallToolResult) -> String {
 fn scratch() -> PathBuf {
     static N: AtomicU64 = AtomicU64::new(0);
     let path = std::env::temp_dir().join(format!(
-        "open-diagram-mcp-stdio-{}-{}",
+        "open-diagram-rs-mcp-stdio-{}-{}",
         std::process::id(),
         N.fetch_add(1, Ordering::Relaxed)
     ));

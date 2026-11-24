@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use open_diagram::{Diagram, catalog, from_mermaid, from_spec_with, py_g, svg_to_png};
+use open_diagram_rs::{Diagram, catalog, from_mermaid, from_spec_with, py_g, svg_to_png};
 
 use crate::guide::guide_text;
 
@@ -189,7 +189,7 @@ fn home_dir() -> PathBuf {
 }
 
 pub fn default_out() -> PathBuf {
-    if let Some(value) = std::env::var_os("OPEN_DIAGRAM_OUT") {
+    if let Some(value) = std::env::var_os("OPEN_DIAGRAM_RS_OUT") {
         return absolute_user(PathBuf::from(value));
     }
     if let Ok(cwd) = std::env::current_dir()
@@ -197,14 +197,14 @@ pub fn default_out() -> PathBuf {
         && cwd != Path::new("\\")
         && is_writable(&cwd)
     {
-        return absolute_user(cwd.join("open-diagram"));
+        return absolute_user(cwd.join("open-diagram-rs"));
     }
-    absolute_user(home_dir().join("open-diagram"))
+    absolute_user(home_dir().join("open-diagram-rs"))
 }
 
 fn is_writable(dir: &Path) -> bool {
     let probe = dir.join(format!(
-        ".open-diagram-mcp-{}-{}",
+        ".open-diagram-rs-mcp-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -223,7 +223,7 @@ fn is_writable(dir: &Path) -> bool {
 
 pub fn icon_folders(cli: &[PathBuf]) -> Vec<PathBuf> {
     let mut folders: Vec<PathBuf> = if cli.is_empty() {
-        std::env::var_os("OPEN_DIAGRAM_ICONS").map_or_default(|value| {
+        std::env::var_os("OPEN_DIAGRAM_RS_ICONS").map_or_default(|value| {
             std::env::split_paths(&value)
                 .filter(|path| !path.as_os_str().is_empty())
                 .map(absolute_user)
@@ -338,7 +338,7 @@ mod tests {
     fn scratch() -> PathBuf {
         static N: AtomicU64 = AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "open-diagram-mcp-{}-{}",
+            "open-diagram-rs-mcp-{}-{}",
             std::process::id(),
             N.fetch_add(1, Ordering::Relaxed)
         ));

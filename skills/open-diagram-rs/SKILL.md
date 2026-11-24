@@ -1,18 +1,18 @@
 ---
-name: open-diagram
-description: Draw architecture diagrams, systems maps, layered stacks, data flows, cycles, cloud resource diagrams and concept maps as SVG and PNG with the open-diagram library, which measures every label and names each layout problem. Use when asked for an architecture diagram, systems map, stack picture, data flow, cloud architecture picture, "what is live and what is planned" picture, or concept map that should look finished on the first pass.
+name: open-diagram-rs
+description: Draw architecture diagrams, systems maps, layered stacks, data flows, cycles, cloud resource diagrams and concept maps as SVG and PNG with the open-diagram-rs library, which measures every label and names each layout problem. Use when asked for an architecture diagram, systems map, stack picture, data flow, cloud architecture picture, "what is live and what is planned" picture, or concept map that should look finished on the first pass.
 ---
 
-# open-diagram
+# open-diagram-rs
 
-open-diagram turns a short description (JSON or Mermaid) into a finished diagram. It measures every label from the font, places the blocks, and checks the layout. Each problem comes back as a plain sentence that names the parts involved, so you can fix it without looking at the picture. Follow these steps in order.
+open-diagram-rs turns a short description (JSON or Mermaid) into a finished diagram. It measures every label from the font, places the blocks, and checks the layout. Each problem comes back as a plain sentence that names the parts involved, so you can fix it without looking at the picture. Follow these steps in order.
 
 ## 1. Pick the route
 
-- If the `open-diagram` MCP server is connected, call `format_guide` once, then `check` until it reports 0 layout problems, then `draw`. The tools take JSON or Mermaid text. `template` with no name lists the starters. `describe` is the words, `check` is the problems and writes nothing, and `draw` is the only call that writes files.
-- Otherwise run `open-diagram --version`. If the command is missing, install the `open-diagram-cli` crate (`cargo install open-diagram-cli --locked`) or build `crates/open-diagram-cli` from this repo. The server is `cargo install open-diagram-mcp --locked`.
+- If the `open-diagram-rs` MCP server is connected, call `format_guide` once, then `check` until it reports 0 layout problems, then `draw`. The tools take JSON or Mermaid text. `template` with no name lists the starters. `describe` is the words, `check` is the problems and writes nothing, and `draw` is the only call that writes files.
+- Otherwise run `open-diagram-rs --version`. If the command is missing, install the `open-diagram-rs-cli` crate (`cargo install open-diagram-rs-cli --locked`) or build `crates/open-diagram-cli` from this repo. The server is `cargo install open-diagram-rs-mcp --locked`.
 - PNG output needs Chrome, Chromium or Edge. Set `CHROME` to its path when the usual locations miss it. The SVG is always written.
-- Write JSON. Cards, graphs, rows, resources and enclosures are JSON keys. Given a Mermaid flowchart, run `open-diagram draw flow.mmd` directly; dotted edges become planned connections and subgraphs become groups.
+- Write JSON. Cards, graphs, rows, resources and enclosures are JSON keys. Given a Mermaid flowchart, run `open-diagram-rs draw flow.mmd` directly; dotted edges become planned connections and subgraphs become groups.
 - The Rust types are in [docs/rust.md](../../docs/rust.md). Use them when the picture is built from this crate rather than from a file.
 
 ## 2. Plan before writing
@@ -29,7 +29,7 @@ Write the plan in a few lines first. Use only facts the user gave. Never invent 
 
 ## 3. Write it
 
-**JSON** (run `open-diagram draw plan.json`):
+**JSON** (run `open-diagram-rs draw plan.json`):
 
 ```json
 {"title": "Order flow",
@@ -44,7 +44,7 @@ Top-level keys: `title` (required); one layout of `columns`, `ring` (with option
 
 A cycle uses `"ring"` and optional `"center"`. Links in a ring or a free `panels` layout set `"start": "auto"` and `"end": "auto"`.
 
-**Cloud resources.** Start from a [cloud template](../../crates/open-diagram/templates/README.md). `open-diagram new` lists them and `open-diagram new NAME` writes one as JSON. Keep its shape, replace each `label`, and keep each `sub`. A resource is `{"id", "label", "sub", "icon": "aws/s3", "x", "y"}`. An enclosure is `{"id", "label", "members", "border"}`, listed from the inside out. Icon names come from the built-in icons or a folder given with `--icons`. For a service without a built-in icon, use the [cloud-icons skill](../cloud-icons/SKILL.md).
+**Cloud resources.** Start from a [cloud template](../../crates/open-diagram/templates/README.md). `open-diagram-rs new` lists them and `open-diagram-rs new NAME` writes one as JSON. Keep its shape, replace each `label`, and keep each `sub`. A resource is `{"id", "label", "sub", "icon": "aws/s3", "x", "y"}`. An enclosure is `{"id", "label", "members", "border"}`, listed from the inside out. Icon names come from the built-in icons or a folder given with `--icons`. For a service without a built-in icon, use the [cloud-icons skill](../cloud-icons/SKILL.md).
 
 A border says nothing about whether a part is live or planned. Use statuses for that. For job orchestration, set `"dash": "dashed"` and a kind such as `"control"`, and name that kind in the theme `link_labels`.
 
@@ -52,7 +52,7 @@ Cards, graphs, rows and notes are JSON sections. Rust placement methods are in [
 
 ## 4. Run it and fix every named problem
 
-Run `open-diagram check FILE` on the `.json`, `.mmd` or `.mermaid` file. `draw` writes the SVG and PNG, prints each problem, and exits 1 when any remain. Fix them all and run again until it says `0 layout problem(s)`.
+Run `open-diagram-rs check FILE` on the `.json`, `.mmd` or `.mermaid` file. `draw` writes the SVG and PNG, prints each problem, and exits 1 when any remain. Fix them all and run again until it says `0 layout problem(s)`.
 
 | Message contains | Fix |
 | --- | --- |
@@ -71,7 +71,7 @@ JSON and Mermaid mistakes name their place (`columns[1][0].tiles[2]`, `line 7`).
 
 ## 5. Check the picture before answering
 
-Run `open-diagram describe FILE` and compare the text with the request: every system, state, owner and line the user named is there, and nothing they did not name. Then open the PNG and check it as a reader would:
+Run `open-diagram-rs describe FILE` and compare the text with the request: every system, state, owner and line the user named is there, and nothing they did not name. Then open the PNG and check it as a reader would:
 
 - The reading direction is obvious and the main flow has few bends.
 - No line is ambiguous where it meets a panel.

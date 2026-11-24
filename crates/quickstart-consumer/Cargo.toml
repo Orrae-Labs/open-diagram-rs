@@ -11,4 +11,4 @@ publish = false
 workspace = true
 
 [dependencies]
-open-diagram = { path = "../open-diagram", version = "0.1.0" }
+open-diagram-rs = { path = "../open-diagram", version = "0.1.0" }

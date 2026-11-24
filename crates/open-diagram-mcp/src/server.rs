@@ -20,11 +20,11 @@ use serde::Deserialize;
 use crate::guide::INSTRUCTIONS;
 use crate::work::{self, absolute_user, default_out, icon_folders};
 
-const FORMAT_GUIDE: &str = "Read this once before writing an open-diagram diagram. It lists the JSON keys, the Mermaid subset, and how to fix each layout problem. It does not check or draw; use check, then draw.";
-const TEMPLATE_DESC: &str = "List the open-diagram starter diagrams, or return one named starter as JSON. Use it to start. Use check to validate and draw to write files. An empty name lists the starters.";
-const CHECK_DESC: &str = "Build an open-diagram diagram in memory and list its layout problems, without writing files. A problem list is the answer: fix each named part and call check again until it reports 0. Use describe for the words and draw for the files. format is json, mermaid, or auto.";
-const DESCRIBE_DESC: &str = "Say what an open-diagram diagram contains, in plain words: blocks, states, groups, lines, and the key. It does not check layout and does not write files. Use check for problems and draw for the picture.";
-const DRAW_DESC: &str = "Write an open-diagram SVG and PNG into the output folder. Returns the layout problems, the file paths, a plain-words description, and the picture when picture is true. Call check first until it reports 0. This is the only tool that writes files, and only inside the output folder.";
+const FORMAT_GUIDE: &str = "Read this once before writing an open-diagram-rs diagram. It lists the JSON keys, the Mermaid subset, and how to fix each layout problem. It does not check or draw; use check, then draw.";
+const TEMPLATE_DESC: &str = "List the open-diagram-rs starter diagrams, or return one named starter as JSON. Use it to start. Use check to validate and draw to write files. An empty name lists the starters.";
+const CHECK_DESC: &str = "Build an open-diagram-rs diagram in memory and list its layout problems, without writing files. A problem list is the answer: fix each named part and call check again until it reports 0. Use describe for the words and draw for the files. format is json, mermaid, or auto.";
+const DESCRIBE_DESC: &str = "Say what an open-diagram-rs diagram contains, in plain words: blocks, states, groups, lines, and the key. It does not check layout and does not write files. Use check for problems and draw for the picture.";
+const DRAW_DESC: &str = "Write an open-diagram-rs SVG and PNG into the output folder. Returns the layout problems, the file paths, a plain-words description, and the picture when picture is true. Call check first until it reports 0. This is the only tool that writes files, and only inside the output folder.";
 
 fn auto_format() -> String {
     "auto".to_owned()
@@ -78,9 +78,9 @@ pub struct DiagramServer {
 }
 
 impl DiagramServer {
-    /// `out` defaults to `$OPEN_DIAGRAM_OUT`, then `./open-diagram` when that directory is writable.
+    /// `out` defaults to `$OPEN_DIAGRAM_RS_OUT`, then `./open-diagram-rs` when that directory is writable.
     ///
-    /// An empty `icons` list reads `$OPEN_DIAGRAM_ICONS`. The built-in icons are always included.
+    /// An empty `icons` list reads `$OPEN_DIAGRAM_RS_ICONS`. The built-in icons are always included.
     #[must_use]
     pub fn new(out: Option<PathBuf>, icons: &[PathBuf]) -> Self {
         Self {
@@ -109,20 +109,23 @@ fn load_skills() -> Option<Arc<SkillCatalog>> {
     match SkillCatalog::from_dir(&dir) {
         Ok(catalog) => Some(Arc::new(catalog)),
         Err(err) => {
-            eprintln!("open-diagram-mcp: skills folder {}: {err}", dir.display());
+            eprintln!(
+                "open-diagram-rs-mcp: skills folder {}: {err}",
+                dir.display()
+            );
             None
         }
     }
 }
 
 fn find_skills_dir() -> Option<PathBuf> {
-    if let Some(value) = std::env::var_os("OPEN_DIAGRAM_SKILLS") {
+    if let Some(value) = std::env::var_os("OPEN_DIAGRAM_RS_SKILLS") {
         let path = absolute_user(PathBuf::from(value));
         if path.is_dir() {
             return Some(path);
         }
         eprintln!(
-            "open-diagram-mcp: OPEN_DIAGRAM_SKILLS is not a folder ({})",
+            "open-diagram-rs-mcp: OPEN_DIAGRAM_RS_SKILLS is not a folder ({})",
             path.display()
         );
     }
@@ -140,10 +143,10 @@ fn find_skills_dir() -> Option<PathBuf> {
         let mut dir = start;
         for _ in 0..8 {
             let nested = dir.join("skills");
-            if nested.join("open-diagram").join("SKILL.md").is_file() {
+            if nested.join("open-diagram-rs").join("SKILL.md").is_file() {
                 return Some(nested);
             }
-            if dir.join("open-diagram").join("SKILL.md").is_file() {
+            if dir.join("open-diagram-rs").join("SKILL.md").is_file() {
                 return Some(dir);
             }
             if !dir.pop() {
@@ -166,7 +169,7 @@ fn success(text: String) -> CallToolResult {
 impl DiagramServer {
     #[tool(
         description = FORMAT_GUIDE,
-        title = "open-diagram format guide",
+        title = "open-diagram-rs format guide",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn format_guide(&self) -> CallToolResult {
@@ -175,7 +178,7 @@ impl DiagramServer {
 
     #[tool(
         description = TEMPLATE_DESC,
-        title = "open-diagram template",
+        title = "open-diagram-rs template",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     #[allow(
@@ -191,7 +194,7 @@ impl DiagramServer {
 
     #[tool(
         description = CHECK_DESC,
-        title = "open-diagram check",
+        title = "open-diagram-rs check",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     async fn check(
@@ -209,7 +212,7 @@ impl DiagramServer {
 
     #[tool(
         description = DESCRIBE_DESC,
-        title = "open-diagram describe",
+        title = "open-diagram-rs describe",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     async fn describe(
@@ -228,7 +231,7 @@ impl DiagramServer {
 
     #[tool(
         description = DRAW_DESC,
-        title = "open-diagram draw",
+        title = "open-diagram-rs draw",
         annotations(read_only_hint = false, destructive_hint = false, open_world_hint = false)
     )]
     async fn draw(
@@ -278,7 +281,7 @@ impl ServerHandler for DiagramServer {
         } else {
             ServerCapabilities::builder().enable_tools().build()
         };
-        let info = Implementation::new("open-diagram", env!("CARGO_PKG_VERSION"))
+        let info = Implementation::new("open-diagram-rs", env!("CARGO_PKG_VERSION"))
             .with_website_url("https://github.com/Orrae-Labs/open-diagram-rs");
         ServerConfig::new(capabilities)
             .with_server_info(info)

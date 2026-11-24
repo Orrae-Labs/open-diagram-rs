@@ -28,7 +28,7 @@ A small example:
 | Link | `from` and `to` (panel or resource ids), `kind` (`flow` or `planned`), `label`, `start` and `end` (a side, or `auto` for the side facing the other panel: the default in `ring` and `panels`), `lane` (`top` or `bottom`, to route around the picture), `via_x`, `via_y`, `cross_ok`, `dash` (`solid`, `dashed` or `dotted`, independent of state) |
 | Group | `label`, `members` (panel ids), `sub` |
 
-Every mistake names its place, for example `columns[0][0].tiles[2]: unknown key(s) 'colour'`. From Rust, call `open_diagram::from_spec`. The full example is [`examples/email_delivery.json`](https://github.com/Orrae-Labs/open-diagram-rs/blob/main/examples/email_delivery.json).
+Every mistake names its place, for example `columns[0][0].tiles[2]: unknown key(s) 'colour'`. From Rust, call `open_diagram_rs::from_spec`. The full example is [`examples/email_delivery.json`](https://github.com/Orrae-Labs/open-diagram-rs/blob/main/examples/email_delivery.json).
 
 ## Rings and free placement
 

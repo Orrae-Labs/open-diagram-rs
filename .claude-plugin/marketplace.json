@@ -1,12 +1,12 @@
 {
-  "name": "open-diagram",
+  "name": "open-diagram-rs",
   "description": "Architecture diagrams that check their own layout.",
   "owner": {
     "name": "Orrae Labs"
   },
   "plugins": [
     {
-      "name": "open-diagram",
+      "name": "open-diagram-rs",
       "source": "./",
       "description": "Draw architecture diagrams from JSON or Mermaid and check the layout by name."
     }

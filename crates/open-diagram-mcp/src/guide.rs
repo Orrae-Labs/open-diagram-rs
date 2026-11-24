@@ -1,13 +1,13 @@
 //! Format guide copied from the Python MCP server.
 
-pub const INSTRUCTIONS: &str = "open-diagram draws architecture diagrams from JSON or Mermaid text. \
+pub const INSTRUCTIONS: &str = "open-diagram-rs draws architecture diagrams from JSON or Mermaid text. \
 Call format_guide once, or template with no name for a starter. \
 check lists layout problems and writes nothing; fix every named part and call it again until it reports 0. \
 describe says what the picture contains. \
 draw writes the SVG and PNG into the output folder and returns the paths and the picture. \
 A layout problem is the result of check: change the named parts, and leave text at the size the theme asked for.";
 
-pub const GUIDE: &str = r#"# open-diagram format guide
+pub const GUIDE: &str = r#"# open-diagram-rs format guide
 
 Write the diagram as JSON (below) or as a Mermaid flowchart. Call `check` until it reports 0 layout problems, then
 `draw`. Every problem names the parts involved; fix each one, never ignore it.

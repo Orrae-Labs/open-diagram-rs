@@ -2,6 +2,10 @@
 
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+## Bug reports
+
+Title: `area: what is wrong`. Body sections, in order: Environment (OS, Rust, `open-diagram-rs` version or commit), Minimal input, Steps, Expected, Actual. The GitHub form is `.github/ISSUE_TEMPLATE/bug.yml`. Security reports go to cybersec@orrae.ai. They are not GitHub issues.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.

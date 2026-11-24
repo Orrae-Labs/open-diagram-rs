@@ -741,7 +741,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
-name = "open-diagram"
+name = "open-diagram-rs"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
@@ -754,22 +754,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "open-diagram-cli"
+name = "open-diagram-rs-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
  "indexmap",
- "open-diagram",
+ "open-diagram-rs",
  "serde_json",
 ]
 
 [[package]]
-name = "open-diagram-mcp"
+name = "open-diagram-rs-mcp"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "clap",
- "open-diagram",
+ "open-diagram-rs",
  "rmcp",
  "schemars",
  "serde",
@@ -841,7 +841,7 @@ checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
 name = "quickstart-consumer"
 version = "0.1.0"
 dependencies = [
- "open-diagram",
+ "open-diagram-rs",
 ]
 
 [[package]]

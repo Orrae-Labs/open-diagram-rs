@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.Orrae-Labs/open-diagram",
-  "title": "open-diagram",
+  "name": "io.github.Orrae-Labs/open-diagram-rs",
+  "title": "open-diagram-rs",
   "description": "Draws architecture diagrams from JSON or Mermaid.",
   "repository": {
     "url": "https://github.com/Orrae-Labs/open-diagram-rs",
@@ -12,28 +12,28 @@
     {
       "registryType": "cargo",
       "registryBaseUrl": "https://crates.io",
-      "identifier": "open-diagram-mcp",
+      "identifier": "open-diagram-rs-mcp",
       "version": "0.1.0",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
-          "name": "OPEN_DIAGRAM_OUT",
-          "description": "Folder for SVG and PNG files. The default is ./open-diagram when that directory is writable.",
+          "name": "OPEN_DIAGRAM_RS_OUT",
+          "description": "Folder for SVG and PNG files. The default is ./open-diagram-rs when that directory is writable.",
           "isRequired": false,
           "format": "string",
           "isSecret": false
         },
         {
-          "name": "OPEN_DIAGRAM_ICONS",
+          "name": "OPEN_DIAGRAM_RS_ICONS",
           "description": "Extra icon folders, split on the system path separator. Built-in icons are always included.",
           "isRequired": false,
           "format": "string",
           "isSecret": false
         },
         {
-          "name": "OPEN_DIAGRAM_SKILLS",
+          "name": "OPEN_DIAGRAM_RS_SKILLS",
           "description": "Folder of Agent Skills to serve. Without it, the server serves skills/ when that folder is visible.",
           "isRequired": false,
           "format": "string",

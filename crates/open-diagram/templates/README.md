@@ -2,7 +2,7 @@
 
 Start from a finished cloud diagram, keep its shape, and replace its words.
 
-Every template here is a JSON file, so the `open-diagram` command and any program that can write JSON can start from it.
+Every template here is a JSON file, so the `open-diagram-rs` command and any program that can write JSON can start from it.
 
 | Template | Purpose | Preview |
 | --- | --- | --- |
@@ -14,15 +14,15 @@ Every template here is a JSON file, so the `open-diagram` command and any progra
 ## Start from a template
 
 ```sh
-open-diagram new                           # list the templates
-open-diagram new azure_web_app             # write azure_web_app.json here
-open-diagram draw azure_web_app.json       # draw it; the icons come with the package
+open-diagram-rs new                           # list the templates
+open-diagram-rs new azure_web_app             # write azure_web_app.json here
+open-diagram-rs draw azure_web_app.json       # draw it; the icons come with the package
 ```
 
-`open-diagram new NAME` writes that JSON into the current directory. Edit it, then run `check` and `draw`.
+`open-diagram-rs new NAME` writes that JSON into the current directory. Edit it, then run `check` and `draw`.
 
 Change the `label` of each resource to your own words and keep its `sub`, which names the cloud service under its
-icon. Move a resource by changing its `x` and `y`. Run `open-diagram check` after each change: it names every
+icon. Move a resource by changing its `x` and `y`. Run `open-diagram-rs check` after each change: it names every
 overlap, crossing line and cramped label.
 
 ## The standard
@@ -81,13 +81,13 @@ Resources can share a picture with panels: give both `x` and `y` and use the `pa
 
 ## From Rust
 
-`Resource` is a large icon with its label and service name under it. `Diagram::enclosure` draws a box around resources or other enclosures. Load a template with `open_diagram::load_spec`. The lid, header, subtitle and nested enclosures all count toward the measured size, so the layout checks see the whole box. Border style says nothing about whether a resource is planned or live. `Diagram::group` keeps its shaded look.
+`Resource` is a large icon with its label and service name under it. `Diagram::enclosure` draws a box around resources or other enclosures. Load a template with `open_diagram_rs::load_spec`. The lid, header, subtitle and nested enclosures all count toward the measured size, so the layout checks see the whole box. Border style says nothing about whether a resource is planned or live. `Diagram::group` keeps its shaded look.
 
 ## Add a template
 
 1. Write `<name>.json` in this folder with a made-up workload. Put any new icons in `assets/<provider>/`, unchanged, and add their source and license to `assets/README.md`.
-2. Run `open-diagram check crates/open-diagram/templates/<name>.json` until it reports 0 problems.
-3. Draw the preview: `open-diagram draw crates/open-diagram/templates/<name>.json -o docs/images/<name>`. Look at the PNG.
+2. Run `open-diagram-rs check crates/open-diagram/templates/<name>.json` until it reports 0 problems.
+3. Draw the preview: `open-diagram-rs draw crates/open-diagram/templates/<name>.json -o docs/images/<name>`. Look at the PNG.
 4. Add a row to the table above, then run `cargo test --workspace`.
 
 More provider icons, with links to each file, are listed in [cloud-icons/](../../../cloud-icons/); the

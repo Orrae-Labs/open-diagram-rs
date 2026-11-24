@@ -1,17 +1,49 @@
 name: Bug
 description: A diagram, the command, or an MCP tool did something wrong. Security reports go to cybersec@orrae.ai, not here.
+title: "area: what is wrong"
 labels:
   - needs-triage
 body:
-  - type: textarea
+  - type: markdown
     attributes:
-      label: What happened
-      description: The command or tool, the input, and what you expected.
+      value: |
+        Security reports go to cybersec@orrae.ai. Do not open a public issue, discussion, or pull request for those.
+        Keep the title in the shape `area: what is wrong`.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Rust toolchain, and the open-diagram-rs version or commit.
+      placeholder: |
+        - OS:
+        - Rust:
+        - open-diagram-rs:
     validations:
       required: true
-  - type: input
+  - type: textarea
+    id: minimal
     attributes:
-      label: Revision
-      description: Commit, tag, or crate version.
+      label: Minimal input
+      description: The smallest JSON, Mermaid, or Rust snippet that shows the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: What you ran, in order.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: The problem sentence, the exit status, or the bytes that differed.
     validations:
       required: true
