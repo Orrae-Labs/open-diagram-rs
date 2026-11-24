@@ -211,7 +211,7 @@ fn graph_from(value: &Value, place: &str) -> Result<Graph, SpecError> {
         let pair = spot.as_array().filter(|pair| pair.len() == 2).ok_or_else(|| SpecError::new(format!("{place}.at.{key}: expected two numbers")))?;
         at.insert(key.clone(), (as_f64(&pair[0], &format!("{place}.at.{key}"))?, as_f64(&pair[1], &format!("{place}.at.{key}"))?));
     }
-    Graph::new(nodes, links, at).map_err(SpecError::from)
+    Graph::new(nodes, links, at).map_err(|err| SpecError::new(format!("{place}: {err}")))
 }
 
 /// Build one panel from its JSON object.

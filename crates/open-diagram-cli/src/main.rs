@@ -158,12 +158,12 @@ fn png(svg: &str, scale: f64) -> Result<u8, String> {
     } else {
         format!("{svg}.png")
     };
-    if open_diagram::svg_to_png(Path::new(svg), Path::new(&out), width, height, scale, None) {
+    if let Err(err) = open_diagram::svg_to_png(Path::new(svg), Path::new(&out), width, height, scale, None) {
+        eprintln!("PNG not written: {err}");
+        Ok(2)
+    } else {
         println!("wrote {out}");
         Ok(0)
-    } else {
-        eprintln!("PNG not written: Chrome or Chromium not found (set the CHROME environment variable to its path)");
-        Ok(2)
     }
 }
 

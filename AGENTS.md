@@ -49,6 +49,10 @@ Clippy `pedantic` and `nursery` are warn at priority `-1` in the workspace `Carg
 
 A comment records a constraint the code cannot show. A test that passes by weakening the assertion is a failure.
 
+## Upstream
+
+`upstream` is lukendeasy/open-diagram. Port a commit when it changes a diagram, an error sentence, or the command, and name that commit in the Rust change. `rust-port` keeps the 0.6.0 SVG bytes. This branch, `improvements`, is where a fix may differ from that snapshot. The pictures in `examples::pictures()` still have to match `docs/images`.
+
 ## Publishing
 
 Trusted publishing only. The OIDC exchange is `rust-lang/crates-io-auth-action` in `publish.yml`. Do not add a crates.io token to the repo or the environment.

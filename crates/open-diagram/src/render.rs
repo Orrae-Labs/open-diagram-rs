@@ -59,32 +59,52 @@ impl Drop for Scratch {
     }
 }
 
-#[must_use]
-pub fn svg_to_png(svg_path: &Path, png_path: &Path, width: f64, height: f64, scale: f64, chrome: Option<&Path>) -> bool {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PngError {
+    NoBrowser,
+    Failed,
+}
+
+impl std::fmt::Display for PngError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::NoBrowser => "Chrome or Chromium not found (set the CHROME environment variable to its path)",
+            Self::Failed => "the browser failed to write a PNG",
+        })
+    }
+}
+
+impl std::error::Error for PngError {}
+
+/// # Errors
+/// Returns [`PngError::NoBrowser`] when no Chrome, Chromium, or Edge can be found.
+/// Returns [`PngError::Failed`] when the browser exits unsuccessfully or writes no PNG.
+/// A PNG that was already at `png_path` is left unchanged on failure.
+pub fn svg_to_png(svg_path: &Path, png_path: &Path, width: f64, height: f64, scale: f64, chrome: Option<&Path>) -> Result<(), PngError> {
     let Some(chrome) = chrome.map(Path::to_path_buf).or_else(find_chrome) else {
-        return false;
+        return Err(PngError::NoBrowser);
     };
     let Some(w) = whole_ceil(width) else {
-        return false;
+        return Err(PngError::Failed);
     };
     let Some(h) = whole_ceil(height) else {
-        return false;
+        return Err(PngError::Failed);
     };
     let Ok(png_abs) = std::path::absolute(png_path) else {
-        return false;
+        return Err(PngError::Failed);
     };
     let Ok(svg) = std::fs::read_to_string(svg_path) else {
-        return false;
+        return Err(PngError::Failed);
     };
     let Some(tmp) = Scratch::new() else {
-        return false;
+        return Err(PngError::Failed);
     };
     let page = tmp.path.join("page.html");
     let html = format!(
         "<!doctype html><html><head><meta charset='utf-8'><style>html,body{{margin:0;padding:0;background:#fff;overflow:hidden}}svg{{display:block}}</style></head><body>{svg}</body></html>"
     );
     if std::fs::write(&page, html).is_err() {
-        return false;
+        return Err(PngError::Failed);
     }
     let profile = tmp.path.join("profile");
     let mut command = Command::new(&chrome);
@@ -104,11 +124,25 @@ pub fn svg_to_png(svg_path: &Path, png_path: &Path, width: f64, height: f64, sca
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    if !run_bounded(&mut command, Duration::from_secs(180)) || !png_abs.is_file() {
-        return false;
+    let prior = std::fs::read(&png_abs).ok();
+    let produced = run_bounded(&mut command, Duration::from_secs(180)) && png_abs.is_file();
+    if !produced {
+        restore_png(&png_abs, prior);
+        return Err(PngError::Failed);
     }
     crop_png(&png_abs, w, h, scale);
-    true
+    Ok(())
+}
+
+fn restore_png(path: &Path, prior: Option<Vec<u8>>) {
+    match prior {
+        Some(bytes) => {
+            let _ = std::fs::write(path, bytes);
+        }
+        None => {
+            let _ = std::fs::remove_file(path);
+        }
+    }
 }
 
 fn run_bounded(command: &mut Command, limit: Duration) -> bool {
@@ -118,7 +152,7 @@ fn run_bounded(command: &mut Command, limit: Duration) -> bool {
     let started = Instant::now();
     loop {
         match child.try_wait() {
-            Ok(Some(_)) => return true,
+            Ok(Some(status)) => return status.success(),
             Ok(None) if started.elapsed() > limit => {
                 let _ = child.kill();
                 let _ = child.wait();

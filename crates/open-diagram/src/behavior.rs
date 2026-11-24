@@ -314,12 +314,67 @@ fn json_layouts_and_public_helpers() {
         (json!({"title": "t", "columns": [[{"title": "A", "x": 1}]]}), "only work in the 'panels' layout"),
         (json!({"title": "t", "columns": [[{"title": "A"}]], "ring": [{"title": "B"}]}), "exactly one layout"),
         (json!({"title": "t"}), "exactly one layout"),
+        (
+            json!({"title": "t", "columns": [[{"title": "P", "sections": [{"graph": {"nodes": {"a": "A", "b": "B"}, "links": [["a", "b"]], "at": {"b": [1, 0]}}}]}]]}),
+            "columns[0][0].sections[0].graph: Graph: no position given for a",
+        ),
+        (
+            json!({"title": "t", "columns": [[{"title": "P", "sections": [{"graph": {"nodes": {"a": "A"}, "links": [["a", "z"]], "at": {"a": [0, 0]}}}]}]]}),
+            "columns[0][0].sections[0].graph: Graph: link names unknown node 'z'",
+        ),
+        (
+            json!({"title": "t", "columns": [[{"title": "P", "sections": [{"card": {"title": "C", "rows": [["only"]]}}]}]]}),
+            "columns[0][0].sections[0].card.rows[0]: expected a pair",
+        ),
     ];
     for (spec, words) in cases {
         let err = failure(from_spec(&spec), words);
         assert!(err.contains(words), "{words} missing from {err}");
     }
     assert_eq!(crate::panel_from_spec(&json!({"title": "A", "tiles": ["x"]}), "panel").unwrap_or_else(|err| panic!("{err}")).title, "A");
+    let short = crate::panel_from_spec(&json!({"title": "P", "sections": [{"card": {"title": "C", "rows": [["only"]]}}]}), "panel");
+    let err = failure(short.map(|_| Diagram::new("t")), "short card row");
+    assert!(err.contains("panel.sections[0].card.rows[0]: expected a pair"), "{err}");
+}
+
+#[test]
+fn reversed_mermaid_directions_put_the_source_on_the_far_side() {
+    let source = |direction| format!("flowchart {direction}\n  a[Start] --> b[End]\n");
+    let mut pictures = Vec::new();
+    for direction in ["LR", "RL", "TD", "BT"] {
+        let mut diagram = from_mermaid(&source(direction), None, None).unwrap_or_else(|err| panic!("{direction}: {err}"));
+        let report = diagram.render().unwrap_or_else(|err| panic!("{direction}: {err}"));
+        assert!(report.problems.is_empty(), "{direction}: {:?}", report.problems);
+        let (sx, sy, ex, ey) = {
+            let start = diagram.placed().find(|panel| panel.name == "Start").unwrap_or_else(|| panic!("{direction}: Start"));
+            let end = diagram.placed().find(|panel| panel.name == "End").unwrap_or_else(|| panic!("{direction}: End"));
+            (start.x, start.y, end.x, end.y)
+        };
+        let lines = diagram.lines();
+        let line = &lines[0];
+        match direction {
+            "LR" => {
+                assert!(sx < ex, "{direction}");
+                assert_eq!((line.start.as_str(), line.end.as_str()), ("right", "left"));
+            }
+            "RL" => {
+                assert!(sx > ex, "{direction}");
+                assert_eq!((line.start.as_str(), line.end.as_str()), ("left", "right"));
+            }
+            "TD" => {
+                assert!(sy < ey, "{direction}");
+                assert_eq!((line.start.as_str(), line.end.as_str()), ("bottom", "top"));
+            }
+            "BT" => {
+                assert!(sy > ey, "{direction}");
+                assert_eq!((line.start.as_str(), line.end.as_str()), ("top", "bottom"));
+            }
+            _ => unreachable!(),
+        }
+        pictures.push(report.svg);
+    }
+    assert_ne!(pictures[0], pictures[1], "RL matches LR");
+    assert_ne!(pictures[2], pictures[3], "BT matches TD");
 }
 
 #[test]
@@ -710,8 +765,11 @@ fn missing_chrome_does_not_pretend_a_png_was_written() {
     let svg = dir.join("blank.svg");
     std::fs::write(&svg, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"></svg>").unwrap_or_else(|err| panic!("{err}"));
     let png = dir.join("blank.png");
-    assert!(!crate::svg_to_png(&svg, &png, 10.0, 10.0, 2.0, Some(Path::new("missing-chrome-binary"))));
+    assert_eq!(crate::svg_to_png(&svg, &png, 10.0, 10.0, 2.0, Some(Path::new("missing-chrome-binary"))), Err(crate::PngError::Failed));
     assert!(!png.is_file());
+    std::fs::write(&png, b"stale").unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(crate::svg_to_png(&svg, &png, 10.0, 10.0, 2.0, Some(Path::new("git"))), Err(crate::PngError::Failed));
+    assert_eq!(std::fs::read(&png).unwrap_or_else(|err| panic!("{err}")), b"stale");
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -724,7 +782,7 @@ fn chrome_screenshots_an_svg_when_a_browser_exists() {
     let svg = dir.join("box.svg");
     std::fs::write(&svg, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"10\"><rect width=\"20\" height=\"10\" fill=\"#000\"/></svg>").unwrap_or_else(|err| panic!("{err}"));
     let png = dir.join("box.png");
-    assert!(crate::svg_to_png(&svg, &png, 20.0, 10.0, 1.0, Some(&chrome)), "chrome failed: {}", chrome.display());
+    crate::svg_to_png(&svg, &png, 20.0, 10.0, 1.0, Some(&chrome)).unwrap_or_else(|err| panic!("chrome failed: {} ({err})", chrome.display()));
     let bytes = std::fs::read(&png).unwrap_or_else(|err| panic!("{err}"));
     assert!(bytes.starts_with(b"\x89PNG"), "not a png");
     let _ = std::fs::remove_dir_all(dir);

@@ -293,6 +293,7 @@ pub fn from_mermaid(source: &str, title: Option<&str>, theme: Option<Theme>) -> 
         return Err(MermaidError::new("the flowchart has no nodes"));
     }
     let across = graph.direction == "LR" || graph.direction == "RL";
+    let reverse = graph.direction == "RL" || graph.direction == "BT";
     let back = back_edges(&graph);
     let forward: Vec<usize> = (0..graph.edges.len()).filter(|index| !back.contains(index)).collect();
     let layer = layers(&graph, &forward);
@@ -366,13 +367,16 @@ pub fn from_mermaid(source: &str, title: Option<&str>, theme: Option<Theme>) -> 
         item_gap,
         grouped: &grouped,
     };
-    let placed = if across { place_across(&mut diagram, &grid, group_head)? } else { place_down(&mut diagram, &grid)? };
+    let mut placed = if across { place_across(&mut diagram, &grid, group_head)? } else { place_down(&mut diagram, &grid)? };
+    if reverse {
+        mirror_placed(&mut diagram, &mut placed, across);
+    }
     for key in band_keys.iter().flatten() {
         let members: Vec<Placed> = graph.order.iter().filter(|node| graph.group_of.get(node.as_str()) == Some(key)).map(|node| placed[node].clone()).collect();
         diagram.group(&graph.groups[*key], &members, None, None);
     }
     let any_group = grouped.iter().any(|flag| *flag);
-    route_edges(&mut diagram, &graph, &placed, &layer, &back, Route { across, group_head, any_group })?;
+    route_edges(&mut diagram, &graph, &placed, &layer, &back, Route { across, reverse, group_head, any_group })?;
     Ok(diagram)
 }
 
@@ -460,8 +464,27 @@ struct Grid<'a> {
 #[derive(Clone, Copy)]
 struct Route {
     across: bool,
+    reverse: bool,
     group_head: f64,
     any_group: bool,
+}
+
+fn mirror_placed(diagram: &mut Diagram, placed: &mut BTreeMap<String, Placed>, across: bool) {
+    if placed.is_empty() {
+        return;
+    }
+    let min = placed.values().map(|panel| if across { panel.x } else { panel.y }).fold(f64::INFINITY, f64::min);
+    let max = placed.values().map(|panel| if across { panel.right() } else { panel.bottom() }).fold(f64::NEG_INFINITY, f64::max);
+    for panel in placed.values_mut() {
+        if across {
+            panel.x = max - panel.x + min - panel.w;
+        } else {
+            panel.y = max - panel.y + min - panel.h;
+        }
+        let stored = &mut diagram.nodes[panel.id()].placed;
+        stored.x = panel.x;
+        stored.y = panel.y;
+    }
 }
 
 struct NodeMeasure {
@@ -604,7 +627,7 @@ fn route_edges(
     back: &BTreeSet<usize>,
     route: Route,
 ) -> Result<(), MermaidError> {
-    let Route { across, group_head, any_group } = route;
+    let Route { across, reverse, group_head, any_group } = route;
     let theme = &diagram.theme;
     let margin = theme.pad + 8.0 + if any_group { group_head } else { 0.0 };
     let lo = placed.values().map(|panel| if across { panel.y } else { panel.x }).fold(f64::INFINITY, f64::min) - margin;
@@ -621,9 +644,13 @@ fn route_edges(
             spec = spec.label(label);
         }
         if !back.contains(&index) && layer[b] == layer[a] + 1 {
-            if !across {
-                spec = spec.start("bottom").end("top");
-            }
+            spec = if across {
+                if reverse { spec.start("left").end("right") } else { spec }
+            } else if reverse {
+                spec.start("top").end("bottom")
+            } else {
+                spec.start("bottom").end("top")
+            };
             diagram.link(pa, pb, spec).map_err(|err| MermaidError::new(err.to_string()))?;
             continue;
         }
@@ -642,7 +669,12 @@ fn route_edges(
             low += 1;
         }
         let at = if side_high { hi + 30.0 + mul(28.0, whole(k)) } else { lo - 30.0 - mul(28.0, whole(k)) };
-        spec = if across { spec.start("right").end("left").via_y(at) } else { spec.start("bottom").end("top").via_x(at) };
+        spec = match (across, reverse) {
+            (true, false) => spec.start("right").end("left").via_y(at),
+            (true, true) => spec.start("left").end("right").via_y(at),
+            (false, false) => spec.start("bottom").end("top").via_x(at),
+            (false, true) => spec.start("top").end("bottom").via_x(at),
+        };
         diagram.link(pa, pb, spec).map_err(|err| MermaidError::new(err.to_string()))?;
     }
     Ok(())

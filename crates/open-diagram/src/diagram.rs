@@ -616,10 +616,10 @@ impl Diagram {
         report.files.push(svg_path);
         if png {
             let png_path = format!("{base}.png");
-            if crate::render::svg_to_png(std::path::Path::new(&report.files[0]), std::path::Path::new(&png_path), report.width, report.height, scale, None) {
-                report.files.push(png_path);
+            if let Err(err) = crate::render::svg_to_png(std::path::Path::new(&report.files[0]), std::path::Path::new(&png_path), report.width, report.height, scale, None) {
+                println!("PNG skipped: {err}");
             } else {
-                println!("PNG skipped: Chrome or Chromium not found (set the CHROME environment variable to its path)");
+                report.files.push(png_path);
             }
         }
         let smallest = report.min_text.map_or_else(|| "none".to_owned(), py_g);
