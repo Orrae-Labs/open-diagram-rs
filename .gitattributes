@@ -1,3 +1,6 @@
+# Check out text files with Unix line endings on every system.
+* text=auto eol=lf
+
 # Byte fixtures. Git must not rewrite these line endings.
 docs/images/** -text
 crates/open-diagram/fonts/** -text
