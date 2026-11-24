@@ -24,11 +24,17 @@ runs:
     - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master 2026-11-24
       with:
         toolchain: 1.100.0
+    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      with:
+        shared-key: open-diagram-action
+        save-if: ${{ github.ref == 'refs/heads/main' }}
     - name: Install open-diagram
       shell: bash
       run: cargo install --path "$ACTION_PATH/crates/open-diagram-cli" --locked
       env:
         ACTION_PATH: ${{ github.action_path }}
+        CARGO_INCREMENTAL: "0"
+        CARGO_TERM_COLOR: always
     - name: Check or draw diagrams
       shell: bash
       env:

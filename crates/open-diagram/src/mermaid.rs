@@ -16,8 +16,15 @@ fn pattern(source: &str) -> Regex {
 
 fn clean(text: &str) -> String {
     let text = text.trim();
-    let text = if text.len() >= 2 && text.starts_with('"') && text.ends_with('"') { &text[1..text.len() - 1] } else { text };
-    pattern(r"\s*<br\s*/?>\s*").replace_all(text, " ").trim().to_owned()
+    let text = if text.len() >= 2 && text.starts_with('"') && text.ends_with('"') {
+        &text[1..text.len() - 1]
+    } else {
+        text
+    };
+    pattern(r"\s*<br\s*/?>\s*")
+        .replace_all(text, " ")
+        .trim()
+        .to_owned()
 }
 
 fn dash_labels(input: &str) -> String {
@@ -28,17 +35,16 @@ fn dash_labels(input: &str) -> String {
         if let Some(index) = rest.find("--") {
             let prev = rest[..index].chars().next_back();
             let blocked = matches!(prev, Some('-' | '.' | '=' | '<'));
-            if !blocked
-                && let Some(caps) = re.captures(&rest[index..]) {
-                    out.push_str(&rest[..index]);
-                    out.push_str(&caps[2]);
-                    out.push('|');
-                    out.push_str(&caps[1]);
-                    out.push('|');
-                    let eaten = caps.get(0).map_or(0, |item| item.end());
-                    rest = &rest[index + eaten..];
-                    continue;
-                }
+            if !blocked && let Some(caps) = re.captures(&rest[index..]) {
+                out.push_str(&rest[..index]);
+                out.push_str(&caps[2]);
+                out.push('|');
+                out.push_str(&caps[1]);
+                out.push('|');
+                let eaten = caps.get(0).map_or(0, |item| item.end());
+                rest = &rest[index + eaten..];
+                continue;
+            }
             out.push_str(&rest[..index + 2]);
             rest = &rest[index + 2..];
         } else {
@@ -81,24 +87,43 @@ fn read_node(token: &str, line_no: usize) -> Result<NodeToken, MermaidError> {
     ];
     let token = token.trim();
     let class_match = pattern(r":::([\w-]+)\s*$").captures(token);
-    let class_name = class_match.as_ref().and_then(|caps| caps.get(1)).map(|item| item.as_str().to_owned());
-    let token = class_match.as_ref().and_then(|caps| caps.get(0)).map_or(token, |item| token[..item.start()].trim());
+    let class_name = class_match
+        .as_ref()
+        .and_then(|caps| caps.get(1))
+        .map(|item| item.as_str().to_owned());
+    let token = class_match
+        .as_ref()
+        .and_then(|caps| caps.get(0))
+        .map_or(token, |item| token[..item.start()].trim());
     let id_re = pattern(r"^([A-Za-z0-9_][\w.-]*)");
     let Some(caps) = id_re.captures(token) else {
-        return Err(MermaidError::new(format!("line {line_no}: cannot read node '{token}'")));
+        return Err(MermaidError::new(format!(
+            "line {line_no}: cannot read node '{token}'"
+        )));
     };
     let node_id = caps[1].to_owned();
     let id_end = caps.get(0).map_or(0, |item| item.end());
     let rest = token[id_end..].trim().to_owned();
     if rest.is_empty() {
-        return Ok(NodeToken { id: node_id, text: None, class_name });
+        return Ok(NodeToken {
+            id: node_id,
+            text: None,
+            class_name,
+        });
     }
     for (open, close) in SHAPES {
-        if rest.starts_with(open) && rest.ends_with(close) && rest.len() >= open.len() + close.len() {
-            return Ok(NodeToken { id: node_id, text: Some(clean(&rest[open.len()..rest.len() - close.len()])), class_name });
+        if rest.starts_with(open) && rest.ends_with(close) && rest.len() >= open.len() + close.len()
+        {
+            return Ok(NodeToken {
+                id: node_id,
+                text: Some(clean(&rest[open.len()..rest.len() - close.len()])),
+                class_name,
+            });
         }
     }
-    Err(MermaidError::new(format!("line {line_no}: cannot read the shape of node '{token}'")))
+    Err(MermaidError::new(format!(
+        "line {line_no}: cannot read the shape of node '{token}'"
+    )))
 }
 
 struct Graph {
@@ -113,7 +138,13 @@ struct Graph {
 }
 
 impl Graph {
-    fn touch(&mut self, node_id: &str, text: Option<String>, class_name: Option<String>, group: Option<usize>) {
+    fn touch(
+        &mut self,
+        node_id: &str,
+        text: Option<String>,
+        class_name: Option<String>,
+        group: Option<usize>,
+    ) {
         if !self.text.contains_key(node_id) {
             self.order.push(node_id.to_owned());
             self.text.insert(node_id.to_owned(), node_id.to_owned());
@@ -136,7 +167,8 @@ struct EdgeSplit {
 }
 
 fn split_edges(stmt: &str) -> EdgeSplit {
-    let edge = pattern(r"\s*(<?(?:-\.+->|-\.+-|={2,}>|={3,}|-{2,}>|-{3,}|--[ox]))\s*(?:\|([^|]*)\|)?\s*");
+    let edge =
+        pattern(r"\s*(<?(?:-\.+->|-\.+-|={2,}>|={3,}|-{2,}>|-{3,}|--[ox]))\s*(?:\|([^|]*)\|)?\s*");
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
     let mut rest = stmt;
@@ -167,7 +199,12 @@ fn read_front(lines: &[&str], graph: &mut Graph) -> usize {
     }
 }
 
-fn record_chain(graph: &mut Graph, stmt: &str, line_no: usize, group: Option<usize>) -> Result<(), MermaidError> {
+fn record_chain(
+    graph: &mut Graph,
+    stmt: &str,
+    line_no: usize,
+    group: Option<usize>,
+) -> Result<(), MermaidError> {
     let split = split_edges(&label_subs(stmt));
     let mut groups_of_nodes = Vec::new();
     for piece in &split.nodes {
@@ -186,8 +223,13 @@ fn record_chain(graph: &mut Graph, stmt: &str, line_no: usize, group: Option<usi
         for left_id in left {
             for right_id in right {
                 if left_id != right_id {
-                    let label = label.as_ref().map(|text| clean(text)).filter(|text| !text.is_empty());
-                    graph.edges.push((left_id.clone(), right_id.clone(), kind.to_owned(), label));
+                    let label = label
+                        .as_ref()
+                        .map(|text| clean(text))
+                        .filter(|text| !text.is_empty());
+                    graph
+                        .edges
+                        .push((left_id.clone(), right_id.clone(), kind.to_owned(), label));
                 }
             }
         }
@@ -217,19 +259,37 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
     let mut stack: Vec<usize> = Vec::new();
     for (line_no, line) in lines.iter().enumerate().skip(index) {
         let raw = line.split("%%").next().unwrap_or("").trim();
-        for stmt in raw.split(';').map(str::trim).filter(|stmt| !stmt.is_empty()) {
+        for stmt in raw
+            .split(';')
+            .map(str::trim)
+            .filter(|stmt| !stmt.is_empty())
+        {
             let n = line_no + 1;
             if !header_seen {
                 let Some(found) = header.captures(stmt) else {
-                    return Err(MermaidError::new(format!("line {n}: expected 'flowchart LR' or 'graph TD' first, got '{stmt}'")));
+                    return Err(MermaidError::new(format!(
+                        "line {n}: expected 'flowchart LR' or 'graph TD' first, got '{stmt}'"
+                    )));
                 };
-                graph.direction = found.get(1).map_or("TD", |item| item.as_str()).to_ascii_uppercase();
+                graph.direction = found
+                    .get(1)
+                    .map_or("TD", |item| item.as_str())
+                    .to_ascii_uppercase();
                 header_seen = true;
                 continue;
             }
-            let word = stmt.split_whitespace().next().unwrap_or("").to_ascii_lowercase();
-            let has_edge = pattern(r"\s*(<?(?:-\.+->|-\.+-|={2,}>|={3,}|-{2,}>|-{3,}|--[ox]))").is_match(stmt);
-            if matches!(word.as_str(), "classdef" | "style" | "linkstyle" | "click" | "direction") && !has_edge {
+            let word = stmt
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            let has_edge =
+                pattern(r"\s*(<?(?:-\.+->|-\.+-|={2,}>|={3,}|-{2,}>|-{3,}|--[ox]))").is_match(stmt);
+            if matches!(
+                word.as_str(),
+                "classdef" | "style" | "linkstyle" | "click" | "direction"
+            ) && !has_edge
+            {
                 continue;
             }
             if word == "subgraph" {
@@ -239,7 +299,11 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
                     clean(&found[2])
                 } else {
                     let cleaned = clean(rest);
-                    if cleaned.is_empty() { format!("Group {}", graph.groups.len() + 1) } else { cleaned }
+                    if cleaned.is_empty() {
+                        format!("Group {}", graph.groups.len() + 1)
+                    } else {
+                        cleaned
+                    }
                 };
                 if stack.is_empty() {
                     graph.groups.push(title);
@@ -251,7 +315,9 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
             }
             if word == "end" {
                 if stack.is_empty() {
-                    return Err(MermaidError::new(format!("line {n}: 'end' without a matching 'subgraph'")));
+                    return Err(MermaidError::new(format!(
+                        "line {n}: 'end' without a matching 'subgraph'"
+                    )));
                 }
                 stack.pop();
                 continue;
@@ -260,7 +326,9 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
                 let parts: Vec<&str> = stmt.split_whitespace().collect();
                 if parts.len() >= 3 {
                     for node_id in parts[1].split(',') {
-                        graph.class_name.insert(node_id.trim().to_owned(), parts[2].to_owned());
+                        graph
+                            .class_name
+                            .insert(node_id.trim().to_owned(), parts[2].to_owned());
                     }
                 }
                 continue;
@@ -285,17 +353,24 @@ pub struct Parsed {
 ///
 /// # Errors
 /// Returns an error naming a line that could not be read, or a layout that cannot be measured.
-pub fn from_mermaid(source: &str, title: Option<&str>, theme: Option<Theme>) -> Result<Diagram, MermaidError> {
+pub fn from_mermaid(
+    source: &str,
+    title: Option<&str>,
+    theme: Option<Theme>,
+) -> Result<Diagram, MermaidError> {
     let Parsed { graph } = parse(source)?;
     let theme = theme.unwrap_or_default();
-    let mut diagram = Diagram::new(title.or(graph.title.as_deref()).unwrap_or("Flowchart")).theme(theme.clone());
+    let mut diagram =
+        Diagram::new(title.or(graph.title.as_deref()).unwrap_or("Flowchart")).theme(theme.clone());
     if graph.order.is_empty() {
         return Err(MermaidError::new("the flowchart has no nodes"));
     }
     let across = graph.direction == "LR" || graph.direction == "RL";
     let reverse = graph.direction == "RL" || graph.direction == "BT";
     let back = back_edges(&graph);
-    let forward: Vec<usize> = (0..graph.edges.len()).filter(|index| !back.contains(index)).collect();
+    let forward: Vec<usize> = (0..graph.edges.len())
+        .filter(|index| !back.contains(index))
+        .collect();
     let layer = layers(&graph, &forward);
     let n_layers = layer.values().copied().max().unwrap_or(0) + 1;
     let mut band_keys: Vec<Option<usize>> = Vec::new();
@@ -305,16 +380,31 @@ pub fn from_mermaid(source: &str, title: Option<&str>, theme: Option<Theme>) -> 
             band_keys.push(key);
         }
     }
-    let mut pos: BTreeMap<String, i64> = graph.order.iter().enumerate().map(|(k, node)| (node.clone(), i64::try_from(k).unwrap_or(0))).collect();
+    let mut pos: BTreeMap<String, i64> = graph
+        .order
+        .iter()
+        .enumerate()
+        .map(|(k, node)| (node.clone(), i64::try_from(k).unwrap_or(0)))
+        .collect();
     let mut cells: BTreeMap<(usize, usize), Vec<String>> = BTreeMap::new();
     for node in &graph.order {
-        let band = band_keys.iter().position(|key| key == &graph.group_of.get(node).copied()).unwrap_or(0);
-        cells.entry((layer[node], band)).or_default().push(node.clone());
+        let band = band_keys
+            .iter()
+            .position(|key| key == &graph.group_of.get(node).copied())
+            .unwrap_or(0);
+        cells
+            .entry((layer[node], band))
+            .or_default()
+            .push(node.clone());
     }
     let (preds, succs) = neighbours(&graph, &forward);
     for sweep in 0..6 {
         let neighbours = if sweep % 2 == 0 { &preds } else { &succs };
-        let layers: Vec<usize> = if sweep % 2 == 0 { (0..n_layers).collect() } else { (0..n_layers).rev().collect() };
+        let layers: Vec<usize> = if sweep % 2 == 0 {
+            (0..n_layers).collect()
+        } else {
+            (0..n_layers).rev().collect()
+        };
         for level in layers {
             for band in 0..band_keys.len() {
                 let Some(cell) = cells.get_mut(&(level, band)) else {
@@ -336,23 +426,52 @@ pub fn from_mermaid(source: &str, title: Option<&str>, theme: Option<Theme>) -> 
                 keyed.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
                 *cell = keyed.iter().map(|item| item.2.clone()).collect();
                 for (k, node) in cell.iter().enumerate() {
-                    pos.insert(node.clone(), i64::try_from(band).unwrap_or(0) * 1000 + i64::try_from(k).unwrap_or(0));
+                    pos.insert(
+                        node.clone(),
+                        i64::try_from(band).unwrap_or(0) * 1000 + i64::try_from(k).unwrap_or(0),
+                    );
                 }
             }
         }
     }
-    let NodeMeasure { tiles, size, label_w } = measure_nodes(&graph, &theme, &layer, &forward);
+    let NodeMeasure {
+        tiles,
+        size,
+        label_w,
+    } = measure_nodes(&graph, &theme, &layer, &forward);
     let grouped: Vec<bool> = band_keys.iter().map(Option::is_some).collect();
     let group_head = theme.pad + 8.0 + theme.line_h + 6.0;
     let step_gap: Vec<f64> = if across {
-        (0..n_layers).map(|level| theme.col_gap.max(label_w.get(&level).copied().unwrap_or(0.0) + 56.0)).collect()
+        (0..n_layers)
+            .map(|level| {
+                theme
+                    .col_gap
+                    .max(label_w.get(&level).copied().unwrap_or(0.0) + 56.0)
+            })
+            .collect()
     } else {
         let starts: BTreeSet<usize> = band_keys
             .iter()
             .filter_map(|key| *key)
-            .map(|key| graph.order.iter().filter(|node| graph.group_of.get(node.as_str()) == Some(&key)).map(|node| layer[node]).min().unwrap_or(0))
+            .map(|key| {
+                graph
+                    .order
+                    .iter()
+                    .filter(|node| graph.group_of.get(node.as_str()) == Some(&key))
+                    .map(|node| layer[node])
+                    .min()
+                    .unwrap_or(0)
+            })
             .collect();
-        (0..n_layers).map(|level| 64.0 + if starts.contains(&(level + 1)) { group_head + 24.0 } else { 0.0 }).collect()
+        (0..n_layers)
+            .map(|level| {
+                64.0 + if starts.contains(&(level + 1)) {
+                    group_head + 24.0
+                } else {
+                    0.0
+                }
+            })
+            .collect()
     };
     let item_gap = if across { 24.0 } else { 40.0 };
     let grid = Grid {
@@ -367,23 +486,51 @@ pub fn from_mermaid(source: &str, title: Option<&str>, theme: Option<Theme>) -> 
         item_gap,
         grouped: &grouped,
     };
-    let mut placed = if across { place_across(&mut diagram, &grid, group_head)? } else { place_down(&mut diagram, &grid)? };
+    let mut placed = if across {
+        place_across(&mut diagram, &grid, group_head)?
+    } else {
+        place_down(&mut diagram, &grid)?
+    };
     if reverse {
         mirror_placed(&mut diagram, &mut placed, across);
     }
     for key in band_keys.iter().flatten() {
-        let members: Vec<Placed> = graph.order.iter().filter(|node| graph.group_of.get(node.as_str()) == Some(key)).map(|node| placed[node].clone()).collect();
+        let members: Vec<Placed> = graph
+            .order
+            .iter()
+            .filter(|node| graph.group_of.get(node.as_str()) == Some(key))
+            .map(|node| placed[node].clone())
+            .collect();
         diagram.group(&graph.groups[*key], &members, None, None);
     }
     let any_group = grouped.iter().any(|flag| *flag);
-    route_edges(&mut diagram, &graph, &placed, &layer, &back, Route { across, reverse, group_head, any_group })?;
+    route_edges(
+        &mut diagram,
+        &graph,
+        &placed,
+        &layer,
+        &back,
+        Route {
+            across,
+            reverse,
+            group_head,
+            any_group,
+        },
+    )?;
     Ok(diagram)
 }
 
 fn back_edges(graph: &Graph) -> BTreeSet<usize> {
-    let mut out_edges: BTreeMap<&str, Vec<usize>> = graph.order.iter().map(|node| (node.as_str(), Vec::new())).collect();
+    let mut out_edges: BTreeMap<&str, Vec<usize>> = graph
+        .order
+        .iter()
+        .map(|node| (node.as_str(), Vec::new()))
+        .collect();
     for (index, (a, _, _, _)) in graph.edges.iter().enumerate() {
-        out_edges.get_mut(a.as_str()).unwrap_or_else(|| unreachable!()).push(index);
+        out_edges
+            .get_mut(a.as_str())
+            .unwrap_or_else(|| unreachable!())
+            .push(index);
     }
     let mut state: BTreeMap<&str, u8> = BTreeMap::new();
     let mut back = BTreeSet::new();
@@ -419,7 +566,8 @@ fn back_edges(graph: &Graph) -> BTreeSet<usize> {
 }
 
 fn layers(graph: &Graph, forward: &[usize]) -> BTreeMap<String, usize> {
-    let mut layer: BTreeMap<String, usize> = graph.order.iter().map(|node| (node.clone(), 0)).collect();
+    let mut layer: BTreeMap<String, usize> =
+        graph.order.iter().map(|node| (node.clone(), 0)).collect();
     for _ in 0..graph.order.len() {
         let mut changed = false;
         for index in forward {
@@ -436,13 +584,30 @@ fn layers(graph: &Graph, forward: &[usize]) -> BTreeMap<String, usize> {
     layer
 }
 
-fn neighbours(graph: &Graph, forward: &[usize]) -> (BTreeMap<String, Vec<String>>, BTreeMap<String, Vec<String>>) {
-    let mut preds: BTreeMap<String, Vec<String>> = graph.order.iter().map(|node| (node.clone(), Vec::new())).collect();
-    let mut succs: BTreeMap<String, Vec<String>> = graph.order.iter().map(|node| (node.clone(), Vec::new())).collect();
+fn neighbours(
+    graph: &Graph,
+    forward: &[usize],
+) -> (BTreeMap<String, Vec<String>>, BTreeMap<String, Vec<String>>) {
+    let mut preds: BTreeMap<String, Vec<String>> = graph
+        .order
+        .iter()
+        .map(|node| (node.clone(), Vec::new()))
+        .collect();
+    let mut succs: BTreeMap<String, Vec<String>> = graph
+        .order
+        .iter()
+        .map(|node| (node.clone(), Vec::new()))
+        .collect();
     for index in forward {
         let (a, b, _, _) = &graph.edges[*index];
-        succs.get_mut(a).unwrap_or_else(|| unreachable!()).push(b.clone());
-        preds.get_mut(b).unwrap_or_else(|| unreachable!()).push(a.clone());
+        succs
+            .get_mut(a)
+            .unwrap_or_else(|| unreachable!())
+            .push(b.clone());
+        preds
+            .get_mut(b)
+            .unwrap_or_else(|| unreachable!())
+            .push(a.clone());
     }
     (preds, succs)
 }
@@ -473,8 +638,20 @@ fn mirror_placed(diagram: &mut Diagram, placed: &mut BTreeMap<String, Placed>, a
     if placed.is_empty() {
         return;
     }
-    let min = placed.values().map(|panel| if across { panel.x } else { panel.y }).fold(f64::INFINITY, f64::min);
-    let max = placed.values().map(|panel| if across { panel.right() } else { panel.bottom() }).fold(f64::NEG_INFINITY, f64::max);
+    let min = placed
+        .values()
+        .map(|panel| if across { panel.x } else { panel.y })
+        .fold(f64::INFINITY, f64::min);
+    let max = placed
+        .values()
+        .map(|panel| {
+            if across {
+                panel.right()
+            } else {
+                panel.bottom()
+            }
+        })
+        .fold(f64::NEG_INFINITY, f64::max);
     for panel in placed.values_mut() {
         if across {
             panel.x = max - panel.x + min - panel.w;
@@ -493,13 +670,20 @@ struct NodeMeasure {
     label_w: BTreeMap<usize, f64>,
 }
 
-fn measure_nodes(graph: &Graph, theme: &Theme, layer: &BTreeMap<String, usize>, forward: &[usize]) -> NodeMeasure {
+fn measure_nodes(
+    graph: &Graph,
+    theme: &Theme,
+    layer: &BTreeMap<String, usize>,
+    forward: &[usize],
+) -> NodeMeasure {
     let mut tiles = BTreeMap::new();
     for node in &graph.order {
         let class_status = graph
             .class_name
             .get(node)
-            .filter(|status| theme.statuses.contains_key(status.as_str()) && status.as_str() != "live")
+            .filter(|status| {
+                theme.statuses.contains_key(status.as_str()) && status.as_str() != "live"
+            })
             .cloned();
         let mut node_tile = Tile::new(&graph.text[node]);
         if let Some(class_status) = class_status {
@@ -523,25 +707,52 @@ fn measure_nodes(graph: &Graph, theme: &Theme, layer: &BTreeMap<String, usize>, 
             *slot = f64::max(*slot, width);
         }
     }
-    NodeMeasure { tiles, size, label_w }
+    NodeMeasure {
+        tiles,
+        size,
+        label_w,
+    }
 }
 
 fn cell_at(cells: &BTreeMap<(usize, usize), Vec<String>>, level: usize, band: usize) -> &[String] {
     cells.get(&(level, band)).map_or(&[], Vec::as_slice)
 }
 
-fn place_across(diagram: &mut Diagram, grid: &Grid<'_>, group_head: f64) -> Result<BTreeMap<String, Placed>, MermaidError> {
-    let Grid { graph, tiles, size, layer, n_layers, band_keys, cells, step_gap, item_gap, grouped } = *grid;
+fn place_across(
+    diagram: &mut Diagram,
+    grid: &Grid<'_>,
+    group_head: f64,
+) -> Result<BTreeMap<String, Placed>, MermaidError> {
+    let Grid {
+        graph,
+        tiles,
+        size,
+        layer,
+        n_layers,
+        band_keys,
+        cells,
+        step_gap,
+        item_gap,
+        grouped,
+    } = *grid;
     let theme = diagram.theme.clone();
     let widths: Vec<f64> = (0..n_layers)
-        .map(|level| graph.order.iter().filter(|node| layer[*node] == level).map(|node| size[node].0).fold(0.0, f64::max))
+        .map(|level| {
+            graph
+                .order
+                .iter()
+                .filter(|node| layer[*node] == level)
+                .map(|node| size[node].0)
+                .fold(0.0, f64::max)
+        })
         .collect();
     let mut band_h = Vec::new();
     for band in 0..band_keys.len() {
         let height = (0..n_layers)
             .map(|level| {
                 let cell = cell_at(cells, level, band);
-                cell.iter().map(|node| size[node].1).sum::<f64>() + mul(item_gap, count(cell.len().saturating_sub(1)))
+                cell.iter().map(|node| size[node].1).sum::<f64>()
+                    + mul(item_gap, count(cell.len().saturating_sub(1)))
             })
             .fold(0.0, f64::max);
         band_h.push(height);
@@ -556,16 +767,26 @@ fn place_across(diagram: &mut Diagram, grid: &Grid<'_>, group_head: f64) -> Resu
     let mut y = 0.0;
     for band in 0..band_keys.len() {
         if band > 0 {
-            y += if grouped[band] || grouped[band - 1] { mul(2.0, theme.pad + 8.0) + group_head + 8.0 } else { theme.row_gap + 16.0 };
+            y += if grouped[band] || grouped[band - 1] {
+                mul(2.0, theme.pad + 8.0) + group_head + 8.0
+            } else {
+                theme.row_gap + 16.0
+            };
         }
         for level in 0..n_layers {
             let cell = cell_at(cells, level, band);
-            let stack_h = cell.iter().map(|node| size[node].1).sum::<f64>() + mul(item_gap, count(cell.len().saturating_sub(1)));
+            let stack_h = cell.iter().map(|node| size[node].1).sum::<f64>()
+                + mul(item_gap, count(cell.len().saturating_sub(1)));
             let mut cy = y + (band_h[band] - stack_h) / 2.0;
             for node in cell {
                 let tile = tiles[node].clone();
                 let name = graph.text[node].clone();
-                placed.insert(node.clone(), diagram.add_named(tile, xs[level], cy, Some(widths[level]), Some(name)).map_err(|err| MermaidError::new(err.to_string()))?);
+                placed.insert(
+                    node.clone(),
+                    diagram
+                        .add_named(tile, xs[level], cy, Some(widths[level]), Some(name))
+                        .map_err(|err| MermaidError::new(err.to_string()))?,
+                );
                 cy += size[node].1 + item_gap;
             }
         }
@@ -574,18 +795,40 @@ fn place_across(diagram: &mut Diagram, grid: &Grid<'_>, group_head: f64) -> Resu
     Ok(placed)
 }
 
-fn place_down(diagram: &mut Diagram, grid: &Grid<'_>) -> Result<BTreeMap<String, Placed>, MermaidError> {
-    let Grid { graph, tiles, size, layer, n_layers, band_keys, cells, step_gap, item_gap, grouped } = *grid;
+fn place_down(
+    diagram: &mut Diagram,
+    grid: &Grid<'_>,
+) -> Result<BTreeMap<String, Placed>, MermaidError> {
+    let Grid {
+        graph,
+        tiles,
+        size,
+        layer,
+        n_layers,
+        band_keys,
+        cells,
+        step_gap,
+        item_gap,
+        grouped,
+    } = *grid;
     let theme = diagram.theme.clone();
     let heights: Vec<f64> = (0..n_layers)
-        .map(|level| graph.order.iter().filter(|node| layer[*node] == level).map(|node| size[node].1).fold(0.0, f64::max))
+        .map(|level| {
+            graph
+                .order
+                .iter()
+                .filter(|node| layer[*node] == level)
+                .map(|node| size[node].1)
+                .fold(0.0, f64::max)
+        })
         .collect();
     let mut band_w = Vec::new();
     for band in 0..band_keys.len() {
         let band_width = (0..n_layers)
             .map(|level| {
                 let cell = cell_at(cells, level, band);
-                cell.iter().map(|node| size[node].0).sum::<f64>() + mul(item_gap, count(cell.len().saturating_sub(1)))
+                cell.iter().map(|node| size[node].0).sum::<f64>()
+                    + mul(item_gap, count(cell.len().saturating_sub(1)))
             })
             .fold(0.0, f64::max);
         band_w.push(band_width);
@@ -600,17 +843,27 @@ fn place_down(diagram: &mut Diagram, grid: &Grid<'_>) -> Result<BTreeMap<String,
     let mut x = 0.0;
     for band in 0..band_keys.len() {
         if band > 0 {
-            x += if grouped[band] || grouped[band - 1] { mul(2.0, theme.pad + 8.0) + 16.0 } else { theme.col_gap };
+            x += if grouped[band] || grouped[band - 1] {
+                mul(2.0, theme.pad + 8.0) + 16.0
+            } else {
+                theme.col_gap
+            };
         }
         for level in 0..n_layers {
             let cell = cell_at(cells, level, band);
-            let row_w = cell.iter().map(|node| size[node].0).sum::<f64>() + mul(item_gap, count(cell.len().saturating_sub(1)));
+            let row_w = cell.iter().map(|node| size[node].0).sum::<f64>()
+                + mul(item_gap, count(cell.len().saturating_sub(1)));
             let mut cx = x + (band_w[band] - row_w) / 2.0;
             for node in cell {
                 let tile = tiles[node].clone();
                 let name = graph.text[node].clone();
                 let cy = ys[level] + (heights[level] - size[node].1) / 2.0;
-                placed.insert(node.clone(), diagram.add_named(tile, cx, cy, None, Some(name)).map_err(|err| MermaidError::new(err.to_string()))?);
+                placed.insert(
+                    node.clone(),
+                    diagram
+                        .add_named(tile, cx, cy, None, Some(name))
+                        .map_err(|err| MermaidError::new(err.to_string()))?,
+                );
                 cx += size[node].0 + item_gap;
             }
         }
@@ -627,11 +880,31 @@ fn route_edges(
     back: &BTreeSet<usize>,
     route: Route,
 ) -> Result<(), MermaidError> {
-    let Route { across, reverse, group_head, any_group } = route;
+    let Route {
+        across,
+        reverse,
+        group_head,
+        any_group,
+    } = route;
     let theme = &diagram.theme;
     let margin = theme.pad + 8.0 + if any_group { group_head } else { 0.0 };
-    let lo = placed.values().map(|panel| if across { panel.y } else { panel.x }).fold(f64::INFINITY, f64::min) - margin;
-    let hi = placed.values().map(|panel| if across { panel.bottom() } else { panel.right() }).fold(f64::NEG_INFINITY, f64::max) + theme.pad + 8.0;
+    let lo = placed
+        .values()
+        .map(|panel| if across { panel.y } else { panel.x })
+        .fold(f64::INFINITY, f64::min)
+        - margin;
+    let hi = placed
+        .values()
+        .map(|panel| {
+            if across {
+                panel.bottom()
+            } else {
+                panel.right()
+            }
+        })
+        .fold(f64::NEG_INFINITY, f64::max)
+        + theme.pad
+        + 8.0;
     let span = lo + hi;
     let mid = span / 2.0;
     let mut low = 0_i64;
@@ -645,13 +918,19 @@ fn route_edges(
         }
         if !back.contains(&index) && layer[b] == layer[a] + 1 {
             spec = if across {
-                if reverse { spec.start("left").end("right") } else { spec }
+                if reverse {
+                    spec.start("left").end("right")
+                } else {
+                    spec
+                }
             } else if reverse {
                 spec.start("top").end("bottom")
             } else {
                 spec.start("bottom").end("top")
             };
-            diagram.link(pa, pb, spec).map_err(|err| MermaidError::new(err.to_string()))?;
+            diagram
+                .link(pa, pb, spec)
+                .map_err(|err| MermaidError::new(err.to_string()))?;
             continue;
         }
         let centre = if across {
@@ -668,14 +947,20 @@ fn route_edges(
         } else {
             low += 1;
         }
-        let at = if side_high { hi + 30.0 + mul(28.0, whole(k)) } else { lo - 30.0 - mul(28.0, whole(k)) };
+        let at = if side_high {
+            hi + 30.0 + mul(28.0, whole(k))
+        } else {
+            lo - 30.0 - mul(28.0, whole(k))
+        };
         spec = match (across, reverse) {
             (true, false) => spec.start("right").end("left").via_y(at),
             (true, true) => spec.start("left").end("right").via_y(at),
             (false, false) => spec.start("bottom").end("top").via_x(at),
             (false, true) => spec.start("top").end("bottom").via_x(at),
         };
-        diagram.link(pa, pb, spec).map_err(|err| MermaidError::new(err.to_string()))?;
+        diagram
+            .link(pa, pb, spec)
+            .map_err(|err| MermaidError::new(err.to_string()))?;
     }
     Ok(())
 }
@@ -686,6 +971,7 @@ fn route_edges(
 /// Returns an error when the file cannot be read or a line cannot be parsed.
 pub fn load_mermaid(path: impl AsRef<Path>, title: Option<&str>) -> Result<Diagram, MermaidError> {
     let path = path.as_ref();
-    let text = std::fs::read_to_string(path).map_err(|err| MermaidError::new(format!("{}: {err}", path.display())))?;
+    let text = std::fs::read_to_string(path)
+        .map_err(|err| MermaidError::new(format!("{}: {err}", path.display())))?;
     from_mermaid(&text, title, None)
 }

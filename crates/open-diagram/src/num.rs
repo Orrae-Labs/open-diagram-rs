@@ -18,7 +18,11 @@ pub fn whole(n: i64) -> f64 {
 
 /// Truncate toward zero. `floor` then formatting keeps an exact integer.
 pub fn trunc(value: f64) -> i64 {
-    let integral = if value >= 0.0 { value.floor() } else { value.ceil() };
+    let integral = if value >= 0.0 {
+        value.floor()
+    } else {
+        value.ceil()
+    };
     let text = format!("{integral:.0}");
     text.parse().unwrap_or(0)
 }

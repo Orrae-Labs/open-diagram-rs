@@ -20,7 +20,10 @@ pub fn icon_dir() -> PathBuf {
 /// Bytes embedded from `templates/` at compile time. `rel` uses forward slashes, such as `assets/aws/s3.svg`.
 #[must_use]
 pub fn embedded(rel: &str) -> Option<&'static [u8]> {
-    ASSETS.iter().find(|entry| entry.0 == rel).map(|entry| entry.1)
+    ASSETS
+        .iter()
+        .find(|entry| entry.0 == rel)
+        .map(|entry| entry.1)
 }
 
 /// Embedded icon bytes when `path` is under [`icon_dir`] and the file is one of the compiled assets.
@@ -28,7 +31,11 @@ pub fn embedded(rel: &str) -> Option<&'static [u8]> {
 pub fn embedded_icon(path: &str) -> Option<&'static [u8]> {
     let rel = Path::new(path).strip_prefix(icon_dir()).ok()?;
     let rel = rel.to_string_lossy().replace('\\', "/");
-    if rel.is_empty() || rel.split('/').any(|part| part.is_empty() || part == "." || part == "..") {
+    if rel.is_empty()
+        || rel
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == "..")
+    {
         return None;
     }
     embedded(&format!("assets/{rel}"))
@@ -48,9 +55,16 @@ pub fn table(readme: Option<&Path>) -> Result<Vec<(String, String)>, String> {
             }
             continue;
         }
-        let cells: Vec<String> = line.trim_matches('|').split('|').map(|cell| cell.trim().to_owned()).collect();
+        let cells: Vec<String> = line
+            .trim_matches('|')
+            .split('|')
+            .map(|cell| cell.trim().to_owned())
+            .collect();
         if header.is_none() {
-            if cells.first().is_some_and(|cell| cell.eq_ignore_ascii_case("template")) {
+            if cells
+                .first()
+                .is_some_and(|cell| cell.eq_ignore_ascii_case("template"))
+            {
                 header = Some(cells.iter().map(|cell| cell.to_ascii_lowercase()).collect());
             }
             continue;
@@ -60,7 +74,12 @@ pub fn table(readme: Option<&Path>) -> Result<Vec<(String, String)>, String> {
         }
         let heads = header.as_ref().map_or(&[][..], Vec::as_slice);
         let name = link_name(cells.first().map_or("", String::as_str));
-        let purpose = heads.iter().position(|cell| cell == "purpose").and_then(|index| cells.get(index)).cloned().unwrap_or_default();
+        let purpose = heads
+            .iter()
+            .position(|cell| cell == "purpose")
+            .and_then(|index| cells.get(index))
+            .cloned()
+            .unwrap_or_default();
         rows.push((name, purpose));
     }
     Ok(rows)
@@ -74,7 +93,9 @@ fn readme_text(readme: Option<&Path>) -> Result<String, String> {
     let bytes = if path.is_file() {
         std::fs::read(&path).map_err(|err| format!("{}: {err}", path.display()))?
     } else {
-        embedded("README.md").map(<[u8]>::to_vec).ok_or_else(|| "missing template README.md".to_owned())?
+        embedded("README.md")
+            .map(<[u8]>::to_vec)
+            .ok_or_else(|| "missing template README.md".to_owned())?
     };
     String::from_utf8(bytes).map_err(|err| format!("README.md: {err}"))
 }
@@ -85,7 +106,10 @@ fn link_name(cell: &str) -> String {
     };
     let rest = &cell[start + 2..];
     let end = rest.find(')').unwrap_or(rest.len());
-    Path::new(&rest[..end]).file_name().map_or_else(|| rest[..end].to_owned(), |name| name.to_string_lossy().into_owned())
+    Path::new(&rest[..end]).file_name().map_or_else(
+        || rest[..end].to_owned(),
+        |name| name.to_string_lossy().into_owned(),
+    )
 }
 
 /// # Errors
@@ -97,14 +121,23 @@ pub fn names() -> Result<Vec<String>, String> {
             let path = Path::new(&file);
             let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
             let dotted = format!(".{ext}");
-            TEMPLATE_TYPES.contains(&dotted.as_str()).then(|| path.file_stem().map_or_else(|| file.clone(), |stem| stem.to_string_lossy().into_owned()))
+            TEMPLATE_TYPES.contains(&dotted.as_str()).then(|| {
+                path.file_stem()
+                    .map_or_else(|| file.clone(), |stem| stem.to_string_lossy().into_owned())
+            })
         })
         .collect())
 }
 
 fn template_rel(name: &str) -> Result<String, String> {
-    let base = Path::new(name).file_name().and_then(|file| file.to_str()).unwrap_or("");
-    let stem = Path::new(base).file_stem().and_then(|file| file.to_str()).unwrap_or("");
+    let base = Path::new(name)
+        .file_name()
+        .and_then(|file| file.to_str())
+        .unwrap_or("");
+    let stem = Path::new(base)
+        .file_stem()
+        .and_then(|file| file.to_str())
+        .unwrap_or("");
     let known = names()?;
     for ext in TEMPLATE_TYPES {
         let rel = format!("{stem}{ext}");
@@ -114,7 +147,11 @@ fn template_rel(name: &str) -> Result<String, String> {
             return Ok(rel);
         }
     }
-    Err(format!("no template named {}; templates: {}", py_repr(name), known.join(", ")))
+    Err(format!(
+        "no template named {}; templates: {}",
+        py_repr(name),
+        known.join(", ")
+    ))
 }
 
 /// # Errors
@@ -131,7 +168,9 @@ pub fn read(name: &str) -> Result<String, String> {
     let bytes = if path.is_file() {
         std::fs::read(&path).map_err(|err| format!("{}: {err}", path.display()))?
     } else {
-        embedded(&rel).map(<[u8]>::to_vec).ok_or_else(|| format!("missing template asset {rel}"))?
+        embedded(&rel)
+            .map(<[u8]>::to_vec)
+            .ok_or_else(|| format!("missing template asset {rel}"))?
     };
     String::from_utf8(bytes).map_err(|err| format!("{rel}: {err}"))
 }
@@ -208,23 +247,36 @@ fn embedded_icon_names() -> Vec<String> {
 pub fn find_icon(name: &str, folders: &[PathBuf]) -> Option<PathBuf> {
     let clean = name.replace('\\', "/");
     let parts: Vec<&str> = clean.split('/').collect();
-    if clean.is_empty() || clean.starts_with('/') || clean.contains(':') || parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
+    if clean.is_empty()
+        || clean.starts_with('/')
+        || clean.contains(':')
+        || parts
+            .iter()
+            .any(|part| part.is_empty() || *part == "." || *part == "..")
+    {
         return None;
     }
-    let ext = Path::new(&clean).extension().and_then(|ext| ext.to_str()).map_or(String::new(), |ext| format!(".{ext}").to_ascii_lowercase());
+    let ext = Path::new(&clean)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map_or(String::new(), |ext| format!(".{ext}").to_ascii_lowercase());
     let tries: Vec<String> = if ICON_TYPES.contains(&ext.as_str()) {
         vec![clean]
     } else {
-        ICON_TYPES.iter().map(|suffix| format!("{clean}{suffix}")).collect()
+        ICON_TYPES
+            .iter()
+            .map(|suffix| format!("{clean}{suffix}"))
+            .collect()
     };
     for folder in folders {
         if let Some(found) = find_icon_on_disk(folder, &tries) {
             return Some(found);
         }
         if folder == &icon_dir()
-            && let Some(found) = find_embedded_icon(&tries) {
-                return Some(found);
-            }
+            && let Some(found) = find_embedded_icon(&tries)
+        {
+            return Some(found);
+        }
     }
     None
 }
@@ -232,7 +284,9 @@ pub fn find_icon(name: &str, folders: &[PathBuf]) -> Option<PathBuf> {
 fn find_icon_on_disk(folder: &Path, tries: &[String]) -> Option<PathBuf> {
     let root = folder.canonicalize().ok()?;
     for attempt in tries {
-        let joined = attempt.split('/').fold(root.clone(), |path, part| path.join(part));
+        let joined = attempt
+            .split('/')
+            .fold(root.clone(), |path, part| path.join(part));
         let Ok(real) = joined.canonicalize() else {
             continue;
         };
@@ -259,9 +313,19 @@ mod tests {
     #[test]
     fn embedded_icons_match_the_files_in_the_crate() {
         let svg = icon_dir().join("aws/s3.svg");
-        assert_eq!(embedded_icon(&svg.to_string_lossy()).expect("s3 bytes"), std::fs::read(&svg).expect("s3 file"));
-        let quicksight = find_embedded_icon(&["aws/quicksight.png".to_owned(), "aws/quicksight.svg".to_owned()]).expect("quicksight");
-        assert_eq!(embedded_icon(&quicksight.to_string_lossy()).expect("quicksight bytes"), std::fs::read(&quicksight).expect("quicksight file"));
+        assert_eq!(
+            embedded_icon(&svg.to_string_lossy()).expect("s3 bytes"),
+            std::fs::read(&svg).expect("s3 file")
+        );
+        let quicksight = find_embedded_icon(&[
+            "aws/quicksight.png".to_owned(),
+            "aws/quicksight.svg".to_owned(),
+        ])
+        .expect("quicksight");
+        assert_eq!(
+            embedded_icon(&quicksight.to_string_lossy()).expect("quicksight bytes"),
+            std::fs::read(&quicksight).expect("quicksight file")
+        );
         assert!(embedded("aws_etl.json").expect("etl").starts_with(b"{"));
         assert!(find_icon("aws/s3", &[icon_dir()]).expect("s3").is_file());
         assert!(find_icon("aws/s3", &[std::env::temp_dir()]).is_none());

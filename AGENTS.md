@@ -27,7 +27,7 @@ Rust library and `open-diagram` command. Every label is measured from the bundle
 | `crates/open-diagram-cli` | `draw`, `check`, `describe`, `png`, `new`, hidden `--soundtrack` |
 | `docs/images/` | Committed SVG and PNG oracles |
 | `examples/` | JSON and Mermaid files a person can pass to the command. Copies used by the library live in the crate and the tests require the bytes to match |
-| `.github/workflows/ci.yml` | Test, clippy, `cargo audit` |
+| `.github/workflows/ci.yml` | Test, clippy, rustfmt, and `cargo audit` on pinned runners |
 | `.github/workflows/crate-provenance.yml` | Reusable build. The package job has no OIDC permission. A second job attests the uploaded `.crate` |
 | `.github/workflows/publish.yml` | Trusted publishing after the attestation verifies |
 
@@ -45,7 +45,7 @@ Rust library and `open-diagram` command. Every label is measured from the bundle
 
 ## Style
 
-Clippy `pedantic` and `nursery` are warn at priority `-1` in the workspace `Cargo.toml`. That priority lets one lint be allowed without turning the group off. An allow is on one item, with a reason. The existing allow is `font.rs` `float_cmp`: SVG path `H` and `V` commands use exact coordinate equality before the numbers are formatted.
+Clippy `pedantic` and `nursery` are warn at priority `-1` in the workspace `Cargo.toml`. That priority lets one lint be allowed without turning the group off. An allow is on one item, with a reason. The existing allow is `font.rs` `float_cmp`: SVG path `H` and `V` commands use exact coordinate equality before the numbers are formatted. `clippy.toml` sets `too-many-lines-threshold` to 200 because rustfmt counts wrapped lines and the longest formatted function is under that.
 
 A comment records a constraint the code cannot show. A test that passes by weakening the assertion is a failure.
 

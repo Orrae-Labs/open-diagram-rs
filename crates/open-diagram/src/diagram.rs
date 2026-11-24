@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use indexmap::IndexMap;
 
-use crate::blocks::{self, apply_statuses, Block, Note, Panel};
+use crate::blocks::{self, Block, Note, Panel, apply_statuses};
 use crate::describe;
 use crate::error::{DiagramError, SaveError};
 use crate::font::{cap_height, text_width};
@@ -20,7 +20,11 @@ fn strip_picture_suffix(path: &str) -> &str {
     let Some(tail) = path.get(path.len().saturating_sub(4)..) else {
         return path;
     };
-    if tail.eq_ignore_ascii_case(".svg") || tail.eq_ignore_ascii_case(".png") { &path[..path.len() - 4] } else { path }
+    if tail.eq_ignore_ascii_case(".svg") || tail.eq_ignore_ascii_case(".png") {
+        &path[..path.len() - 4]
+    } else {
+        path
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -35,17 +39,29 @@ pub struct Placed {
 
 impl Placed {
     #[must_use]
-    pub fn right(&self) -> f64 { self.x + self.w }
+    pub fn right(&self) -> f64 {
+        self.x + self.w
+    }
     #[must_use]
-    pub fn bottom(&self) -> f64 { self.y + self.h }
+    pub fn bottom(&self) -> f64 {
+        self.y + self.h
+    }
     #[must_use]
-    pub fn cx(&self) -> f64 { self.x + self.w / 2.0 }
+    pub fn cx(&self) -> f64 {
+        self.x + self.w / 2.0
+    }
     #[must_use]
-    pub fn cy(&self) -> f64 { self.y + self.h / 2.0 }
+    pub fn cy(&self) -> f64 {
+        self.y + self.h / 2.0
+    }
     #[must_use]
-    pub const fn rect(&self) -> (f64, f64, f64, f64) { (self.x, self.y, self.w, self.h) }
+    pub const fn rect(&self) -> (f64, f64, f64, f64) {
+        (self.x, self.y, self.w, self.h)
+    }
     #[must_use]
-    pub const fn id(&self) -> usize { self.id }
+    pub const fn id(&self) -> usize {
+        self.id
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -77,21 +93,45 @@ impl Default for LinkSpec {
 
 impl LinkSpec {
     #[must_use]
-    pub fn kind(mut self, kind: impl Into<String>) -> Self { self.kind = kind.into(); self }
+    pub fn kind(mut self, kind: impl Into<String>) -> Self {
+        self.kind = kind.into();
+        self
+    }
     #[must_use]
-    pub fn label(mut self, label: impl Into<String>) -> Self { self.label = Some(label.into()); self }
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
     #[must_use]
-    pub fn start(mut self, start: impl Into<String>) -> Self { self.start = start.into(); self }
+    pub fn start(mut self, start: impl Into<String>) -> Self {
+        self.start = start.into();
+        self
+    }
     #[must_use]
-    pub fn end(mut self, end: impl Into<String>) -> Self { self.end = end.into(); self }
+    pub fn end(mut self, end: impl Into<String>) -> Self {
+        self.end = end.into();
+        self
+    }
     #[must_use]
-    pub const fn via_x(mut self, x: f64) -> Self { self.via_x = Some(x); self }
+    pub const fn via_x(mut self, x: f64) -> Self {
+        self.via_x = Some(x);
+        self
+    }
     #[must_use]
-    pub const fn via_y(mut self, y: f64) -> Self { self.via_y = Some(y); self }
+    pub const fn via_y(mut self, y: f64) -> Self {
+        self.via_y = Some(y);
+        self
+    }
     #[must_use]
-    pub const fn cross_ok(mut self, ok: bool) -> Self { self.cross_ok = ok; self }
+    pub const fn cross_ok(mut self, ok: bool) -> Self {
+        self.cross_ok = ok;
+        self
+    }
     #[must_use]
-    pub fn dash(mut self, dash: impl Into<String>) -> Self { self.dash = Some(dash.into()); self }
+    pub fn dash(mut self, dash: impl Into<String>) -> Self {
+        self.dash = Some(dash.into());
+        self
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -227,15 +267,30 @@ impl Diagram {
     }
 
     #[must_use]
-    pub fn subtitle(mut self, subtitle: impl Into<String>) -> Self { self.subtitle = Some(subtitle.into()); self }
+    pub fn subtitle(mut self, subtitle: impl Into<String>) -> Self {
+        self.subtitle = Some(subtitle.into());
+        self
+    }
     #[must_use]
-    pub fn tag(mut self, tag: impl Into<String>) -> Self { self.tag = Some(tag.into()); self }
+    pub fn tag(mut self, tag: impl Into<String>) -> Self {
+        self.tag = Some(tag.into());
+        self
+    }
     #[must_use]
-    pub fn note(mut self, note: Note) -> Self { self.note = Some(note); self }
+    pub fn note(mut self, note: Note) -> Self {
+        self.note = Some(note);
+        self
+    }
     #[must_use]
-    pub fn theme(mut self, theme: Theme) -> Self { self.theme = theme; self }
+    pub fn theme(mut self, theme: Theme) -> Self {
+        self.theme = theme;
+        self
+    }
     #[must_use]
-    pub const fn legend(mut self, legend: bool) -> Self { self.legend = legend; self }
+    pub const fn legend(mut self, legend: bool) -> Self {
+        self.legend = legend;
+        self
+    }
     #[must_use]
     pub fn steps(mut self, steps: Vec<(i64, String)>, label: impl Into<String>) -> Self {
         self.steps = steps;
@@ -249,14 +304,17 @@ impl Diagram {
 
     #[must_use]
     pub fn lines(&self) -> Vec<LineView> {
-        self.links.iter().map(|line| LineView {
-            a: self.nodes[line.a].placed.name.clone(),
-            b: self.nodes[line.b].placed.name.clone(),
-            kind: line.kind.clone(),
-            label: line.label.clone(),
-            start: line.start.clone(),
-            end: line.end.clone(),
-        }).collect()
+        self.links
+            .iter()
+            .map(|line| LineView {
+                a: self.nodes[line.a].placed.name.clone(),
+                b: self.nodes[line.b].placed.name.clone(),
+                kind: line.kind.clone(),
+                label: line.label.clone(),
+                start: line.start.clone(),
+                end: line.end.clone(),
+            })
+            .collect()
     }
 
     /// # Errors
@@ -267,18 +325,37 @@ impl Diagram {
 
     /// # Errors
     /// Returns an error when the block's text or status cannot be measured.
-    pub fn add_named(&mut self, block: impl Into<Block>, x: f64, y: f64, width: Option<f64>, name: Option<String>) -> Result<Placed, DiagramError> {
+    pub fn add_named(
+        &mut self,
+        block: impl Into<Block>,
+        x: f64,
+        y: f64,
+        width: Option<f64>,
+        name: Option<String>,
+    ) -> Result<Placed, DiagramError> {
         self.add_width(block.into(), x, y, width, name)
     }
 
-    fn add_width(&mut self, block: Block, x: f64, y: f64, width: Option<f64>, name: Option<String>) -> Result<Placed, DiagramError> {
+    fn add_width(
+        &mut self,
+        block: Block,
+        x: f64,
+        y: f64,
+        width: Option<f64>,
+        name: Option<String>,
+    ) -> Result<Placed, DiagramError> {
         let (mut measured_w, measured_h) = block.measure(&self.theme)?;
         let mut label = name
             .or_else(|| block.explicit_name().map(str::to_owned))
             .or_else(|| block.title().map(str::to_owned))
             .unwrap_or_else(|| format!("block {}", self.nodes.len() + 1));
         if self.nodes.iter().any(|n| n.placed.name == label) {
-            let copies = self.nodes.iter().filter(|node| node.placed.name.starts_with(&label)).count() + 1;
+            let copies = self
+                .nodes
+                .iter()
+                .filter(|node| node.placed.name.starts_with(&label))
+                .count()
+                + 1;
             label = format!("{label} ({copies})");
         }
         if let Some(width) = width {
@@ -292,7 +369,14 @@ impl Diagram {
             }
             measured_w = measured_w.max(width);
         }
-        let placed = Placed { id: self.nodes.len(), name: label, x, y, w: measured_w, h: measured_h };
+        let placed = Placed {
+            id: self.nodes.len(),
+            name: label,
+            x,
+            y,
+            w: measured_w,
+            h: measured_h,
+        };
         let out = placed.clone();
         self.nodes.push(Node { placed, block });
         Ok(out)
@@ -300,7 +384,15 @@ impl Diagram {
 
     /// # Errors
     /// Returns an error when `align` is not top, center, or bottom, or the block cannot be measured.
-    pub fn right_of(&mut self, refer: &Placed, block: impl Into<Block>, gap: Option<f64>, align: &str, width: Option<f64>, name: Option<String>) -> Result<Placed, DiagramError> {
+    pub fn right_of(
+        &mut self,
+        refer: &Placed,
+        block: impl Into<Block>,
+        gap: Option<f64>,
+        align: &str,
+        width: Option<f64>,
+        name: Option<String>,
+    ) -> Result<Placed, DiagramError> {
         let block = block.into();
         let (_, h) = block.measure(&self.theme)?;
         let gap = gap.unwrap_or(self.theme.col_gap);
@@ -315,7 +407,15 @@ impl Diagram {
 
     /// # Errors
     /// Returns an error when `align` is not left, center, or right, or the block cannot be measured.
-    pub fn below(&mut self, refer: &Placed, block: impl Into<Block>, gap: Option<f64>, align: &str, width: Option<f64>, name: Option<String>) -> Result<Placed, DiagramError> {
+    pub fn below(
+        &mut self,
+        refer: &Placed,
+        block: impl Into<Block>,
+        gap: Option<f64>,
+        align: &str,
+        width: Option<f64>,
+        name: Option<String>,
+    ) -> Result<Placed, DiagramError> {
         let block = block.into();
         let (mw, _) = block.measure(&self.theme)?;
         let w = mw.max(width.unwrap_or(0.0));
@@ -331,7 +431,13 @@ impl Diagram {
 
     /// # Errors
     /// Returns an error when a block cannot be measured.
-    pub fn stack(&mut self, blocks: Vec<Block>, x: f64, y: f64, gap: Option<f64>) -> Result<Vec<Placed>, DiagramError> {
+    pub fn stack(
+        &mut self,
+        blocks: Vec<Block>,
+        x: f64,
+        y: f64,
+        gap: Option<f64>,
+    ) -> Result<Vec<Placed>, DiagramError> {
         let cols = self.columns(vec![blocks], (x, y), None, gap, "top", true)?;
         Ok(cols.into_iter().next().unwrap_or_default())
     }
@@ -362,25 +468,40 @@ impl Diagram {
             }
             measured.push(items);
         }
-        let widths: Vec<f64> = measured.iter().map(|col| col.iter().map(|(_, s)| s.0).fold(0.0, f64::max)).collect();
+        let widths: Vec<f64> = measured
+            .iter()
+            .map(|col| col.iter().map(|(_, s)| s.0).fold(0.0, f64::max))
+            .collect();
         let heights: Vec<f64> = measured
             .iter()
-            .map(|col| col.iter().map(|(_, s)| s.1).sum::<f64>() + mul(row_gap, count(col.len().saturating_sub(1))))
+            .map(|col| {
+                col.iter().map(|(_, s)| s.1).sum::<f64>()
+                    + mul(row_gap, count(col.len().saturating_sub(1)))
+            })
             .collect();
         let tallest = heights.iter().copied().fold(0.0, f64::max);
         let mut out = Vec::new();
         let mut cx = origin_x;
         for (index, col) in measured.into_iter().enumerate() {
-            let mut cy = origin_y + match valign {
-                "top" => 0.0,
-                "center" => (tallest - heights[index]) / 2.0,
-                "bottom" => tallest - heights[index],
-                other => return Err(DiagramError::new(format!("unknown valign {other}"))),
-            };
+            let mut cy = origin_y
+                + match valign {
+                    "top" => 0.0,
+                    "center" => (tallest - heights[index]) / 2.0,
+                    "bottom" => tallest - heights[index],
+                    other => return Err(DiagramError::new(format!("unknown valign {other}"))),
+                };
             let mut placed = Vec::new();
             for (block, (width, height)) in col {
-                let px = if same_width { cx } else { cx + (widths[index] - width) / 2.0 };
-                let column_width = if same_width { Some(widths[index]) } else { None };
+                let px = if same_width {
+                    cx
+                } else {
+                    cx + (widths[index] - width) / 2.0
+                };
+                let column_width = if same_width {
+                    Some(widths[index])
+                } else {
+                    None
+                };
                 placed.push(self.add_width(block, px, cy, column_width, None)?);
                 cy += height + row_gap;
             }
@@ -414,24 +535,37 @@ impl Diagram {
             mid_sizes.push(block.measure(&self.theme)?);
         }
         let mid_w = mid_sizes.iter().map(|s| s.0).fold(0.0, f64::max);
-        let mid_h = mid_sizes.iter().map(|s| s.1).sum::<f64>() + mul(self.theme.row_gap, count(mid_sizes.len().saturating_sub(1)));
+        let mid_h = mid_sizes.iter().map(|s| s.1).sum::<f64>()
+            + mul(self.theme.row_gap, count(mid_sizes.len().saturating_sub(1)));
         let n = blocks.len();
-        let angles: Vec<f64> = (0..n).map(|i| (start_angle + mul(360.0, count(i)) / count(n)).to_radians()).collect();
+        let angles: Vec<f64> = (0..n)
+            .map(|i| (start_angle + mul(360.0, count(i)) / count(n)).to_radians())
+            .collect();
         let mean_w = sizes.iter().map(|s| s.0).sum::<f64>() / count(n);
         let mean_h = sizes.iter().map(|s| s.1).sum::<f64>() / count(n);
         let stretch = 1.8_f64.min(1.0_f64.max(mean_w / mean_h));
         let rects = |r: f64| -> Vec<(f64, f64, f64, f64)> {
-            angles.iter().zip(&sizes).map(|(a, (w, h))| (mul(mul(r, stretch), a.cos()) - w / 2.0, mul(r, a.sin()) - h / 2.0, *w, *h)).collect()
+            angles
+                .iter()
+                .zip(&sizes)
+                .map(|(a, (w, h))| {
+                    (
+                        mul(mul(r, stretch), a.cos()) - w / 2.0,
+                        mul(r, a.sin()) - h / 2.0,
+                        *w,
+                        *h,
+                    )
+                })
+                .collect()
         };
         let mid_rect = (!center.is_empty()).then_some((-mid_w / 2.0, -mid_h / 2.0, mid_w, mid_h));
         let mut r = 40.0;
         let rs = loop {
             let rs = rects(r);
             let mut ok = (0..n).all(|i| (i + 1..n).all(|j| separation(rs[i], rs[j]) >= gap));
-            if ok
-                && let Some(mid) = mid_rect {
-                    ok = rs.iter().all(|box_| separation(*box_, mid) >= gap);
-                }
+            if ok && let Some(mid) = mid_rect {
+                ok = rs.iter().all(|box_| separation(*box_, mid) >= gap);
+            }
             if ok {
                 break rs;
             }
@@ -445,21 +579,39 @@ impl Diagram {
         let north = everything.iter().map(|b| b.1).fold(f64::INFINITY, f64::min);
         let mut placed = Vec::new();
         for (block, box_) in blocks.into_iter().zip(rs) {
-            placed.push(self.add_width(block, x + box_.0 - left, y + box_.1 - north, None, None)?);
+            placed.push(self.add_width(
+                block,
+                x + box_.0 - left,
+                y + box_.1 - north,
+                None,
+                None,
+            )?);
         }
         let mut middle_placed = Vec::new();
         if let Some(mid) = mid_rect {
             let mut cy = y + mid.1 - north;
             for (block, (w, h)) in center.into_iter().zip(mid_sizes) {
                 let _ = w;
-                middle_placed.push(self.add_width(block, x + mid.0 - left, cy, Some(mid_w), None)?);
+                middle_placed.push(self.add_width(
+                    block,
+                    x + mid.0 - left,
+                    cy,
+                    Some(mid_w),
+                    None,
+                )?);
                 cy += h + self.theme.row_gap;
             }
         }
         Ok((placed, middle_placed))
     }
 
-    pub fn group(&mut self, label: impl Into<String>, members: &[Placed], sub: Option<String>, pad: Option<f64>) -> GroupId {
+    pub fn group(
+        &mut self,
+        label: impl Into<String>,
+        members: &[Placed],
+        sub: Option<String>,
+        pad: Option<f64>,
+    ) -> GroupId {
         let id = self.groups.len();
         self.groups.push(Group {
             label: label.into(),
@@ -480,29 +632,63 @@ impl Diagram {
 
     /// # Errors
     /// Returns an error when the border, pad, style, tone, or membership is not valid.
-    pub fn enclosure(&mut self, label: impl Into<String>, members: &[Enclosed], opts: EnclosureOpts<'_>) -> Result<GroupId, DiagramError> {
-        let EnclosureOpts { sub, pad, border, fill, stroke, style, tone } = opts;
+    pub fn enclosure(
+        &mut self,
+        label: impl Into<String>,
+        members: &[Enclosed],
+        opts: EnclosureOpts<'_>,
+    ) -> Result<GroupId, DiagramError> {
+        let EnclosureOpts {
+            sub,
+            pad,
+            border,
+            fill,
+            stroke,
+            style,
+            tone,
+        } = opts;
         let label = label.into();
         if !matches!(border, "solid" | "dashed" | "dotted") {
-            return Err(DiagramError::new(format!("enclosure {}: border must be solid, dashed or dotted", py_repr(&label))));
+            return Err(DiagramError::new(format!(
+                "enclosure {}: border must be solid, dashed or dotted",
+                py_repr(&label)
+            )));
         }
         if !pad.is_finite() || pad < 0.0 {
-            return Err(DiagramError::new(format!("enclosure {}: pad must be a non-negative finite number", py_repr(&label))));
+            return Err(DiagramError::new(format!(
+                "enclosure {}: pad must be a non-negative finite number",
+                py_repr(&label)
+            )));
         }
         if !matches!(style, "outline" | "panel") {
-            return Err(DiagramError::new(format!("enclosure {}: style must be outline or panel", py_repr(&label))));
+            return Err(DiagramError::new(format!(
+                "enclosure {}: style must be outline or panel",
+                py_repr(&label)
+            )));
         }
         self.theme.tone(tone)?;
         let mut nodes = Vec::new();
         let mut children = Vec::new();
         for member in members {
             let found = match member {
-                Enclosed::Placed(p) if self.nodes.get(p.id).is_some_and(|n| n.placed.name == p.name) => vec![p.id],
+                Enclosed::Placed(p)
+                    if self
+                        .nodes
+                        .get(p.id)
+                        .is_some_and(|n| n.placed.name == p.name) =>
+                {
+                    vec![p.id]
+                }
                 Enclosed::Group(GroupId(id)) if self.groups.get(*id).is_some() => {
                     children.push(*id);
                     self.groups[*id].members.clone()
                 }
-                _ => return Err(DiagramError::new(format!("enclosure {}: members must belong to this diagram", py_repr(&label)))),
+                _ => {
+                    return Err(DiagramError::new(format!(
+                        "enclosure {}: members must belong to this diagram",
+                        py_repr(&label)
+                    )));
+                }
             };
             for node in found {
                 if !nodes.contains(&node) {
@@ -511,7 +697,10 @@ impl Diagram {
             }
         }
         if nodes.is_empty() {
-            return Err(DiagramError::new(format!("enclosure {}: needs at least one resource", py_repr(&label))));
+            return Err(DiagramError::new(format!(
+                "enclosure {}: needs at least one resource",
+                py_repr(&label)
+            )));
         }
         let id = self.groups.len();
         self.groups.push(Group {
@@ -536,15 +725,32 @@ impl Diagram {
     pub fn link(&mut self, a: &Placed, b: &Placed, spec: LinkSpec) -> Result<(), DiagramError> {
         for side in [&spec.start, &spec.end] {
             if side != "auto" && side_vector(side).is_none() {
-                return Err(DiagramError::new(format!("unknown side {}; use left, right, top, bottom or auto", py_repr(side))));
+                return Err(DiagramError::new(format!(
+                    "unknown side {}; use left, right, top, bottom or auto",
+                    py_repr(side)
+                )));
             }
         }
         if !self.theme.link_labels.contains_key(&spec.kind) {
-            let names = self.theme.link_labels.keys().cloned().collect::<Vec<_>>().join(", ");
-            return Err(DiagramError::new(format!("unknown line kind {}; use one of {names}", py_repr(&spec.kind))));
+            let names = self
+                .theme
+                .link_labels
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(DiagramError::new(format!(
+                "unknown line kind {}; use one of {names}",
+                py_repr(&spec.kind)
+            )));
         }
-        if !matches!(spec.dash.as_deref(), None | Some("solid" | "dashed" | "dotted")) {
-            return Err(DiagramError::new("link dash must be solid, dashed, dotted or None"));
+        if !matches!(
+            spec.dash.as_deref(),
+            None | Some("solid" | "dashed" | "dotted")
+        ) {
+            return Err(DiagramError::new(
+                "link dash must be solid, dashed, dotted or None",
+            ));
         }
         if spec.via_x.is_some() && spec.via_y.is_some() {
             return Err(DiagramError::new("give via_x or via_y, not both"));
@@ -576,20 +782,46 @@ impl Diagram {
 
     /// # Errors
     /// Returns an error when a state is unknown or a name matches nothing.
-    pub fn set_statuses(&mut self, statuses: &IndexMap<String, String>) -> Result<(), DiagramError> {
-        let bad: BTreeSet<_> = statuses.values().filter(|s| !self.theme.statuses.contains_key(s.as_str())).cloned().collect();
+    pub fn set_statuses(
+        &mut self,
+        statuses: &IndexMap<String, String>,
+    ) -> Result<(), DiagramError> {
+        let bad: BTreeSet<_> = statuses
+            .values()
+            .filter(|s| !self.theme.statuses.contains_key(s.as_str()))
+            .cloned()
+            .collect();
         if !bad.is_empty() {
-            let bad = bad.into_iter().map(|s| py_repr(&s)).collect::<Vec<_>>().join(", ");
-            let names = self.theme.statuses.keys().cloned().collect::<Vec<_>>().join(", ");
-            return Err(DiagramError::new(format!("unknown state(s) {bad}; this theme has: {names}")));
+            let bad = bad
+                .into_iter()
+                .map(|s| py_repr(&s))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let names = self
+                .theme
+                .statuses
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(DiagramError::new(format!(
+                "unknown state(s) {bad}; this theme has: {names}"
+            )));
         }
         let mut found = BTreeSet::new();
         for node in &mut self.nodes {
             apply_statuses(&mut node.block, statuses, &mut found);
         }
-        let missing: Vec<_> = statuses.keys().filter(|n| !found.contains(n.as_str())).map(|n| py_repr(n)).collect();
+        let missing: Vec<_> = statuses
+            .keys()
+            .filter(|n| !found.contains(n.as_str()))
+            .map(|n| py_repr(n))
+            .collect();
         if !missing.is_empty() {
-            return Err(DiagramError::new(format!("no panel or tile is named {}", missing.join(", "))));
+            return Err(DiagramError::new(format!(
+                "no panel or tile is named {}",
+                missing.join(", ")
+            )));
         }
         Ok(())
     }
@@ -604,19 +836,35 @@ impl Diagram {
     /// # Errors
     /// Returns a diagram error when the picture cannot be drawn, an I/O error when a file cannot be written,
     /// and a layout error when `strict` is set and the checks found problems.
-    pub fn save(&mut self, path: &str, png: bool, scale: f64, strict: bool) -> Result<Report, SaveError> {
+    pub fn save(
+        &mut self,
+        path: &str,
+        png: bool,
+        scale: f64,
+        strict: bool,
+    ) -> Result<Report, SaveError> {
         let base = strip_picture_suffix(path);
         let svg_path = format!("{base}.svg");
         if let Some(parent) = std::path::Path::new(&svg_path).parent()
-            && !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent).map_err(|err| SaveError::Io(format!("{svg_path}: {err}")))?;
-            }
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent)
+                .map_err(|err| SaveError::Io(format!("{svg_path}: {err}")))?;
+        }
         let mut report = self.render()?;
-        std::fs::write(&svg_path, report.svg.as_bytes()).map_err(|err| SaveError::Io(format!("{svg_path}: {err}")))?;
+        std::fs::write(&svg_path, report.svg.as_bytes())
+            .map_err(|err| SaveError::Io(format!("{svg_path}: {err}")))?;
         report.files.push(svg_path);
         if png {
             let png_path = format!("{base}.png");
-            if let Err(err) = crate::render::svg_to_png(std::path::Path::new(&report.files[0]), std::path::Path::new(&png_path), report.width, report.height, scale, None) {
+            if let Err(err) = crate::render::svg_to_png(
+                std::path::Path::new(&report.files[0]),
+                std::path::Path::new(&png_path),
+                report.width,
+                report.height,
+                scale,
+                None,
+            ) {
                 println!("PNG skipped: {err}");
             } else {
                 report.files.push(png_path);
@@ -631,7 +879,10 @@ impl Diagram {
             report.problems.len()
         );
         if !report.problems.is_empty() && strict {
-            return Err(SaveError::Layout(crate::error::LayoutError::new(report.problems.clone(), report.files.clone())));
+            return Err(SaveError::Layout(crate::error::LayoutError::new(
+                report.problems.clone(),
+                report.files.clone(),
+            )));
         }
         Ok(report)
     }
@@ -652,9 +903,10 @@ impl Diagram {
         if let Some(accent) = &accent {
             for node in &self.nodes {
                 if let Block::Panel(panel) = &node.block
-                    && self.theme.tone(&panel.tone)? == *accent {
-                        uses_accent = true;
-                    }
+                    && self.theme.tone(&panel.tone)? == *accent
+                {
+                    uses_accent = true;
+                }
             }
             for group in &self.groups {
                 if group.style == "panel" && self.theme.tone(&group.tone)? == *accent {
@@ -662,10 +914,24 @@ impl Diagram {
                 }
             }
         }
-        let has_steps = !self.steps.is_empty() || self.nodes.iter().any(|n| matches!(&n.block, Block::Panel(p) if p.step.is_some()));
-        if uses_accent && has_steps && self.theme.badge_fill.is_some() && self.theme.badge_fill.as_deref() != self.theme.tones.get("dark").map(String::as_str) {
+        let has_steps = !self.steps.is_empty()
+            || self
+                .nodes
+                .iter()
+                .any(|n| matches!(&n.block, Block::Panel(p) if p.step.is_some()));
+        if uses_accent
+            && has_steps
+            && self.theme.badge_fill.is_some()
+            && self.theme.badge_fill.as_deref() != self.theme.tones.get("dark").map(String::as_str)
+        {
             let mut theme = self.theme.clone();
-            theme.badge_fill = Some(self.theme.tones.get("dark").cloned().unwrap_or_else(|| "#2B3036".to_owned()));
+            theme.badge_fill = Some(
+                self.theme
+                    .tones
+                    .get("dark")
+                    .cloned()
+                    .unwrap_or_else(|| "#2B3036".to_owned()),
+            );
             theme.badge_text = Some(self.theme.header_text_on_dark.clone());
             return Ok(theme);
         }
@@ -674,22 +940,49 @@ impl Diagram {
 
     fn render_inner(&mut self) -> Result<Report, DiagramError> {
         if self.nodes.is_empty() {
-            return Err(DiagramError::new("the diagram has no blocks; add some with add(), right_of(), below() or columns()"));
+            return Err(DiagramError::new(
+                "the diagram has no blocks; add some with add(), right_of(), below() or columns()",
+            ));
         }
         self.measure_groups()?;
         self.route();
         let mut problems = self.check();
-        let mut boxes: Vec<(f64, f64, f64, f64)> = self.nodes.iter().map(|n| n.placed.rect()).chain(self.groups.iter().map(|g| g.rect)).collect();
+        let mut boxes: Vec<(f64, f64, f64, f64)> = self
+            .nodes
+            .iter()
+            .map(|n| n.placed.rect())
+            .chain(self.groups.iter().map(|g| g.rect))
+            .collect();
         for (i, line) in self.links.iter().enumerate() {
             if line.label.is_some() {
                 boxes.push(self.label_box(i, None));
             }
         }
-        let pts: Vec<Point> = self.links.iter().flat_map(|l| l.samples.iter().copied()).collect();
-        let left = boxes.iter().map(|b| b.0).chain(pts.iter().map(|p| p.0)).fold(f64::INFINITY, f64::min);
-        let north = boxes.iter().map(|b| b.1).chain(pts.iter().map(|p| p.1)).fold(f64::INFINITY, f64::min);
-        let right = boxes.iter().map(|b| b.0 + b.2).chain(pts.iter().map(|p| p.0)).fold(f64::NEG_INFINITY, f64::max);
-        let south = boxes.iter().map(|b| b.1 + b.3).chain(pts.iter().map(|p| p.1)).fold(f64::NEG_INFINITY, f64::max);
+        let pts: Vec<Point> = self
+            .links
+            .iter()
+            .flat_map(|l| l.samples.iter().copied())
+            .collect();
+        let left = boxes
+            .iter()
+            .map(|b| b.0)
+            .chain(pts.iter().map(|p| p.0))
+            .fold(f64::INFINITY, f64::min);
+        let north = boxes
+            .iter()
+            .map(|b| b.1)
+            .chain(pts.iter().map(|p| p.1))
+            .fold(f64::INFINITY, f64::min);
+        let right = boxes
+            .iter()
+            .map(|b| b.0 + b.2)
+            .chain(pts.iter().map(|p| p.0))
+            .fold(f64::NEG_INFINITY, f64::max);
+        let south = boxes
+            .iter()
+            .map(|b| b.1 + b.3)
+            .chain(pts.iter().map(|p| p.1))
+            .fold(f64::NEG_INFINITY, f64::max);
         let margin = self.theme.margin;
         let head = self.header_plan(right - left);
         let width = head.width;
@@ -713,8 +1006,22 @@ impl Diagram {
             let d = self.links[i].d.clone();
             let tip = self.links[i].tip;
             let direction = self.links[i].direction;
-            canvas.path(&d, "none", Some(&self.theme.line), if dotted { 1.6 } else { 1.3 }, dash.as_deref(), None);
-            canvas.path(&arrowhead(tip, direction), &self.theme.line, None, 1.0, None, None);
+            canvas.path(
+                &d,
+                "none",
+                Some(&self.theme.line),
+                if dotted { 1.6 } else { 1.3 },
+                dash.as_deref(),
+                None,
+            );
+            canvas.path(
+                &arrowhead(tip, direction),
+                &self.theme.line,
+                None,
+                1.0,
+                None,
+                None,
+            );
         }
         for g in 0..self.groups.len() {
             self.draw_group_title(&mut canvas, g)?;
@@ -722,27 +1029,64 @@ impl Diagram {
         for i in 0..self.nodes.len() {
             let placed = self.nodes[i].placed.clone();
             let mut sink = |msg: &str| problems.push(msg.to_owned());
-            self.nodes[i].block.draw(&mut canvas, (placed.x, placed.y, placed.w, placed.h), &self.theme.clone(), &mut sink)?;
+            self.nodes[i].block.draw(
+                &mut canvas,
+                (placed.x, placed.y, placed.w, placed.h),
+                &self.theme.clone(),
+                &mut sink,
+            )?;
         }
         for i in 0..self.links.len() {
             if self.links[i].label.is_some() {
                 let (x, y, w, h) = self.label_box(i, None);
                 let label = self.links[i].label.clone().unwrap_or_default();
-                canvas.rect(x, y, w, h, Paint::new(&self.theme.paper, Some(&self.theme.line), 0.8, h / 2.0, None, None));
-                canvas.text_centered(&label, x + w / 2.0, y + h / 2.0, self.theme.small, "medium", &self.theme.ink);
+                canvas.rect(
+                    x,
+                    y,
+                    w,
+                    h,
+                    Paint::new(
+                        &self.theme.paper,
+                        Some(&self.theme.line),
+                        0.8,
+                        h / 2.0,
+                        None,
+                        None,
+                    ),
+                );
+                canvas.text_centered(
+                    &label,
+                    x + w / 2.0,
+                    y + h / 2.0,
+                    self.theme.small,
+                    "medium",
+                    &self.theme.ink,
+                );
             }
         }
         canvas.close_group();
         if let Some(min_text) = canvas.min_text
-            && min_text < self.theme.min_text {
-                problems.push(format!(
-                    "smallest text is {} px; the theme's minimum is {} px",
-                    py_g(min_text),
-                    py_g(self.theme.min_text)
-                ));
-            }
-        let svg = canvas.svg(Some(&self.title), Some(&self.theme.paper), Some(&self.describe()));
-        Ok(Report { svg, width: canvas.width, height: canvas.height, min_text: canvas.min_text, problems, files: Vec::new() })
+            && min_text < self.theme.min_text
+        {
+            problems.push(format!(
+                "smallest text is {} px; the theme's minimum is {} px",
+                py_g(min_text),
+                py_g(self.theme.min_text)
+            ));
+        }
+        let svg = canvas.svg(
+            Some(&self.title),
+            Some(&self.theme.paper),
+            Some(&self.describe()),
+        );
+        Ok(Report {
+            svg,
+            width: canvas.width,
+            height: canvas.height,
+            min_text: canvas.min_text,
+            problems,
+            files: Vec::new(),
+        })
     }
 
     fn measure_groups(&mut self) -> Result<(), DiagramError> {
@@ -755,24 +1099,47 @@ impl Diagram {
             let enclosure = self.groups[i].enclosure;
             let members = self.groups[i].members.clone();
             let children = self.groups[i].children.clone();
-            let mut bounds: Vec<(f64, f64, f64, f64)> = members.iter().map(|id| self.nodes[*id].placed.rect()).collect();
+            let mut bounds: Vec<(f64, f64, f64, f64)> = members
+                .iter()
+                .map(|id| self.nodes[*id].placed.rect())
+                .collect();
             for child in &children {
                 bounds.push(self.groups[*child].rect);
             }
             let x0 = bounds.iter().map(|b| b.0).fold(f64::INFINITY, f64::min) - pad;
             let head_h = if style == "panel" {
-                self.theme.lid + if sub.is_some() { self.theme.header_h_sub } else { self.theme.header_h }
+                self.theme.lid
+                    + if sub.is_some() {
+                        self.theme.header_h_sub
+                    } else {
+                        self.theme.header_h
+                    }
             } else {
                 mul(self.theme.line_h, if sub.is_some() { 2.0 } else { 1.0 }) + 6.0
             };
             let y0 = bounds.iter().map(|b| b.1).fold(f64::INFINITY, f64::min) - pad - head_h;
-            let mut x1 = bounds.iter().map(|b| b.0 + b.2).fold(f64::NEG_INFINITY, f64::max) + pad;
-            let y1 = bounds.iter().map(|b| b.1 + b.3).fold(f64::NEG_INFINITY, f64::max) + pad;
+            let mut x1 = bounds
+                .iter()
+                .map(|b| b.0 + b.2)
+                .fold(f64::NEG_INFINITY, f64::max)
+                + pad;
+            let y1 = bounds
+                .iter()
+                .map(|b| b.1 + b.3)
+                .fold(f64::NEG_INFINITY, f64::max)
+                + pad;
             if style == "panel" {
-                let (title_w, _) = Panel::new(label).sub_opt(sub).tone(tone).measure(&self.theme)?;
+                let (title_w, _) = Panel::new(label)
+                    .sub_opt(sub)
+                    .tone(tone)
+                    .measure(&self.theme)?;
                 x1 = x1.max(x0 + title_w);
             } else if enclosure {
-                let title_w = text_width(&label, 12.5, "semibold").max(text_width(sub.as_deref().unwrap_or(""), self.theme.small, "regular"));
+                let title_w = text_width(&label, 12.5, "semibold").max(text_width(
+                    sub.as_deref().unwrap_or(""),
+                    self.theme.small,
+                    "regular",
+                ));
                 x1 = x1.max(x0 + title_w + 28.0);
             }
             self.groups[i].rect = (x0, y0, x1 - x0, y1 - y0);
@@ -787,20 +1154,41 @@ impl Diagram {
                 let b = self.links[i].b;
                 let want_start = self.links[i].want_start.clone();
                 let want_end = self.links[i].want_end.clone();
-                self.links[i].start = if want_start == "auto" { facing(&self.nodes[a].placed, &self.nodes[b].placed) } else { want_start };
-                self.links[i].end = if want_end == "auto" { facing(&self.nodes[b].placed, &self.nodes[a].placed) } else { want_end };
+                self.links[i].start = if want_start == "auto" {
+                    facing(&self.nodes[a].placed, &self.nodes[b].placed)
+                } else {
+                    want_start
+                };
+                self.links[i].end = if want_end == "auto" {
+                    facing(&self.nodes[b].placed, &self.nodes[a].placed)
+                } else {
+                    want_end
+                };
             }
         }
         let mut ends: IndexMap<(usize, String), Vec<(usize, usize)>> = IndexMap::new();
         for (i, line) in self.links.iter().enumerate() {
-            ends.entry((line.a, line.start.clone())).or_default().push((i, 0));
-            ends.entry((line.b, line.end.clone())).or_default().push((i, 1));
+            ends.entry((line.a, line.start.clone()))
+                .or_default()
+                .push((i, 0));
+            ends.entry((line.b, line.end.clone()))
+                .or_default()
+                .push((i, 1));
         }
         for ((owner, side), mut items) in ends {
             items.sort_by(|a, b| self.heading(*a, &side).total_cmp(&self.heading(*b, &side)));
-            let (lo, hi) = self.nodes[owner].block.ports(&side, self.nodes[owner].placed.w, self.nodes[owner].placed.h, &self.theme);
+            let (lo, hi) = self.nodes[owner].block.ports(
+                &side,
+                self.nodes[owner].placed.w,
+                self.nodes[owner].placed.h,
+                &self.theme,
+            );
             let n = items.len();
-            let step = if n > 1 { ((hi - lo) / count(n)).min(14.0) } else { 0.0 };
+            let step = if n > 1 {
+                ((hi - lo) / count(n)).min(14.0)
+            } else {
+                0.0
+            };
             let span = lo + hi;
             let mid = span / 2.0;
             for (i, (line, end)) in items.into_iter().enumerate() {
@@ -841,13 +1229,22 @@ impl Diagram {
         self.links[index].tip = tip;
         self.links[index].direction = (-d3.0, -d3.1);
         if via_x.is_none() && via_y.is_none() {
-            let along = if matches!(start.as_str(), "left" | "right") { (p3.0 - p0.0).abs() } else { (p3.1 - p0.1).abs() };
+            let along = if matches!(start.as_str(), "left" | "right") {
+                (p3.0 - p0.0).abs()
+            } else {
+                (p3.1 - p0.1).abs()
+            };
             let k = 28.0_f64.max(along * 0.5);
             let c1 = outside(&self.nodes[a].placed, p0, &start, k);
             let c2 = outside(&self.nodes[b].placed, p3, &end, k);
             self.links[index].d = format!("M{}C{} {} {}", pt(p0), pt(c1), pt(c2), pt(p3));
-            self.links[index].samples = (0..=80).map(|i| bezier(p0, c1, c2, p3, f64::from(i) / 80.0)).collect();
-            self.links[index].label_spots = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74].into_iter().map(|s| bezier(p0, c1, c2, p3, s)).collect();
+            self.links[index].samples = (0..=80)
+                .map(|i| bezier(p0, c1, c2, p3, f64::from(i) / 80.0))
+                .collect();
+            self.links[index].label_spots = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74]
+                .into_iter()
+                .map(|s| bezier(p0, c1, c2, p3, s))
+                .collect();
             self.links[index].label_at = self.links[index].label_spots[0];
             return;
         }
@@ -883,12 +1280,16 @@ impl Diagram {
 
     fn anchor_at(&self, id: usize, side: &str, offset: f64) -> Point {
         let node = &self.nodes[id];
-        let (x, y) = node.block.anchor(side, offset, node.placed.w, node.placed.h, &self.theme);
+        let (x, y) = node
+            .block
+            .anchor(side, offset, node.placed.w, node.placed.h, &self.theme);
         (node.placed.x + x, node.placed.y + y)
     }
 
     fn place_labels(&mut self) {
-        let titles: Vec<_> = (0..self.groups.len()).map(|i| self.group_title_box(i)).collect();
+        let titles: Vec<_> = (0..self.groups.len())
+            .map(|i| self.group_title_box(i))
+            .collect();
         let placed: Vec<_> = self.nodes.iter().map(|n| n.placed.rect()).collect();
         let samples: Vec<Vec<Point>> = self.links.iter().map(|l| l.samples.clone()).collect();
         let mut taken = Vec::new();
@@ -899,7 +1300,14 @@ impl Diagram {
             let spots = self.links[i].label_spots.clone();
             let mut chosen = spots[0];
             for spot in &spots {
-                if label_clear(self.label_box(i, Some(*spot)), &placed, &titles, &taken, &samples, i) {
+                if label_clear(
+                    self.label_box(i, Some(*spot)),
+                    &placed,
+                    &titles,
+                    &taken,
+                    &samples,
+                    i,
+                ) {
                     chosen = *spot;
                     break;
                 }
@@ -911,7 +1319,11 @@ impl Diagram {
 
     fn label_box(&self, index: usize, at: Option<Point>) -> (f64, f64, f64, f64) {
         let (x, y) = at.unwrap_or(self.links[index].label_at);
-        let w = text_width(self.links[index].label.as_deref().unwrap_or(""), self.theme.small, "medium") + 14.0;
+        let w = text_width(
+            self.links[index].label.as_deref().unwrap_or(""),
+            self.theme.small,
+            "medium",
+        ) + 14.0;
         (x - w / 2.0, y - 9.0, w, 18.0)
     }
 
@@ -919,14 +1331,27 @@ impl Diagram {
         let group = &self.groups[index];
         let (x, y, w, _) = group.rect;
         if group.style == "panel" {
-            let h = self.theme.lid + if group.sub.is_some() { self.theme.header_h_sub } else { self.theme.header_h };
+            let h = self.theme.lid
+                + if group.sub.is_some() {
+                    self.theme.header_h_sub
+                } else {
+                    self.theme.header_h
+                };
             return (x, y, w, h);
         }
         let mut tw = text_width(&group.label, 12.5, "semibold");
         if let Some(sub) = &group.sub {
             tw = tw.max(text_width(sub, self.theme.small, "regular"));
         }
-        (x + 10.0, y + 7.0, tw + 8.0, mul(self.theme.line_h, if group.sub.is_some() { 2.0 } else { 1.0 }) + 8.0)
+        (
+            x + 10.0,
+            y + 7.0,
+            tw + 8.0,
+            mul(
+                self.theme.line_h,
+                if group.sub.is_some() { 2.0 } else { 1.0 },
+            ) + 8.0,
+        )
     }
 
     fn check(&self) -> Vec<String> {
@@ -937,7 +1362,10 @@ impl Diagram {
                 let b = &self.nodes[j].placed;
                 let gap = separation(a.rect(), b.rect());
                 if gap < 0.0 {
-                    problems.push(format!("'{}' and '{}' overlap; move one (right_of() and below() keep a gap)", a.name, b.name));
+                    problems.push(format!(
+                        "'{}' and '{}' overlap; move one (right_of() and below() keep a gap)",
+                        a.name, b.name
+                    ));
                 } else if gap < self.theme.min_gap {
                     problems.push(format!(
                         "'{}' and '{}' are only {} px apart (minimum {})",
@@ -951,7 +1379,9 @@ impl Diagram {
         }
         for g in &self.groups {
             for node in &self.nodes {
-                if !g.members.contains(&node.placed.id) && separation(g.rect, node.placed.rect()) < 0.0 {
+                if !g.members.contains(&node.placed.id)
+                    && separation(g.rect, node.placed.rect()) < 0.0
+                {
                     problems.push(format!(
                         "group '{}' overlaps '{}', which is not in it; add it to the group or move it",
                         g.label, node.placed.name
@@ -965,12 +1395,18 @@ impl Diagram {
                     && !contains(self.groups[i].rect, self.groups[h].rect)
                     && !contains(self.groups[h].rect, self.groups[i].rect)
                 {
-                    problems.push(format!("groups '{}' and '{}' overlap", self.groups[i].label, self.groups[h].label));
+                    problems.push(format!(
+                        "groups '{}' and '{}' overlap",
+                        self.groups[i].label, self.groups[h].label
+                    ));
                 }
             }
         }
         for line in &self.links {
-            let name = format!("line '{}' -> '{}'", self.nodes[line.a].placed.name, self.nodes[line.b].placed.name);
+            let name = format!(
+                "line '{}' -> '{}'",
+                self.nodes[line.a].placed.name, self.nodes[line.b].placed.name
+            );
             if line.via_x.is_none() && line.via_y.is_none() {
                 let d0 = side_vector(&line.start).unwrap_or((0.0, 0.0));
                 let d3 = side_vector(&line.end).unwrap_or((0.0, 0.0));
@@ -995,7 +1431,9 @@ impl Diagram {
                         continue;
                     }
                     let (x, y, w, h) = node.placed.rect();
-                    if line.samples.iter().any(|s| x + 2.0 < s.0 && s.0 < x + w - 2.0 && y + 2.0 < s.1 && s.1 < y + h - 2.0) {
+                    if line.samples.iter().any(|s| {
+                        x + 2.0 < s.0 && s.0 < x + w - 2.0 && y + 2.0 < s.1 && s.1 < y + h - 2.0
+                    }) {
                         problems.push(format!("{name} crosses '{}'; route it with via_x/via_y, move a block, or pass cross_ok=True", node.placed.name));
                     }
                 }
@@ -1004,7 +1442,11 @@ impl Diagram {
                 let box_ = self.label_box_of(line);
                 for node in &self.nodes {
                     if separation(box_, node.placed.rect()) < 0.0 {
-                        problems.push(format!("the label '{}' on {name} sits on '{}'", line.label.as_deref().unwrap_or(""), node.placed.name));
+                        problems.push(format!(
+                            "the label '{}' on {name} sits on '{}'",
+                            line.label.as_deref().unwrap_or(""),
+                            node.placed.name
+                        ));
                     }
                 }
                 for (gi, g) in self.groups.iter().enumerate() {
@@ -1023,7 +1465,11 @@ impl Diagram {
 
     fn label_box_of(&self, line: &Link) -> (f64, f64, f64, f64) {
         let (x, y) = line.label_at;
-        let w = text_width(line.label.as_deref().unwrap_or(""), self.theme.small, "medium") + 14.0;
+        let w = text_width(
+            line.label.as_deref().unwrap_or(""),
+            self.theme.small,
+            "medium",
+        ) + 14.0;
         (x - w / 2.0, y - 9.0, w, 18.0)
     }
 
@@ -1050,13 +1496,26 @@ impl Diagram {
             blocks::panel_frame(
                 canvas,
                 (x, y, w, h),
-                blocks::PanelFace { theme: &self.theme, tone: &tone, fill, stroke, width: 1.0, dash },
+                blocks::PanelFace {
+                    theme: &self.theme,
+                    tone: &tone,
+                    fill,
+                    stroke,
+                    width: 1.0,
+                    dash,
+                },
             );
         } else {
             let fill = group.fill.as_deref().unwrap_or(&self.theme.group_fill);
             let stroke = group.stroke.as_deref().unwrap_or(&self.theme.group_stroke);
             let dash = (group.border != "solid").then_some(group.border.as_str());
-            canvas.rect(x, y, w, h, Paint::new(fill, Some(stroke), 1.1, self.theme.radius + 4.0, dash, None));
+            canvas.rect(
+                x,
+                y,
+                w,
+                h,
+                Paint::new(fill, Some(stroke), 1.1, self.theme.radius + 4.0, dash, None),
+            );
         }
         Ok(())
     }
@@ -1072,7 +1531,11 @@ impl Diagram {
             let tone = self.theme.tone(&g_tone)?;
             let (title_color, sub_color) = self.theme.header_colors(&tone)?;
             let y = y + self.theme.lid;
-            let hh = if g_sub.is_some() { self.theme.header_h_sub } else { self.theme.header_h };
+            let hh = if g_sub.is_some() {
+                self.theme.header_h_sub
+            } else {
+                self.theme.header_h
+            };
             canvas.rect(x, y, w, hh, Paint::new(&tone, None, 1.0, 0.0, None, None));
             canvas.text_centered(
                 &g_label,
@@ -1083,7 +1546,12 @@ impl Diagram {
                 &title_color,
             );
             if let Some(sub) = &g_sub {
-                canvas.text(sub, x + self.theme.pad, y + 36.0 + cap_height(self.theme.panel_sub, "regular") / 2.0, Letter::new(self.theme.panel_sub, "regular", &sub_color, "start"));
+                canvas.text(
+                    sub,
+                    x + self.theme.pad,
+                    y + 36.0 + cap_height(self.theme.panel_sub, "regular") / 2.0,
+                    Letter::new(self.theme.panel_sub, "regular", &sub_color, "start"),
+                );
             }
             return Ok(());
         }
@@ -1093,10 +1561,26 @@ impl Diagram {
         } else {
             g_fill.unwrap_or_else(|| self.theme.group_fill.clone())
         };
-        canvas.rect(bx, by, bw, bh, Paint::new(&backing, None, 1.0, 3.0, None, None));
-        canvas.text(&g_label, x + 14.0, y + 12.0 + cap_height(12.5, "semibold"), Letter::new(12.5, "semibold", &self.theme.ink, "start"));
+        canvas.rect(
+            bx,
+            by,
+            bw,
+            bh,
+            Paint::new(&backing, None, 1.0, 3.0, None, None),
+        );
+        canvas.text(
+            &g_label,
+            x + 14.0,
+            y + 12.0 + cap_height(12.5, "semibold"),
+            Letter::new(12.5, "semibold", &self.theme.ink, "start"),
+        );
         if let Some(sub) = &g_sub {
-            canvas.text(sub, x + 14.0, y + 12.0 + self.theme.line_h + cap_height(self.theme.small, "regular"), Letter::new(self.theme.small, "regular", &self.theme.muted, "start"));
+            canvas.text(
+                sub,
+                x + 14.0,
+                y + 12.0 + self.theme.line_h + cap_height(self.theme.small, "regular"),
+                Letter::new(self.theme.small, "regular", &self.theme.muted, "start"),
+            );
         }
         Ok(())
     }
@@ -1104,13 +1588,33 @@ impl Diagram {
     fn header_plan(&self, content_w: f64) -> HeaderPlan {
         let t = &self.theme;
         let m = t.margin;
-        let tag_w = self.tag.as_ref().map_or(0.0, |tag| text_width(tag, 13.0, "bold") + 24.0);
-        let title_w = tag_w + if tag_w == 0.0 { 0.0 } else { 12.0 } + text_width(&self.title, t.title, "bold");
-        let sub_w = self.subtitle.as_ref().map_or(0.0, |s| text_width(s, t.subtitle, "regular"));
+        let tag_w = self
+            .tag
+            .as_ref()
+            .map_or(0.0, |tag| text_width(tag, 13.0, "bold") + 24.0);
+        let title_w = tag_w
+            + if tag_w == 0.0 { 0.0 } else { 12.0 }
+            + text_width(&self.title, t.title, "bold");
+        let sub_w = self
+            .subtitle
+            .as_ref()
+            .map_or(0.0, |s| text_width(s, t.subtitle, "regular"));
         let (note_w, note_h) = self.note.as_ref().map_or((0.0, 0.0), |n| n.measure(t));
-        let min_w = mul(2.0, m) + title_w.max(sub_w) + if self.note.is_some() { 48.0 + note_w } else { 0.0 };
+        let min_w = mul(2.0, m)
+            + title_w.max(sub_w)
+            + if self.note.is_some() {
+                48.0 + note_w
+            } else {
+                0.0
+            };
         let width = (content_w + mul(2.0, m)).max(min_w).max(640.0);
-        let room = width - mul(2.0, m) - if self.note.is_some() { note_w + 40.0 } else { 0.0 };
+        let room = width
+            - mul(2.0, m)
+            - if self.note.is_some() {
+                note_w + 40.0
+            } else {
+                0.0
+            };
         let mut rows = Vec::new();
         if self.legend {
             let mut row = Vec::new();
@@ -1130,8 +1634,20 @@ impl Diagram {
             }
         }
         let steps = !self.steps.is_empty() && self.legend;
-        let h = 34.0 + if self.subtitle.is_some() { 24.0 } else { 0.0 } + if rows.is_empty() && !steps { 0.0 } else { 14.0 } + mul(24.0, count(rows.len())) + if steps { 24.0 } else { 0.0 };
-        HeaderPlan { width, height: h.max(note_h), rows, steps, tag_w, note_w, centre: content_w + mul(2.0, m) < width }
+        let h = 34.0
+            + if self.subtitle.is_some() { 24.0 } else { 0.0 }
+            + if rows.is_empty() && !steps { 0.0 } else { 14.0 }
+            + mul(24.0, count(rows.len()))
+            + if steps { 24.0 } else { 0.0 };
+        HeaderPlan {
+            width,
+            height: h.max(note_h),
+            rows,
+            steps,
+            tag_w,
+            note_w,
+            centre: content_w + mul(2.0, m) < width,
+        }
     }
 
     fn legend_items(&self) -> Vec<LegendItem> {
@@ -1145,7 +1661,11 @@ impl Diagram {
         let mut items = Vec::new();
         for key in self.theme.statuses.keys() {
             if used.contains(key) {
-                items.push(LegendItem { kind: "status".to_owned(), key: key.clone(), label: self.theme.statuses[key].label.clone() });
+                items.push(LegendItem {
+                    kind: "status".to_owned(),
+                    key: key.clone(),
+                    label: self.theme.statuses[key].label.clone(),
+                });
             }
         }
         for (kind, label) in &self.theme.link_labels {
@@ -1159,18 +1679,36 @@ impl Diagram {
                 }
             }
             for dash in &styles {
-                let default = if kind == "planned" { Some("dotted".to_owned()) } else { None };
+                let default = if kind == "planned" {
+                    Some("dotted".to_owned())
+                } else {
+                    None
+                };
                 let style = dash.clone().unwrap_or_else(|| "solid".to_owned());
-                let item_kind = if dash == &default { "line".to_owned() } else { format!("line-{style}") };
-                let text = if styles.len() == 1 { label.clone() } else { format!("{label} ({style})") };
-                items.push(LegendItem { kind: item_kind, key: kind.clone(), label: text });
+                let item_kind = if dash == &default {
+                    "line".to_owned()
+                } else {
+                    format!("line-{style}")
+                };
+                let text = if styles.len() == 1 {
+                    label.clone()
+                } else {
+                    format!("{label} ({style})")
+                };
+                items.push(LegendItem {
+                    kind: item_kind,
+                    key: kind.clone(),
+                    label: text,
+                });
             }
         }
         items
     }
 
     fn item_w(&self, item: &LegendItem) -> f64 {
-        (if item.kind == "status" { 30.0 } else { 34.0 }) + text_width(&item.label, self.theme.legend, "regular") + 22.0
+        (if item.kind == "status" { 30.0 } else { 34.0 })
+            + text_width(&item.label, self.theme.legend, "regular")
+            + 22.0
     }
 
     fn draw_header(&self, canvas: &mut Canvas, plan: &HeaderPlan) -> Result<(), DiagramError> {
@@ -1180,14 +1718,30 @@ impl Diagram {
         let cy = m + 15.0;
         if let Some(tag) = &self.tag {
             let w = plan.tag_w;
-            canvas.rect(x, cy - 14.0, w, 28.0, Paint::new(&t.paper, Some(&t.tag_color), 1.4, 14.0, None, None));
+            canvas.rect(
+                x,
+                cy - 14.0,
+                w,
+                28.0,
+                Paint::new(&t.paper, Some(&t.tag_color), 1.4, 14.0, None, None),
+            );
             canvas.text_centered(tag, x + w / 2.0, cy, 13.0, "bold", &t.tag_color);
             x += w + 12.0;
         }
-        canvas.text(&self.title, x, cy + cap_height(t.title, "bold") / 2.0, Letter::new(t.title, "bold", &t.ink, "start"));
+        canvas.text(
+            &self.title,
+            x,
+            cy + cap_height(t.title, "bold") / 2.0,
+            Letter::new(t.title, "bold", &t.ink, "start"),
+        );
         let mut y = m + 34.0;
         if let Some(subtitle) = &self.subtitle {
-            canvas.text(subtitle, m, y + 10.0 + cap_height(t.subtitle, "regular") / 2.0, Letter::new(t.subtitle, "regular", &t.muted, "start"));
+            canvas.text(
+                subtitle,
+                m,
+                y + 10.0 + cap_height(t.subtitle, "regular") / 2.0,
+                Letter::new(t.subtitle, "regular", &t.muted, "start"),
+            );
             y += 24.0;
         }
         if !plan.rows.is_empty() || plan.steps {
@@ -1199,21 +1753,56 @@ impl Diagram {
             for item in row {
                 if item.kind == "status" {
                     let st = &t.statuses[&item.key];
-                    canvas.rect(lx, ly - 7.0, 22.0, 14.0, Paint::new(&st.fill, Some(&st.stroke), 1.2, 3.0, st.dash.as_deref(), None));
+                    canvas.rect(
+                        lx,
+                        ly - 7.0,
+                        22.0,
+                        14.0,
+                        Paint::new(
+                            &st.fill,
+                            Some(&st.stroke),
+                            1.2,
+                            3.0,
+                            st.dash.as_deref(),
+                            None,
+                        ),
+                    );
                     lx += 30.0;
                 } else {
                     let dotted = item.key == "planned";
                     let dash = if item.kind == "line" {
-                        if dotted { Some("dotted".to_owned()) } else { None }
+                        if dotted {
+                            Some("dotted".to_owned())
+                        } else {
+                            None
+                        }
                     } else {
                         Some(item.kind["line-".len()..].to_owned())
                     };
                     let dash = dash.filter(|d| d != "solid");
-                    canvas.line((lx, ly), (lx + 22.0, ly), &t.line, if dotted { 1.6 } else { 1.3 }, dash.as_deref());
-                    canvas.path(&arrowhead((lx + 28.0, ly), (1.0, 0.0)), &t.line, None, 1.0, None, None);
+                    canvas.line(
+                        (lx, ly),
+                        (lx + 22.0, ly),
+                        &t.line,
+                        if dotted { 1.6 } else { 1.3 },
+                        dash.as_deref(),
+                    );
+                    canvas.path(
+                        &arrowhead((lx + 28.0, ly), (1.0, 0.0)),
+                        &t.line,
+                        None,
+                        1.0,
+                        None,
+                        None,
+                    );
                     lx += 34.0;
                 }
-                lx += canvas.text(&item.label, lx, ly + cap_height(t.legend, "regular") / 2.0, Letter::new(t.legend, "regular", &t.ink, "start")) + 22.0;
+                lx += canvas.text(
+                    &item.label,
+                    lx,
+                    ly + cap_height(t.legend, "regular") / 2.0,
+                    Letter::new(t.legend, "regular", &t.ink, "start"),
+                ) + 22.0;
             }
             y += 24.0;
         }
@@ -1228,14 +1817,38 @@ impl Diagram {
             ) + 12.0;
             let tone = t.tone("default")?;
             for (n, label) in &self.steps {
-                canvas.circle(lx + 9.0, ly, 9.0, t.badge_fill.as_deref().unwrap_or(&tone), None, 1.0);
-                canvas.text_centered(&n.to_string(), lx + 9.0, ly, 10.5, "bold", t.badge_text.as_deref().unwrap_or(&t.paper));
-                lx += 24.0 + canvas.text(label, lx + 24.0, ly + cap_height(t.legend, "regular") / 2.0, Letter::new(t.legend, "regular", &t.ink, "start")) + 18.0;
+                canvas.circle(
+                    lx + 9.0,
+                    ly,
+                    9.0,
+                    t.badge_fill.as_deref().unwrap_or(&tone),
+                    None,
+                    1.0,
+                );
+                canvas.text_centered(
+                    &n.to_string(),
+                    lx + 9.0,
+                    ly,
+                    10.5,
+                    "bold",
+                    t.badge_text.as_deref().unwrap_or(&t.paper),
+                );
+                lx +=
+                    24.0 + canvas.text(
+                        label,
+                        lx + 24.0,
+                        ly + cap_height(t.legend, "regular") / 2.0,
+                        Letter::new(t.legend, "regular", &t.ink, "start"),
+                    ) + 18.0;
             }
         }
         if let Some(note) = &self.note {
             let (_, nh) = note.measure(t);
-            note.draw(canvas, (plan.width - m - plan.note_w, m, plan.note_w, nh), t);
+            note.draw(
+                canvas,
+                (plan.width - m - plan.note_w, m, plan.note_w, nh),
+                t,
+            );
         }
         Ok(())
     }
@@ -1263,7 +1876,11 @@ fn facing(a: &Placed, b: &Placed) -> String {
     let gx = (b.x - a.right()).max(a.x - b.right());
     let gy = (b.y - a.bottom()).max(a.y - b.bottom());
     if gx >= gy {
-        if b.cx() >= a.cx() { "right".to_owned() } else { "left".to_owned() }
+        if b.cx() >= a.cx() {
+            "right".to_owned()
+        } else {
+            "left".to_owned()
+        }
     } else if b.cy() >= a.cy() {
         "bottom".to_owned()
     } else {
@@ -1287,12 +1904,18 @@ fn outside(p: &Placed, point: Point, side: &str, minimum: f64) -> Point {
         "top" => p.y,
         _ => p.bottom(),
     };
-    let inset = if dx == 0.0 { (edge - point.1) * dy } else { (edge - point.0) * dx };
+    let inset = if dx == 0.0 {
+        (edge - point.1) * dy
+    } else {
+        (edge - point.0) * dx
+    };
     let distance = minimum.max(inset + STUB);
     (point.0 + mul(dx, distance), point.1 + mul(dy, distance))
 }
 
-fn pt(p: Point) -> String { format!("{} {}", fmt(p.0), fmt(p.1)) }
+fn pt(p: Point) -> String {
+    format!("{} {}", fmt(p.0), fmt(p.1))
+}
 
 fn bezier_axis(u: f64, s: f64, p0: f64, p1: f64, p2: f64, p3: f64) -> f64 {
     let cubic = mul(u.powi(3), p0);
@@ -1306,18 +1929,24 @@ fn bezier_axis(u: f64, s: f64, p0: f64, p1: f64, p2: f64, p3: f64) -> f64 {
 
 fn bezier(p0: Point, p1: Point, p2: Point, p3: Point, s: f64) -> Point {
     let u = 1.0 - s;
-    (bezier_axis(u, s, p0.0, p1.0, p2.0, p3.0), bezier_axis(u, s, p0.1, p1.1, p2.1, p3.1))
+    (
+        bezier_axis(u, s, p0.0, p1.0, p2.0, p3.0),
+        bezier_axis(u, s, p0.1, p1.1, p2.1, p3.1),
+    )
 }
 
-fn dist(a: Point, b: Point) -> f64 { (a.0 - b.0).hypot(a.1 - b.1) }
+fn dist(a: Point, b: Point) -> f64 {
+    (a.0 - b.0).hypot(a.1 - b.1)
+}
 
 fn simplify(pts: &[Point]) -> Vec<Point> {
     let mut out = Vec::new();
     for pt in pts {
         if let Some(last) = out.last()
-            && dist(*last, *pt) < 0.01 {
-                continue;
-            }
+            && dist(*last, *pt) < 0.01
+        {
+            continue;
+        }
         if out.len() >= 2 {
             let a = out[out.len() - 2];
             let b = out[out.len() - 1];
@@ -1339,14 +1968,28 @@ fn rounded(pts: &[Point]) -> String {
         let prev = pts[index - 1];
         let corner = pts[index];
         let next = pts[index + 1];
-        let radius = CORNER.min(dist(prev, corner) / 2.0).min(dist(corner, next) / 2.0);
-        let incoming = ((corner.0 - prev.0) / dist(prev, corner), (corner.1 - prev.1) / dist(prev, corner));
-        let outgoing = ((next.0 - corner.0) / dist(corner, next), (next.1 - corner.1) / dist(corner, next));
+        let radius = CORNER
+            .min(dist(prev, corner) / 2.0)
+            .min(dist(corner, next) / 2.0);
+        let incoming = (
+            (corner.0 - prev.0) / dist(prev, corner),
+            (corner.1 - prev.1) / dist(prev, corner),
+        );
+        let outgoing = (
+            (next.0 - corner.0) / dist(corner, next),
+            (next.1 - corner.1) / dist(corner, next),
+        );
         path.push(format!(
             "L{}Q{} {}",
-            pt((corner.0 - mul(incoming.0, radius), corner.1 - mul(incoming.1, radius))),
+            pt((
+                corner.0 - mul(incoming.0, radius),
+                corner.1 - mul(incoming.1, radius)
+            )),
             pt(corner),
-            pt((corner.0 + mul(outgoing.0, radius), corner.1 + mul(outgoing.1, radius)))
+            pt((
+                corner.0 + mul(outgoing.0, radius),
+                corner.1 + mul(outgoing.1, radius)
+            ))
         ));
     }
     path.push(format!("L{}", pt(*pts.last().unwrap_or(&pts[0]))));
@@ -1373,7 +2016,12 @@ fn arrowhead(tip: Point, direction: Point) -> String {
     let (dx, dy) = direction;
     let (bx, by) = (tip.0 - mul(dx, ARROW), tip.1 - mul(dy, ARROW));
     let (px, py) = (-dy * 3.6, dx * 3.6);
-    format!("M{}L{}L{}Z", pt(tip), pt((bx + px, by + py)), pt((bx - px, by - py)))
+    format!(
+        "M{}L{}L{}Z",
+        pt(tip),
+        pt((bx + px, by + py)),
+        pt((bx - px, by - py))
+    )
 }
 
 fn separation(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> f64 {
@@ -1383,7 +2031,10 @@ fn separation(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> f64 {
 }
 
 fn contains(outer: (f64, f64, f64, f64), inner: (f64, f64, f64, f64)) -> bool {
-    outer.0 <= inner.0 && outer.1 <= inner.1 && outer.0 + outer.2 >= inner.0 + inner.2 && outer.1 + outer.3 >= inner.1 + inner.3
+    outer.0 <= inner.0
+        && outer.1 <= inner.1
+        && outer.0 + outer.2 >= inner.0 + inner.2
+        && outer.1 + outer.3 >= inner.1 + inner.3
 }
 
 fn label_clear(
@@ -1397,12 +2048,24 @@ fn label_clear(
     if placed.iter().any(|p| separation(box_, *p) < 0.0) {
         return false;
     }
-    if titles.iter().chain(taken.iter()).any(|b| separation(box_, *b) < 0.0) {
+    if titles
+        .iter()
+        .chain(taken.iter())
+        .any(|b| separation(box_, *b) < 0.0)
+    {
         return false;
     }
-    samples.iter().enumerate().filter(|(i, _)| *i != index).flat_map(|(_, s)| s).all(|s| {
-        !(box_.0 - 2.0 < s.0 && s.0 < box_.0 + box_.2 + 2.0 && box_.1 - 2.0 < s.1 && s.1 < box_.1 + box_.3 + 2.0)
-    })
+    samples
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != index)
+        .flat_map(|(_, s)| s)
+        .all(|s| {
+            !(box_.0 - 2.0 < s.0
+                && s.0 < box_.0 + box_.2 + 2.0
+                && box_.1 - 2.0 < s.1
+                && s.1 < box_.1 + box_.3 + 2.0)
+        })
 }
 
 #[cfg(test)]

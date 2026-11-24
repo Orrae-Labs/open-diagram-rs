@@ -13,7 +13,14 @@ const BROWSERS: &[&str] = &[
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
 ];
-const NAMES: &[&str] = &["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome", "microsoft-edge"];
+const NAMES: &[&str] = &[
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
+    "chrome",
+    "microsoft-edge",
+];
 
 #[must_use]
 pub fn find_chrome() -> Option<PathBuf> {
@@ -46,7 +53,9 @@ impl Scratch {
         let path = std::env::temp_dir().join(format!(
             "open-diagram-{}-{}",
             std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_nanos())
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |elapsed| elapsed.as_nanos())
         ));
         std::fs::create_dir_all(&path).ok()?;
         Some(Self { path })
@@ -68,7 +77,9 @@ pub enum PngError {
 impl std::fmt::Display for PngError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            Self::NoBrowser => "Chrome or Chromium not found (set the CHROME environment variable to its path)",
+            Self::NoBrowser => {
+                "Chrome or Chromium not found (set the CHROME environment variable to its path)"
+            }
             Self::Failed => "the browser failed to write a PNG",
         })
     }
@@ -80,7 +91,14 @@ impl std::error::Error for PngError {}
 /// Returns [`PngError::NoBrowser`] when no Chrome, Chromium, or Edge can be found.
 /// Returns [`PngError::Failed`] when the browser exits unsuccessfully or writes no PNG.
 /// A PNG that was already at `png_path` is left unchanged on failure.
-pub fn svg_to_png(svg_path: &Path, png_path: &Path, width: f64, height: f64, scale: f64, chrome: Option<&Path>) -> Result<(), PngError> {
+pub fn svg_to_png(
+    svg_path: &Path,
+    png_path: &Path,
+    width: f64,
+    height: f64,
+    scale: f64,
+    chrome: Option<&Path>,
+) -> Result<(), PngError> {
     let Some(chrome) = chrome.map(Path::to_path_buf).or_else(find_chrome) else {
         return Err(PngError::NoBrowser);
     };

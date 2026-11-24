@@ -18,17 +18,42 @@ impl Status {
         fill: impl Into<String>,
         dash: Option<String>,
     ) -> Self {
-        Self { label: label.into(), stroke: stroke.into(), fill: fill.into(), dash }
+        Self {
+            label: label.into(),
+            stroke: stroke.into(),
+            fill: fill.into(),
+            dash,
+        }
     }
 }
 
 fn statuses() -> IndexMap<String, Status> {
     IndexMap::from([
-        ("live".to_owned(), Status::new("Live", "#27323F", "#FFFFFF", None)),
-        ("building".to_owned(), Status::new("Being built", "#B26B00", "#FFF5E5", Some("dashed".to_owned()))),
-        ("trial".to_owned(), Status::new("In trial", "#6B4FD8", "#F4F1FE", Some("dashed".to_owned()))),
-        ("planned".to_owned(), Status::new("Planned", "#5C636B", "#F1F2F4", Some("dotted".to_owned()))),
-        ("retiring".to_owned(), Status::new("Retiring", "#B42318", "#FEF0EE", None)),
+        (
+            "live".to_owned(),
+            Status::new("Live", "#27323F", "#FFFFFF", None),
+        ),
+        (
+            "building".to_owned(),
+            Status::new(
+                "Being built",
+                "#B26B00",
+                "#FFF5E5",
+                Some("dashed".to_owned()),
+            ),
+        ),
+        (
+            "trial".to_owned(),
+            Status::new("In trial", "#6B4FD8", "#F4F1FE", Some("dashed".to_owned())),
+        ),
+        (
+            "planned".to_owned(),
+            Status::new("Planned", "#5C636B", "#F1F2F4", Some("dotted".to_owned())),
+        ),
+        (
+            "retiring".to_owned(),
+            Status::new("Retiring", "#B42318", "#FEF0EE", None),
+        ),
     ])
 }
 
@@ -172,7 +197,10 @@ impl Theme {
         };
         self.statuses.get(key).map(Some).ok_or_else(|| {
             let names = self.statuses.keys().cloned().collect::<Vec<_>>().join(", ");
-            DiagramError::new(format!("unknown status {key}; this theme has: {names}", key = crate::num::py_repr(key)))
+            DiagramError::new(format!(
+                "unknown status {key}; this theme has: {names}",
+                key = crate::num::py_repr(key)
+            ))
         })
     }
 
@@ -184,7 +212,10 @@ impl Theme {
         }
         self.tones.get(key).cloned().ok_or_else(|| {
             let names = self.tones.keys().cloned().collect::<Vec<_>>().join(", ");
-            DiagramError::new(format!("unknown tone {key}; this theme has: {names}", key = crate::num::py_repr(key)))
+            DiagramError::new(format!(
+                "unknown tone {key}; this theme has: {names}",
+                key = crate::num::py_repr(key)
+            ))
         })
     }
 
@@ -192,11 +223,15 @@ impl Theme {
     /// Returns an error when a header color is not a 6-digit hex value.
     pub fn header_colors(&self, background: &str) -> Result<(String, String), DiagramError> {
         let dark = (luminance(background)? + 0.05) / (luminance(&self.header_text)? + 0.05);
-        let light = (luminance(&self.header_text_on_dark)? + 0.05) / (luminance(background)? + 0.05);
+        let light =
+            (luminance(&self.header_text_on_dark)? + 0.05) / (luminance(background)? + 0.05);
         if dark >= light {
             Ok((self.header_text.clone(), self.header_sub.clone()))
         } else {
-            Ok((self.header_text_on_dark.clone(), self.header_sub_on_dark.clone()))
+            Ok((
+                self.header_text_on_dark.clone(),
+                self.header_sub_on_dark.clone(),
+            ))
         }
     }
 }
@@ -206,16 +241,25 @@ pub fn shade(hex_color: &str, amount: f64) -> String {
     let Some((r, g, b)) = rgb(hex_color) else {
         return hex_color.to_owned();
     };
-    let (target, a) = if amount >= 0.0 { (0.0, amount) } else { (255.0, -amount) };
+    let (target, a) = if amount >= 0.0 {
+        (0.0, amount)
+    } else {
+        (255.0, -amount)
+    };
     let mix = |v: u8| py_channel(mul(f64::from(v), 1.0 - a) + mul(target, a));
     format!("#{:02X}{:02X}{:02X}", mix(r), mix(g), mix(b))
 }
 
 fn luminance(hex_color: &str) -> Result<f64, DiagramError> {
-    let (r, g, b) = rgb(hex_color).ok_or_else(|| DiagramError::new(format!("bad color {hex_color}")))?;
+    let (r, g, b) =
+        rgb(hex_color).ok_or_else(|| DiagramError::new(format!("bad color {hex_color}")))?;
     let channel = |v: u8| {
         let v = f64::from(v) / 255.0;
-        if v <= 0.03928 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+        if v <= 0.03928 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
     };
     Ok(mul(0.2126, channel(r)) + mul(0.7152, channel(g)) + mul(0.0722, channel(b)))
 }

@@ -2,8 +2,8 @@ mod blocks;
 pub mod catalog;
 mod describe;
 mod diagram;
-pub mod examples;
 mod error;
+pub mod examples;
 mod font;
 mod mermaid;
 #[cfg(test)]
@@ -17,12 +17,14 @@ mod theme;
 pub use blocks::{Block, Card, Graph, Note, Panel, Resource, Row, Text, Tile, Tiles};
 pub use diagram::{Diagram, Enclosed, EnclosureOpts, GroupId, LineView, LinkSpec, Placed, Report};
 pub use error::{DiagramError, LayoutError, MermaidError, SaveError, SpecError};
-pub use mermaid::{from_mermaid, load_mermaid, parse};
-pub use render::{find_chrome, svg_to_png, PngError};
-pub use spec::{from_spec, from_spec_with, load_spec, load_spec_with, panel_from_spec, theme_from_spec};
 pub use font::{cap_height, lines_width, outline, text_width, wrap};
+pub use mermaid::{from_mermaid, load_mermaid, parse};
 pub use num::{fmt, py_g, py_round};
-pub use theme::{shade, Status, Theme};
+pub use render::{PngError, find_chrome, svg_to_png};
+pub use spec::{
+    from_spec, from_spec_with, load_spec, load_spec_with, panel_from_spec, theme_from_spec,
+};
+pub use theme::{Status, Theme, shade};
 
 #[cfg(test)]
 mod tests {
@@ -37,12 +39,19 @@ mod tests {
     /// Repository root when this checkout is the one that holds `docs/images`. A crate built outside that checkout returns `None`.
     fn oracle_root() -> Option<std::path::PathBuf> {
         let start = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let output = std::process::Command::new("git").arg("-C").arg(&start).args(["rev-parse", "--show-toplevel"]).output();
-        let toplevel = output.ok().filter(|out| out.status.success()).and_then(|out| {
-            let text = String::from_utf8(out.stdout).ok()?;
-            let path = std::path::PathBuf::from(text.trim());
-            path.join("docs/images").is_dir().then_some(path)
-        });
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&start)
+            .args(["rev-parse", "--show-toplevel"])
+            .output();
+        let toplevel = output
+            .ok()
+            .filter(|out| out.status.success())
+            .and_then(|out| {
+                let text = String::from_utf8(out.stdout).ok()?;
+                let path = std::path::PathBuf::from(text.trim());
+                path.join("docs/images").is_dir().then_some(path)
+            });
         assert!(
             toplevel.is_some() || !start.join("docs/images").is_dir(),
             "docs/images is in this checkout but git did not identify it as the oracle repository"
@@ -58,7 +67,11 @@ mod tests {
             .args(["cat-file", "blob", &object])
             .output()
             .unwrap_or_else(|err| panic!("{name}: {err}"));
-        assert!(output.status.success(), "{name}: git cat-file failed: {}", String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.status.success(),
+            "{name}: git cat-file failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         output.stdout
     }
 
@@ -73,7 +86,9 @@ mod tests {
         let pictures = super::examples::pictures();
         for (name, build) in &pictures {
             let mut diagram = build().unwrap_or_else(|err| panic!("{name}: {err}"));
-            let report = diagram.render().unwrap_or_else(|err| panic!("{name}: {err}"));
+            let report = diagram
+                .render()
+                .unwrap_or_else(|err| panic!("{name}: {err}"));
             assert!(report.problems.is_empty(), "{name}: {:?}", report.problems);
             let committed = committed_blob(&root, name);
             let got = report.svg.into_bytes();
@@ -97,7 +112,11 @@ mod tests {
                 ));
             }
         }
-        assert_eq!(pictures.len(), 17, "every committed picture has to be in this comparison");
+        assert_eq!(
+            pictures.len(),
+            17,
+            "every committed picture has to be in this comparison"
+        );
         assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
     }
 
@@ -110,7 +129,10 @@ mod tests {
         let left_svg = left.render().expect("lf svg").svg;
         let right_svg = right.render().expect("crlf svg").svg;
         assert_eq!(left_svg, right_svg);
-        assert!(!left_svg.contains('\r'), "svg newlines are LF on every host");
+        assert!(
+            !left_svg.contains('\r'),
+            "svg newlines are LF on every host"
+        );
     }
 
     #[test]

@@ -7,7 +7,9 @@ pub struct DiagramError {
 
 impl DiagramError {
     pub fn new(message: impl Into<String>) -> Self {
-        Self { message: message.into() }
+        Self {
+            message: message.into(),
+        }
     }
 
     #[must_use]
@@ -31,7 +33,9 @@ pub struct SpecError {
 
 impl SpecError {
     pub fn new(message: impl Into<String>) -> Self {
-        Self { message: message.into() }
+        Self {
+            message: message.into(),
+        }
     }
 
     #[must_use]
@@ -61,7 +65,9 @@ pub struct MermaidError {
 
 impl MermaidError {
     pub fn new(message: impl Into<String>) -> Self {
-        Self { message: message.into() }
+        Self {
+            message: message.into(),
+        }
     }
 
     #[must_use]

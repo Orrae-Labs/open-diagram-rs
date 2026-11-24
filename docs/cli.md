@@ -27,7 +27,7 @@ name: diagrams
 on: [push, pull_request]
 jobs:
   diagrams:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: Orrae-Labs/open-diagram-rs@main

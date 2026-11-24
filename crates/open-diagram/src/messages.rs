@@ -8,11 +8,17 @@ fn panel(title: &str, label: &str) -> Result<Panel, crate::DiagramError> {
 }
 
 fn nodes(pairs: &[(&str, &str)]) -> IndexMap<String, String> {
-    pairs.iter().map(|(key, label)| ((*key).to_owned(), (*label).to_owned())).collect()
+    pairs
+        .iter()
+        .map(|(key, label)| ((*key).to_owned(), (*label).to_owned()))
+        .collect()
 }
 
 fn spots(pairs: &[(&str, f64, f64)]) -> IndexMap<String, (f64, f64)> {
-    pairs.iter().map(|(key, x, y)| ((*key).to_owned(), (*x, *y))).collect()
+    pairs
+        .iter()
+        .map(|(key, x, y)| ((*key).to_owned(), (*x, *y)))
+        .collect()
 }
 
 fn problems_of(diagram: &mut Diagram) -> Result<String, crate::DiagramError> {
@@ -39,7 +45,14 @@ fn problem_sentences_describe_and_place_errors() {
             &mut log,
             &mut missing,
             &text,
-            &["'Alpha' and 'Beta' overlap", "only 5 px apart", "crosses 'Beta'", "needs ", " px wide", "smallest text"],
+            &[
+                "'Alpha' and 'Beta' overlap",
+                "only 5 px apart",
+                "crosses 'Beta'",
+                "needs ",
+                " px wide",
+                "smallest text",
+            ],
         ),
         Err(err) => missing.push(format!("layout checks: {err}")),
     }
@@ -63,7 +76,12 @@ fn problem_sentences_describe_and_place_errors() {
             &mut log,
             &mut missing,
             &text,
-            &["graph: the label ", "touches the node", "graph: the line ", "runs through"],
+            &[
+                "graph: the label ",
+                "touches the node",
+                "graph: the line ",
+                "runs through",
+            ],
         ),
         Err(err) => missing.push(format!("graph checks: {err}")),
     }
@@ -73,7 +91,13 @@ fn problem_sentences_describe_and_place_errors() {
             &mut log,
             &mut missing,
             &text,
-            &["->", "labeled \"new\"", "(being built)", "[step 1, planned]", "(connection to build)"],
+            &[
+                "->",
+                "labeled \"new\"",
+                "(being built)",
+                "[step 1, planned]",
+                "(connection to build)",
+            ],
         ),
         Err(err) => missing.push(format!("describe: {err}")),
     }
@@ -120,7 +144,12 @@ fn problem_sentences_describe_and_place_errors() {
         Err(err) => missing.push(format!("mermaid errors: {err}")),
     }
 
-    assert!(missing.is_empty(), "{}\n---\n{}", missing.join("\n"), log.join("\n---\n"));
+    assert!(
+        missing.is_empty(),
+        "{}\n---\n{}",
+        missing.join("\n"),
+        log.join("\n---\n")
+    );
 }
 
 fn overlap_gap_cross_and_width() -> Result<String, crate::DiagramError> {
@@ -151,14 +180,19 @@ fn overlap_gap_cross_and_width() -> Result<String, crate::DiagramError> {
     allowed.link(&left, &right, LinkSpec::default().cross_ok(true))?;
     let clean = problems_of(&mut allowed)?;
     if !clean.is_empty() {
-        return Err(crate::DiagramError::new(format!("cross_ok still reported: {clean}")));
+        return Err(crate::DiagramError::new(format!(
+            "cross_ok still reported: {clean}"
+        )));
     }
 
     let mut narrow = Diagram::new("t");
     narrow.add_named(panel("Wide", "x")?, 0.0, 0.0, Some(10.0), None)?;
     out.push(problems_of(&mut narrow)?);
 
-    let theme = Theme { min_text: 30.0, ..Theme::default() };
+    let theme = Theme {
+        min_text: 30.0,
+        ..Theme::default()
+    };
     let mut tiny = Diagram::new("t").theme(theme);
     tiny.add(panel("Alpha", "x")?, 0.0, 0.0)?;
     out.push(problems_of(&mut tiny)?);
@@ -188,7 +222,9 @@ fn group_facing_and_title() -> Result<String, crate::DiagramError> {
     titled.link(
         &start,
         &end,
-        LinkSpec::default().via_y(78.0).label("a long label that reaches the group title"),
+        LinkSpec::default()
+            .via_y(78.0)
+            .label("a long label that reaches the group title"),
     )?;
     out.push(problems_of(&mut titled)?);
 
@@ -200,7 +236,11 @@ fn graph_messages() -> Result<String, crate::DiagramError> {
 
     let touching = Graph::new(
         nodes(&[("a", "A"), ("b", "B")]),
-        vec![("a".to_owned(), "b".to_owned(), Some("a very long label for a short line".to_owned()))],
+        vec![(
+            "a".to_owned(),
+            "b".to_owned(),
+            Some("a very long label for a short line".to_owned()),
+        )],
         spots(&[("a", 0.0, 0.0), ("b", 0.6, 0.0)]),
     )?;
     let mut diagram = Diagram::new("t");
@@ -223,13 +263,22 @@ fn describe_wording() -> Result<String, crate::DiagramError> {
     let mut diagram = Diagram::new("How a search request is answered");
     let search = diagram.add(
         Panel::new("Search").step(1).status("planned").section(
-            Tiles::new(vec![Tile::new("Caches results").status("building")], None, None)?.into(),
+            Tiles::new(
+                vec![Tile::new("Caches results").status("building")],
+                None,
+                None,
+            )?
+            .into(),
         ),
         0.0,
         0.0,
     )?;
     let index = diagram.right_of(&search, panel("Index", "rows")?, None, "top", None, None)?;
-    diagram.link(&search, &index, LinkSpec::default().kind("planned").label("new"))?;
+    diagram.link(
+        &search,
+        &index,
+        LinkSpec::default().kind("planned").label("new"),
+    )?;
     let once = diagram.describe();
     let twice = diagram.describe();
     if once != twice {
@@ -259,23 +308,35 @@ fn spec_errors() -> Result<String, crate::SpecError> {
         "links": [{"from": "a", "to": "c"}]
     });
     out.push(expect_spec(&missing)?);
-    out.push(expect_spec(&json!({"title": "t", "panels": [{"title": "A", "tiles": ["x"], "x": 0}]}))?);
-    out.push(expect_spec(&json!({"title": "t", "columns": [[{"title": "A", "x": 1}]]}))?);
-    out.push(expect_spec(&json!({"title": "t", "columns": [[{"title": "A"}]], "ring": [{"title": "B"}]}))?);
+    out.push(expect_spec(
+        &json!({"title": "t", "panels": [{"title": "A", "tiles": ["x"], "x": 0}]}),
+    )?);
+    out.push(expect_spec(
+        &json!({"title": "t", "columns": [[{"title": "A", "x": 1}]]}),
+    )?);
+    out.push(expect_spec(
+        &json!({"title": "t", "columns": [[{"title": "A"}]], "ring": [{"title": "B"}]}),
+    )?);
     out.push(expect_spec(&json!({"title": "t"}))?);
     Ok(out.join("\n"))
 }
 
 fn expect_spec(value: &Value) -> Result<String, crate::SpecError> {
     match from_spec(value) {
-        Ok(_) => Err(crate::SpecError::new(format!("expected a spec error for {value}"))),
+        Ok(_) => Err(crate::SpecError::new(format!(
+            "expected a spec error for {value}"
+        ))),
         Err(err) => Ok(err.to_string()),
     }
 }
 
 fn mermaid_errors() -> Result<String, crate::MermaidError> {
     let line_2 = match from_mermaid("flowchart LR\n  a[ok] --> ???", None, None) {
-        Ok(_) => return Err(crate::MermaidError::new("expected a mermaid error on line 2")),
+        Ok(_) => {
+            return Err(crate::MermaidError::new(
+                "expected a mermaid error on line 2",
+            ));
+        }
         Err(err) => err.to_string(),
     };
     let line_7 = match from_mermaid(
@@ -283,7 +344,11 @@ fn mermaid_errors() -> Result<String, crate::MermaidError> {
         None,
         None,
     ) {
-        Ok(_) => return Err(crate::MermaidError::new("expected a mermaid error on line 7")),
+        Ok(_) => {
+            return Err(crate::MermaidError::new(
+                "expected a mermaid error on line 7",
+            ));
+        }
         Err(err) => err.to_string(),
     };
     Ok(format!("{line_2}\n{line_7}"))

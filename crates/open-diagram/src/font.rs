@@ -19,10 +19,22 @@ pub struct Typeface {
 impl Typeface {
     pub fn load(weight: &str) -> Result<Self, String> {
         let (name, bytes) = match weight {
-            "regular" => ("Inter-Regular.ttf", &include_bytes!("../fonts/Inter-Regular.ttf")[..]),
-            "medium" => ("Inter-Medium.ttf", &include_bytes!("../fonts/Inter-Medium.ttf")[..]),
-            "semibold" => ("Inter-SemiBold.ttf", &include_bytes!("../fonts/Inter-SemiBold.ttf")[..]),
-            "bold" => ("Inter-Bold.ttf", &include_bytes!("../fonts/Inter-Bold.ttf")[..]),
+            "regular" => (
+                "Inter-Regular.ttf",
+                &include_bytes!("../fonts/Inter-Regular.ttf")[..],
+            ),
+            "medium" => (
+                "Inter-Medium.ttf",
+                &include_bytes!("../fonts/Inter-Medium.ttf")[..],
+            ),
+            "semibold" => (
+                "Inter-SemiBold.ttf",
+                &include_bytes!("../fonts/Inter-SemiBold.ttf")[..],
+            ),
+            "bold" => (
+                "Inter-Bold.ttf",
+                &include_bytes!("../fonts/Inter-Bold.ttf")[..],
+            ),
             _ => {
                 return Err(format!(
                     "unknown font weight {weight:?}; use one of {}",
@@ -33,11 +45,17 @@ impl Typeface {
         let face = TtfFace::parse(bytes, 0).map_err(|err| format!("parsing {name}: {err}"))?;
         let upm = f64::from(face.units_per_em());
         let cap = f64::from(face.capital_height().unwrap_or_else(|| face.ascender()));
-        Ok(Self { bytes: bytes.to_vec(), upm, cap, kern: RefCell::new(HashMap::new()) })
+        Ok(Self {
+            bytes: bytes.to_vec(),
+            upm,
+            cap,
+            kern: RefCell::new(HashMap::new()),
+        })
     }
 
     fn ttf(&self) -> TtfFace<'_> {
-        TtfFace::parse(&self.bytes, 0).unwrap_or_else(|err| panic!("bundled Inter font failed to parse: {err}"))
+        TtfFace::parse(&self.bytes, 0)
+            .unwrap_or_else(|err| panic!("bundled Inter font failed to parse: {err}"))
     }
 
     pub fn cap_height(&self, size: f64) -> f64 {
@@ -70,7 +88,9 @@ impl Typeface {
 
     fn glyphs(face: &TtfFace<'_>, text: &str) -> Vec<GlyphId> {
         let fallback = face.glyph_index('\u{FFFD}').unwrap_or(GlyphId(0));
-        text.chars().map(|ch| face.glyph_index(ch).unwrap_or(fallback)).collect()
+        text.chars()
+            .map(|ch| face.glyph_index(ch).unwrap_or(fallback))
+            .collect()
     }
 
     fn positions(&self, face: &TtfFace<'_>, ids: &[GlyphId]) -> (Vec<i32>, i32) {
@@ -137,10 +157,14 @@ fn pair_value(gpos: Option<&LayoutTable<'_>>, left: GlyphId, right: GlyphId) -> 
                         return i32::from(value.x_advance);
                     }
                 }
-                ttf_parser::gpos::PairAdjustment::Format2 { classes, matrix, .. } => {
+                ttf_parser::gpos::PairAdjustment::Format2 {
+                    classes, matrix, ..
+                } => {
                     let c1 = classes.0.get(left);
                     let c2 = classes.1.get(right);
-                    return matrix.get((c1, c2)).map_or(0, |(value, _)| i32::from(value.x_advance));
+                    return matrix
+                        .get((c1, c2))
+                        .map_or(0, |(value, _)| i32::from(value.x_advance));
                 }
             }
         }
@@ -169,7 +193,10 @@ impl Pen {
         self.last_was_line = false;
     }
 
-    #[allow(clippy::float_cmp, reason = "SVG path H and V commands use exact coordinate equality before the numbers are formatted")]
+    #[allow(
+        clippy::float_cmp,
+        reason = "SVG path H and V commands use exact coordinate equality before the numbers are formatted"
+    )]
     fn line_to(&mut self, x: f64, y: f64) {
         let Some((lx, ly)) = self.last else {
             self.commands.push(format!("L{} {}", fmt(x), fmt(y)));
@@ -198,7 +225,8 @@ impl Pen {
     }
 
     fn quad_to(&mut self, x1: f64, y1: f64, x: f64, y: f64) {
-        self.commands.push(format!("Q{} {} {} {}", fmt(x1), fmt(y1), fmt(x), fmt(y)));
+        self.commands
+            .push(format!("Q{} {} {} {}", fmt(x1), fmt(y1), fmt(x), fmt(y)));
         self.last_cmd = Some('Q');
         self.last = Some((x, y));
         self.last_was_line = false;
@@ -222,9 +250,10 @@ impl Pen {
     fn close(&mut self) {
         if self.last_was_line
             && let (Some(start), Some(end)) = (self.start, self.last)
-                && start == end {
-                    self.commands.pop();
-                }
+            && start == end
+        {
+            self.commands.pop();
+        }
         self.commands.push("Z".to_owned());
         self.last_cmd = Some('Z');
         self.last = None;
@@ -244,7 +273,10 @@ impl Mapped<'_> {
     fn map(&self, x: f32, y: f32) -> (f64, f64) {
         let x = f64::from(x);
         let y = f64::from(y);
-        (mul(self.scale, x) + self.tx, mul(-self.scale, y) + self.baseline)
+        (
+            mul(self.scale, x) + self.tx,
+            mul(-self.scale, y) + self.baseline,
+        )
     }
 }
 
@@ -292,7 +324,10 @@ pub fn cap_height(size: f64, weight: &str) -> f64 {
 }
 
 pub fn lines_width(lines: &[String], size: f64, weight: &str) -> f64 {
-    lines.iter().map(|line| text_width(line, size, weight)).fold(0.0, f64::max)
+    lines
+        .iter()
+        .map(|line| text_width(line, size, weight))
+        .fold(0.0, f64::max)
 }
 
 #[must_use]
@@ -310,7 +345,11 @@ pub fn wrap(text: &str, size: f64, max_width: Option<f64>, weight: &str) -> Vec<
         };
         let mut line = String::new();
         for word in para.split(' ') {
-            let trial = if line.is_empty() { word.to_owned() } else { format!("{line} {word}") };
+            let trial = if line.is_empty() {
+                word.to_owned()
+            } else {
+                format!("{line} {word}")
+            };
             if !line.is_empty() && text_width(&trial, size, weight) > max_width {
                 out.push(std::mem::take(&mut line));
                 word.clone_into(&mut line);

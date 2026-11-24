@@ -21,7 +21,8 @@ fn main() {
 
 fn walk(root: &Path, dir: &Path, files: &mut Vec<(String, PathBuf)>) {
     println!("cargo:rerun-if-changed={}", dir.display());
-    let entries = std::fs::read_dir(dir).unwrap_or_else(|err| panic!("reading {}: {err}", dir.display()));
+    let entries =
+        std::fs::read_dir(dir).unwrap_or_else(|err| panic!("reading {}: {err}", dir.display()));
     for entry in entries {
         let entry = entry.unwrap_or_else(|err| panic!("{err}"));
         let path = entry.path();
@@ -29,7 +30,11 @@ fn walk(root: &Path, dir: &Path, files: &mut Vec<(String, PathBuf)>) {
             walk(root, &path, files);
             continue;
         }
-        let rel = path.strip_prefix(root).unwrap_or(&path).to_string_lossy().replace('\\', "/");
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
         files.push((rel, path));
     }
 }
