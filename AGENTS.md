@@ -27,7 +27,7 @@ Rust library and `open-diagram` command. Every label is measured from the bundle
 | `crates/open-diagram-cli` | `draw`, `check`, `describe`, `png`, `new`, hidden `--soundtrack` |
 | `docs/images/` | Committed SVG and PNG oracles |
 | `examples/` | JSON and Mermaid files a person can pass to the command. Copies used by the library live in the crate and the tests require the bytes to match |
-| `.github/workflows/ci.yml` | Test, clippy, rustfmt, and `cargo audit` on pinned runners |
+| `.github/workflows/ci.yml` | Test, clippy, rustfmt, and `cargo audit` on pinned runners. Push to `main`, or a pull request after `borrow-checker` approves it |
 | `.github/workflows/crate-provenance.yml` | Reusable build. The package job has no OIDC permission. A second job attests the uploaded `.crate` |
 | `.github/workflows/publish.yml` | Trusted publishing after the attestation verifies |
 
@@ -51,7 +51,7 @@ A comment records a constraint the code cannot show. A test that passes by weake
 
 ## Upstream
 
-`upstream` is lukendeasy/open-diagram. Port a commit when it changes a diagram, an error sentence, or the command, and name that commit in the Rust change. `rust-port` keeps the 0.6.0 SVG bytes. This branch, `improvements`, is where a fix may differ from that snapshot. The pictures in `examples::pictures()` still have to match `docs/images`.
+`upstream` is lukendeasy/open-diagram. Port a commit when it changes a diagram, an error sentence, or the command, and name that commit in the Rust change. `rust-port` keeps the 0.6.0 SVG bytes. Fixes that differ from that snapshot are on `main`. The pictures in `examples::pictures()` still have to match `docs/images`.
 
 ## Publishing
 

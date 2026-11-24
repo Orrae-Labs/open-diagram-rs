@@ -2,13 +2,20 @@ name: diagrams
 
 on:
   push:
-  pull_request:
+    branches: [main]
+  pull_request_review:
+    types: [submitted]
 
 permissions:
   contents: read
 
+concurrency:
+  group: diagrams-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   diagrams:
+    if: github.event_name == 'push' || (github.event.review.state == 'approved' && github.event.pull_request.base.ref == 'main' && github.event.review.user.login == 'borrow-checker')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
