@@ -119,7 +119,7 @@ Contributions are released under the MIT license, like the rest of the project.
 ## Contributors
 
 - **Creator:** [Luke Deasy](https://github.com/lukendeasy)
-- **Founding contributor:** [Scott Williams](https://github.com/scotttenex), who added the cloud icon lists and the cloud templates ([#1](https://github.com/lukendeasy/open-diagram/pull/1), [#2](https://github.com/lukendeasy/open-diagram/pull/2))
+- **Founding contributor:** [Scott Williams](https://github.com/scotttenex)
 
 Their backgrounds are on the [About page](https://open-diagram.dev/about.html).
 
