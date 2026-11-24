@@ -44,7 +44,8 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
 | `src/open_diagram/fonts/` | Inter 4.1, four weights, under the SIL OFL (`OFL.txt`). Do not replace or subset without updating the license note |
 | `examples/` | One script per example; each defines `build() -> Diagram` and saves to `docs/images/<name>` |
 | `templates/` | JSON cloud templates, their icons in `assets/` with credits, and the template standard in `README.md`. Ships in the package as `open_diagram.templates` (see `pyproject.toml`) |
-| `docs/images/` | Committed SVG and PNG output of the examples; the README embeds them |
+| `docs/` | The reference, one file per topic: `python.md`, `json.md`, `mermaid.md`, `cli.md`, `agents.md`, plus `comparison.md`. open-diagram.dev/docs.html is drawn from these files, `templates/README.md` and the fix table in `skills/open-diagram/SKILL.md` |
+| `docs/images/` | Committed SVG and PNG output of the examples; the README and `docs/` embed them |
 | `skills/open-diagram/SKILL.md` | Agent Skill for *using* the library; its fix table keys on problem-message wording |
 | `action.yml` | The GitHub Action (composite): installs the package from the action's own checkout, then runs `open-diagram check` or `draw` |
 | `.github/workflows/diagrams.yml` | Runs that action on this repo's examples (`uses: ./`) |
@@ -85,9 +86,9 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
 - **Python 3.9+.** Modules use `from __future__ import annotations`. No `match`, no runtime `X | Y` unions, no
   3.10+ standard-library APIs.
 - **Dependencies.** Runtime depends on `fonttools` only; Pillow is optional (the `png` extra). Do not add others.
-- **Public API** is `__all__` in `src/open_diagram/__init__.py`. Changing it means updating the README tables.
+- **Public API** is `__all__` in `src/open_diagram/__init__.py`. Changing it means updating the tables in `docs/python.md`.
 - **JSON and Mermaid errors name the place** (`columns[1][0].tiles[2]`, `line 7`). Keep that when adding keys or syntax,
-  and keep the README key table in step with `spec.py`.
+  and keep the key table in `docs/json.md` in step with `spec.py`.
 - **`describe()` wording is relied on** by tests and by agents comparing a picture with a request: `->` for lines,
   `labeled "..."`, state words in parentheses, `[step N, state]` after panel titles.
 - **MCP server rules.** Never print to stdout (it carries the protocol; wrap work in `redirect_stdout(sys.stderr)`
@@ -101,8 +102,8 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
 ## Common changes
 
 **Add a block.** Subclass `Block` in `blocks.py`. Implement `measure`, `draw`, `statuses()` (what the key should
-list) and, if lines attach to it, `ports()`. Export it in `__init__.py`, add a row to the README "Building blocks"
-table, and add a test.
+list) and, if lines attach to it, `ports()`. Export it in `__init__.py`, add a row to the "Building blocks"
+table in `docs/python.md`, and add a test.
 
 **Add a layout check.** Add it to `Diagram._check()`. Write the message in plain words with the parts' labels and a
 fix. Add a test that triggers it, and a row to the SKILL.md fix table.
@@ -128,7 +129,7 @@ including nested containers. Keep section headings clear of connections in the t
 ## Releasing
 
 1. Set the same version in `pyproject.toml` and `src/open_diagram/__init__.py` (`__version__`), and update the
-   `lukendeasy/open-diagram@vX.Y.Z` line in the README's GitHub Action example.
+   `lukendeasy/open-diagram@vX.Y.Z` line in the GitHub Action example in `docs/cli.md`.
 2. Make sure tests pass and every picture is rebuilt.
 3. Publish a GitHub release tagged `vX.Y.Z`. `.github/workflows/publish.yml` builds the package and uploads it to
    PyPI through trusted publishing (no token). PyPI never accepts the same version twice; fix forward with a new
@@ -138,4 +139,4 @@ including nested containers. Keep section headings clear of connections in the t
 
 - `python3 -m unittest discover -s tests` passes.
 - Every example builds with `0 layout problem(s)` and the committed pictures match the code.
-- README, SKILL.md and this file still describe the code as it is.
+- README, `docs/`, SKILL.md and this file still describe the code as it is.

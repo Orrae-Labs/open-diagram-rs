@@ -1,8 +1,9 @@
 # Templates
 
-A template is a finished diagram to start from. You keep its shape and replace its words. Every template here is a
-JSON file, so it works the same way from the command line, from an AI agent over MCP, in Python, and in any other
-language that can write JSON.
+Start from a finished cloud diagram, keep its shape, and replace its words.
+
+Every template here is a JSON file, so it works the same way from the command line, from an AI agent over MCP, in
+Python, and in any other language that can write JSON.
 
 | Template | Purpose | Preview |
 | --- | --- | --- |
