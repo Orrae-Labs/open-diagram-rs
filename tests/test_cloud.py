@@ -76,7 +76,7 @@ class ResourceTests(unittest.TestCase):
                 self.assertEqual("stroke-dasharray" in svg, style in ("dashed", "dotted"))
 
     def test_lane_turn_does_not_cross_resource_labels(self):
-        d = load(str(ROOT / "templates/aws_etl.py"))
+        d = load(str(ROOT / "templates/aws_etl.json"))
         d.render()
         line = next(line for line in d.links if line.label == "after extraction")
         node = line.a
@@ -214,7 +214,7 @@ class EnclosureTests(unittest.TestCase):
 
 class TemplateTests(unittest.TestCase):
     def test_etl_sections_have_depth_and_links_avoid_their_headers(self):
-        d = load(str(ROOT / "templates/aws_etl.py"))
+        d = load(str(ROOT / "templates/aws_etl.json"))
         d.render()
         self.assertEqual(len(d.groups), 7)
         self.assertTrue(all(g.style == "panel" for g in d.groups))
@@ -226,7 +226,7 @@ class TemplateTests(unittest.TestCase):
                                  f"{line.a.name} -> {line.b.name} crosses {g.label}'s header")
 
     def test_templates_render_offline_deterministically_and_match_previews(self):
-        for path in sorted((ROOT / "templates").glob("*.py")):
+        for path in sorted((ROOT / "templates").glob("*.json")):
             with self.subTest(template=path.name), patch("socket.socket", side_effect=AssertionError("network used")):
                 d = load(str(path))
                 svg, report = d.render()
@@ -240,7 +240,7 @@ class TemplateTests(unittest.TestCase):
                 self.assertTrue(all(x.get("href").startswith("data:") for x in images))
 
     def test_all_etl_border_options_and_required_resource_connectivity(self):
-        d = load(str(ROOT / "templates/aws_etl.py"))
+        d = load(str(ROOT / "templates/aws_etl.json"))
         self.assertEqual({p.name for p in d.placed},
                          {"mwaa", "api", "saas", "database", "raw", "glue", "curated", "catalog", "athena", "dashboards"})
         edges = {(line.a.name, line.b.name) for line in d.links}
@@ -252,6 +252,140 @@ class TemplateTests(unittest.TestCase):
                 for group in d.groups:
                     group.border = border
                 self.assertEqual(d.render()[1].problems, [])
+
+
+class TemplateStandardTests(unittest.TestCase):
+    """The rules in templates/README.md, "The standard"."""
+
+    def test_every_template_file_is_in_the_table_and_every_row_has_a_file(self):
+        from open_diagram import catalog
+        files = sorted(p.name for p in (ROOT / "templates").iterdir() if p.suffix in (".json", ".mmd"))
+        rows = [name for name, _ in catalog.table(str(ROOT / "templates/README.md"))]
+        self.assertEqual(sorted(rows), files)
+        self.assertEqual([p.name for p in (ROOT / "templates").iterdir() if p.suffix == ".py"], [])
+        for name, purpose in catalog.table(str(ROOT / "templates/README.md")):
+            with self.subTest(template=name):
+                self.assertRegex(name, r"^[a-z0-9]+(_[a-z0-9]+)*\.(json|mmd)$")
+                self.assertTrue(purpose)
+
+    def test_each_template_fits_one_screen_names_its_services_and_has_a_png(self):
+        for path in sorted((ROOT / "templates").glob("*.json")):
+            with self.subTest(template=path.name):
+                d = load(str(path))
+                _, report = d.render()
+                self.assertLessEqual(report.width, 2000)
+                self.assertLessEqual(report.height, 1400)
+                for placed in d.placed:
+                    if isinstance(placed.block, Resource) and placed.block.icon:
+                        self.assertTrue(placed.block.sub, f"{placed.block.label} needs its service name in sub")
+                self.assertTrue((ROOT / "docs/images" / (path.stem + ".png")).exists())
+
+    def test_every_icon_folder_is_credited(self):
+        credits = (ROOT / "templates/assets/README.md").read_text()
+        for folder in sorted(p for p in (ROOT / "templates/assets").iterdir() if p.is_dir()):
+            with self.subTest(folder=folder.name):
+                self.assertIn(f"## {folder.name}\n", credits)
+
+    def test_templates_ship_in_the_source_checkout_and_package_layout(self):
+        from open_diagram import catalog
+        self.assertEqual(Path(catalog.template_dir()).resolve(), (ROOT / "templates").resolve())
+        self.assertIn("azure_web_app", catalog.names())
+        self.assertTrue(catalog.read("aws_etl").lstrip().startswith("{"))
+        with self.assertRaisesRegex(ValueError, "no template named 'nope'; templates: aws_etl"):
+            catalog.path("nope")
+
+
+class JsonResourceTests(unittest.TestCase):
+    SPEC = {
+        "title": "Resources from JSON",
+        "resources": [
+            {"id": "fn", "label": "Worker", "sub": "AWS Lambda", "icon": "aws/lambda", "x": 0, "y": 0},
+            {"id": "db", "label": "Records", "sub": "Amazon RDS", "icon": "aws/rds", "x": 300, "y": 0}],
+        "enclosures": [
+            {"id": "data", "label": "Data subnet", "members": ["db"], "border": "dotted"},
+            {"id": "net", "label": "Network", "members": ["fn", "data"], "border": "solid", "pad": 32}],
+        "links": [{"from": "fn", "to": "db", "label": "SQL", "dash": "dashed"}]}
+
+    def spec(self, **changes):
+        import copy
+        s = copy.deepcopy(self.SPEC)
+        s.update(changes)
+        return s
+
+    def test_resources_and_nested_enclosures_draw_cleanly(self):
+        d = from_spec(self.spec())
+        svg, report = d.render()
+        self.assertEqual(report.problems, [])
+        self.assertEqual([g.label for g in d.groups], ["Data subnet", "Network"])
+        self.assertEqual(len(ET.fromstring(svg).findall(".//s:image", NS)), 2)
+        self.assertIn("Worker (AWS Lambda)", d.describe())
+
+    def test_mistakes_name_the_place(self):
+        cases = [
+            (self.spec(enclosures=[{"label": "Net", "members": ["fn", "data"]}, {"id": "data", "label": "D", "members": ["db"]}]),
+             r"enclosures\[0\]\.members: enclosure 'data' is listed after this one"),
+            (self.spec(enclosures=[{"label": "Net", "members": ["ghost"]}]), r"enclosures\[0\]\.members: no resource.*'ghost'"),
+            (self.spec(resources=[{"id": "a", "label": "A", "x": 0, "y": 0}, {"id": "a", "label": "B", "x": 200, "y": 0}],
+                       enclosures=[], links=[]), r"resources\[1\]\.id: 'a' is already used"),
+            (self.spec(resources=[{"label": "A", "x": 0}], enclosures=[], links=[]), r"resources\[0\]: missing required key 'y'"),
+            (self.spec(columns=[[{"title": "P"}]]), r"resources: .*not with 'columns'"),
+            (self.spec(enclosures=[{"label": "Net", "members": ["fn"], "border": "wavy"}]), r"enclosures\[0\]: .*border"),
+            (self.spec(resources=[{"label": "A", "icon": "aws/nope", "x": 0, "y": 0}], enclosures=[], links=[]),
+             r"resources\[0\]\.icon: no icon named 'aws/nope'; icons available: .*aws/lambda"),
+        ]
+        for spec, pattern in cases:
+            with self.subTest(pattern=pattern), self.assertRaisesRegex(SpecError, pattern):
+                from_spec(spec)
+
+    def test_icons_never_come_from_outside_the_icon_folders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            secret = Path(tmp) / "secret.svg"
+            secret.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+            folder = Path(tmp) / "icons"
+            (folder / "own").mkdir(parents=True)
+            (folder / "own" / "box.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"/>')
+            for name in (str(secret), "../secret", "own/../../secret", "C:/secret", "own//box"):
+                spec = self.spec(resources=[{"label": "A", "icon": name, "x": 0, "y": 0}], enclosures=[], links=[])
+                with self.subTest(name=name), self.assertRaises(SpecError):
+                    from_spec(spec, icons=[str(folder)])
+            spec = self.spec(resources=[{"label": "A", "sub": "Mine", "icon": "own/box", "x": 0, "y": 0}],
+                             enclosures=[], links=[])
+            self.assertEqual(from_spec(spec, icons=[str(folder)]).render()[1].problems, [])
+
+    def test_icons_next_to_a_json_file_and_on_tiles(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "mine.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"/>')
+            path = Path(tmp) / "d.json"
+            path.write_text(json.dumps({"title": "Tiles", "columns": [[{"title": "Store",
+                                        "tiles": [{"label": "Bucket", "icon": "aws/s3"}, {"label": "Mine", "icon": "mine"}]}]]}))
+            svg, report = load(str(path)).render()
+            self.assertEqual(report.problems, [])
+            self.assertEqual(len(ET.fromstring(svg).findall(".//s:image", NS)), 2)
+
+
+class NewCommandTests(unittest.TestCase):
+    def test_new_lists_writes_and_refuses_to_overwrite(self):
+        import contextlib
+        import io
+        import os
+        from open_diagram.cli import main
+        with tempfile.TemporaryDirectory() as tmp:
+            here = os.getcwd()
+            os.chdir(tmp)
+            try:
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    self.assertEqual(main(["new"]), 0)
+                self.assertIn("azure_web_app", out.getvalue())
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(main(["new", "azure_web_app"]), 0)
+                    self.assertEqual(main(["check", "azure_web_app.json"]), 0)
+                with contextlib.redirect_stderr(io.StringIO()) as err:
+                    self.assertEqual(main(["new", "azure_web_app"]), 2)
+                self.assertIn("already exists", err.getvalue())
+            finally:
+                os.chdir(here)
 
 
 if __name__ == "__main__":

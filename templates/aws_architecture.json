@@ -1,0 +1,24 @@
+{
+  "title": "Cloud resources and connectivity",
+  "tag": "TEMPLATE",
+  "subtitle": "Large resource icons inside account, network and subnet enclosures.",
+  "note": {"title": "Illustrative workload", "lines": ["Fictional account; no deployed resources", "Border styles are independently selectable"]},
+  "theme": {"link_labels": {"flow": "Service connectivity"}},
+  "resources": [
+    {"id": "gateway", "label": "Public API", "sub": "Amazon API Gateway", "icon": "aws/api-gateway", "x": 0, "y": 240},
+    {"id": "function", "label": "Application function", "sub": "VPC-connected Lambda", "icon": "aws/lambda", "x": 320, "y": 240},
+    {"id": "database", "label": "Application database", "sub": "Amazon RDS", "icon": "aws/rds", "x": 620, "y": 240},
+    {"id": "objects", "label": "Object storage", "sub": "Amazon S3", "icon": "aws/s3", "x": 940, "y": 240}
+  ],
+  "enclosures": [
+    {"id": "app", "label": "Application subnet", "members": ["function"], "border": "dotted", "fill": "#FFFFFF"},
+    {"id": "data", "label": "Database subnet", "members": ["database"], "border": "dotted", "fill": "#FFFFFF"},
+    {"id": "vpc", "label": "VPC", "members": ["app", "data"], "pad": 24, "border": "dashed", "fill": "#FFFFFF"},
+    {"id": "account", "label": "AWS account", "members": ["gateway", "vpc", "objects"], "border": "solid", "pad": 40, "fill": "#FFFFFF", "stroke": "#3F454C"}
+  ],
+  "links": [
+    {"from": "gateway", "to": "function", "label": "invoke"},
+    {"from": "function", "to": "database", "label": "SQL"},
+    {"from": "function", "to": "objects", "label": "objects", "start": "right", "end": "top", "via_y": 185}
+  ]
+}

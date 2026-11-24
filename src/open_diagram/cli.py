@@ -4,10 +4,12 @@
     open-diagram check FILE... [--statuses FILE]
     open-diagram describe FILE [--statuses FILE]
     open-diagram png FILE.svg [--scale 2]
+    open-diagram new [TEMPLATE] [-o FILE]
 
 FILE is a diagram description (.json), a Mermaid flowchart (.mmd or .mermaid), or a Python script with a build()
 function that returns a Diagram (.py). `draw` and `check` exit with status 1 when the layout has problems, so they can
-stop a build.
+stop a build. `new` lists the templates, or writes one to start from. In JSON, icon names are looked up next to the
+file, then in each --icons folder, then in the built-in icon folder.
 """
 from __future__ import annotations
 
@@ -19,19 +21,21 @@ import sys
 import types
 from typing import List, Optional
 
-from . import __version__
+from . import __version__, catalog
 from .diagram import Diagram
 from .render import svg_to_png
 
 SOUNDTRACK = "The Gathering Field: https://open.spotify.com/artist/0BfQ8COB7K647uB6a0kMZn"
 
 
-def load(path: str, statuses: Optional[str] = None, title: Optional[str] = None) -> Diagram:
-    """Read a .json description, a .mmd/.mermaid flowchart or a .py script with build(), and return the Diagram."""
+def load(path: str, statuses: Optional[str] = None, title: Optional[str] = None,
+         icons: Optional[List[str]] = None) -> Diagram:
+    """Read a .json description, a .mmd/.mermaid flowchart or a .py script with build(), and return the Diagram.
+    icons: extra folders for JSON icon names, searched after the JSON file's own folder."""
     ext = os.path.splitext(path)[1].lower()
     if ext == ".json":
         from .spec import load_spec
-        d = load_spec(path)
+        d = load_spec(path, icons=icons)
     elif ext in (".mmd", ".mermaid"):
         from .mermaid import load_mermaid
         d = load_mermaid(path, title=title)
@@ -82,6 +86,26 @@ def _png(svg: str, scale: float) -> int:
     return 0
 
 
+def _new(template: Optional[str], out: Optional[str], force: bool) -> int:
+    if not template:
+        rows = [(os.path.splitext(f)[0], purpose) for f, purpose in catalog.table()]
+        width = max(len(n) for n, _ in rows)
+        for name, purpose in rows:
+            print(f"{name.ljust(width)}  {purpose}")
+        print("\nopen-diagram new NAME writes NAME.json here to start from.")
+        return 0
+    source = catalog.path(template)
+    target = out or os.path.basename(source)
+    if os.path.exists(target) and not force:
+        print(f"error: {target} already exists; choose another name with -o, or add --force to replace it",
+              file=sys.stderr)
+        return 2
+    with open(source, encoding="utf-8") as fh, open(target, "w", encoding="utf-8") as dst:
+        dst.write(fh.read())
+    print(f"wrote {target}; change its labels, then: open-diagram check {target}")
+    return 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--soundtrack" in argv:
@@ -102,29 +126,39 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--scale", type=float, default=2.0, help="PNG scale (default 2)")
     p.add_argument("--statuses", help="JSON file of name -> state, applied before drawing")
     p.add_argument("--title", help="title to use (Mermaid files default to their front-matter title)")
+    p.add_argument("--icons", action="append", metavar="FOLDER", help="another folder of icons for JSON icon names")
 
     p = sub.add_parser("check", help="build each FILE in memory and list layout problems; exit 1 if any")
     p.add_argument("files", nargs="+")
     p.add_argument("--statuses", help="JSON file of name -> state, applied before checking")
+    p.add_argument("--icons", action="append", metavar="FOLDER", help="another folder of icons for JSON icon names")
 
     p = sub.add_parser("describe", help="print a plain-text description of FILE's diagram")
     p.add_argument("file")
     p.add_argument("--statuses", help="JSON file of name -> state, applied first")
     p.add_argument("--title")
+    p.add_argument("--icons", action="append", metavar="FOLDER", help="another folder of icons for JSON icon names")
 
     p = sub.add_parser("png", help="convert an SVG to PNG with Chrome, Chromium or Edge")
     p.add_argument("svg")
     p.add_argument("--scale", type=float, default=2.0)
 
+    p = sub.add_parser("new", help="list the templates, or write one to start from")
+    p.add_argument("template", nargs="?", help="template name; leave out to list them")
+    p.add_argument("-o", "--out", help="file to write (default: the template's name, here)")
+    p.add_argument("--force", action="store_true", help="replace the file if it already exists")
+
     a = ap.parse_args(argv)
     try:
         if a.command == "png":
             return _png(a.svg, a.scale)
+        if a.command == "new":
+            return _new(a.template, a.out, a.force)
         if a.command == "describe":
-            print(load(a.file, a.statuses, a.title).describe())
+            print(load(a.file, a.statuses, a.title, a.icons).describe())
             return 0
         if a.command == "draw":
-            d = load(a.file, a.statuses, a.title)
+            d = load(a.file, a.statuses, a.title, a.icons)
             out = a.out or os.path.splitext(a.file)[0]
             report = d.save(out, png=not a.no_png, scale=a.scale, strict=False)
             for problem in report.problems:
@@ -132,7 +166,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1 if report.problems else 0
         failed = 0
         for path in a.files:
-            _, report = load(path, a.statuses).render()
+            _, report = load(path, a.statuses, icons=a.icons).render()
             print(f"{path}: {len(report.problems)} layout problem(s)")
             for problem in report.problems:
                 print(f"  - {problem}")

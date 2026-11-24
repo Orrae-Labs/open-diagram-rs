@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "open-diagram"
-version = "0.5.0"
+version = "0.6.0"
 description = "Python building blocks for dense architecture diagrams that check their own layout"
 readme = "README.md"
 license = "MIT"
@@ -29,8 +29,12 @@ open-diagram-mcp = "open_diagram.mcp_server:main"
 [project.urls]
 Homepage = "https://github.com/lukendeasy/open-diagram"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+# The repository's templates/ folder ships inside the package as open_diagram/templates, so `open-diagram new` and
+# the MCP server's template tool work after pip install.
+packages = ["open_diagram", "open_diagram.templates"]
+package-dir = {"" = "src", "open_diagram.templates" = "templates"}
 
 [tool.setuptools.package-data]
 open_diagram = ["fonts/*.ttf", "fonts/*.txt"]
+"open_diagram.templates" = ["*.json", "*.mmd", "README.md", "assets/README.md", "assets/*/*"]

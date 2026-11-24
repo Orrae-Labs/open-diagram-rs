@@ -6,7 +6,11 @@ descriptions and Mermaid flowcharts only (never Python, so a connected agent can
 only inside one output folder.
 
     pip install "open-diagram[mcp]"        # needs Python 3.10 or later
-    open-diagram-mcp [--out FOLDER]        # the app runs this; FOLDER defaults to $OPEN_DIAGRAM_OUT or ./open-diagram
+    open-diagram-mcp [--out FOLDER] [--icons FOLDER]
+                                           # the app runs this; FOLDER defaults to $OPEN_DIAGRAM_OUT or ./open-diagram
+
+Icons are read only from the built-in icon folder and from --icons folders ($OPEN_DIAGRAM_ICONS, separated by the
+system's path separator), never from a path an agent writes.
 """
 import argparse
 import contextlib
@@ -15,16 +19,17 @@ import os
 import re
 import sys
 
-from . import __version__
+from . import __version__, catalog
 from .mermaid import from_mermaid
 from .render import svg_to_png
-from .spec import SpecError, from_spec
+from .spec import SpecError, default_icons, from_spec
 
 MAX_SOURCE = 200_000
 
 INSTRUCTIONS = """open-diagram draws architecture diagrams that check their own layout.
-Workflow: call format_guide once; write the diagram as JSON (or Mermaid); call check and fix every problem it names
-until it reports 0; then call draw, look at the picture, and compare its description with what the user asked for."""
+Workflow: call format_guide once; write the diagram as JSON (or Mermaid), or start from a template (call template
+with no name to list them); call check and fix every problem it names until it reports 0; then call draw, look at the
+picture, and compare its description with what the user asked for."""
 
 GUIDE = """# open-diagram format guide
 
@@ -78,6 +83,15 @@ In ring and panels layouts, links leave from the sides that face each other unle
 - Group: label, members (panel ids), sub.
 - States: live (default look), building, trial, planned, retiring. Use them only when the user cares about state.
 
+## Cloud resources and templates
+For cloud architecture, call `template` with no name to list the templates, then `template` with a name to get one as
+JSON; keep its shape, replace the labels, keep each resource's sub (the service name). To write one yourself, use
+"resources" instead of a layout (or with "panels"): each {id, label, sub, icon, x, y} is a large icon with its label
+under it, placed at x and y in pixels. "enclosures" draw boxes around resources: {id, label, members, sub, border
+(solid, dashed, dotted), style (outline, or panel for a filled header), pad, fill, stroke, tone}; list them from the
+inside out. An icon is a name such as "aws/s3"; the icons available are listed at the end of this guide. Links join
+resource ids as they join panels.
+
 ## Mermaid
 flowchart or graph, any direction; nodes with any bracket shape; chains and &; edge labels (-->|text| or
 -- text -->); dotted edges (-.->) become planned; top-level subgraphs become shaded groups; A:::building or
@@ -114,8 +128,9 @@ def default_out() -> str:
     return os.path.join(os.path.expanduser("~"), "open-diagram")    # apps that start servers in / or a read-only folder
 
 
-def build(source: str, fmt: str = "auto"):
-    """Turn JSON or Mermaid text into a Diagram. Raises ValueError (SpecError, MermaidError) naming the problem."""
+def build(source: str, fmt: str = "auto", icons=None):
+    """Turn JSON or Mermaid text into a Diagram. Raises ValueError (SpecError, MermaidError) naming the problem.
+    icons: the folders JSON icon names are looked up in (default: the built-in folder only)."""
     if len(source) > MAX_SOURCE:
         raise ValueError(f"the diagram text is {len(source)} characters; the limit is {MAX_SOURCE}")
     text = source.strip()
@@ -126,7 +141,7 @@ def build(source: str, fmt: str = "auto"):
             data = json.loads(text)
         except json.JSONDecodeError as e:
             raise SpecError(f"not valid JSON: {e}") from None
-        return from_spec(data)
+        return from_spec(data, icons=icons)
     if fmt == "mermaid":
         return from_mermaid(text)
     raise ValueError("format must be 'json', 'mermaid' or 'auto'")
@@ -140,10 +155,24 @@ def problems_text(report) -> str:
     return "\n".join(lines)
 
 
-def draw_files(source: str, fmt: str, name: str, out_dir: str, png: bool = True) -> dict:
+def guide_text(icons=None) -> str:
+    """The format guide, ending with the icon names an agent can use."""
+    names = [n for folder in (icons or default_icons()) for n in catalog.icon_names(folder)]
+    return GUIDE + "\nIcons available: " + (", ".join(names) if names else "none") + "\n"
+
+
+def template_text(name: str = "") -> str:
+    """With no name, every template and what it is for; with a name, that template's JSON."""
+    if not name:
+        rows = [f"- {os.path.splitext(f)[0]}: {purpose}" for f, purpose in catalog.table()]
+        return "Templates (call template with a name to get one as JSON):\n" + "\n".join(rows)
+    return catalog.read(name)
+
+
+def draw_files(source: str, fmt: str, name: str, out_dir: str, png: bool = True, icons=None) -> dict:
     """Build the diagram, write NAME.svg (and NAME.png) inside out_dir, and return what an agent needs to see."""
     with contextlib.redirect_stdout(sys.stderr):         # stdout carries the MCP conversation; never print there
-        d = build(source, fmt)
+        d = build(source, fmt, icons)
         svg, report = d.render()
         os.makedirs(out_dir, exist_ok=True)
         base = os.path.join(out_dir, safe_name(name))
@@ -162,7 +191,7 @@ def draw_files(source: str, fmt: str, name: str, out_dir: str, png: bool = True)
     return {"text": "\n".join(text), "png": png_path, "files": files, "problems": list(report.problems)}
 
 
-def create_server(out_dir: str):
+def create_server(out_dir: str, icons=None):
     """Build the MCP server. Imports the MCP toolkit here, so the rest of open-diagram never needs it."""
     from mcp.server import MCPServer
     from mcp.server.mcpserver import Image
@@ -180,7 +209,16 @@ def create_server(out_dir: str):
     def format_guide() -> str:
         """How to write a diagram for open-diagram: a JSON example to copy, every key, Mermaid support, and how to
         fix each kind of layout problem. Read it once before the first diagram."""
-        return GUIDE
+        return guide_text(icons)
+
+    @server.tool(annotations=read_only, structured_output=False)
+    def template(name: str = "") -> str:
+        """List the diagram templates (no name), or return one template as JSON to start from (with its name).
+        Keep its shape, replace its labels, then call check and draw."""
+        try:
+            return template_text(name)
+        except ValueError as e:
+            fail(e)
 
     @server.tool(annotations=read_only, structured_output=False)
     def check(source: str, format: str = "auto") -> str:
@@ -189,7 +227,7 @@ def create_server(out_dir: str):
         until it reports 0, then call draw."""
         try:
             with contextlib.redirect_stdout(sys.stderr):
-                _, report = build(source, format).render()
+                _, report = build(source, format, icons).render()
         except ValueError as e:
             fail(e)
         return problems_text(report)
@@ -200,7 +238,7 @@ def create_server(out_dir: str):
         its label, and the key. Compare it with the user's request."""
         try:
             with contextlib.redirect_stdout(sys.stderr):
-                return build(source, format).describe()
+                return build(source, format, icons).describe()
         except ValueError as e:
             fail(e)
 
@@ -211,7 +249,7 @@ def create_server(out_dir: str):
         the layout problems, the file paths, a plain-words description and (with picture=true) the picture itself.
         Look at the picture before answering, and fix any problem it reports."""
         try:
-            result = draw_files(source, format, name, out_dir, png=True)
+            result = draw_files(source, format, name, out_dir, png=True, icons=icons)
         except ValueError as e:
             fail(e)
         content = [result["text"]]
@@ -227,11 +265,16 @@ def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="open-diagram-mcp",
                                  description="Run open-diagram as an MCP server over stdio (started by an MCP app).")
     ap.add_argument("--out", help="folder for SVG and PNG files (default: $OPEN_DIAGRAM_OUT, else ./open-diagram)")
+    ap.add_argument("--icons", action="append", metavar="FOLDER",
+                    help="a folder of icons diagrams may use (default: $OPEN_DIAGRAM_ICONS); the built-in icons are "
+                         "always available")
     ap.add_argument("--version", action="version", version=f"open-diagram {__version__}")
     a = ap.parse_args(argv)
     out = os.path.abspath(os.path.expanduser(a.out)) if a.out else default_out()
+    extra = a.icons or [p for p in os.environ.get("OPEN_DIAGRAM_ICONS", "").split(os.pathsep) if p]
+    icons = [os.path.abspath(os.path.expanduser(p)) for p in extra] + default_icons()
     try:
-        server = create_server(out)
+        server = create_server(out, icons)
     except ImportError:
         sys.stderr.write('open-diagram-mcp needs the MCP toolkit: pip install "open-diagram[mcp]" '
                          "(Python 3.10 or later)\n")

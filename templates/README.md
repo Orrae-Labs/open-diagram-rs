@@ -1,90 +1,116 @@
-# Cloud resource templates
+# Templates
 
-Start here for resource topology and ETL DAGs. A `Resource` is a 64 px service icon with
-its workload label and service name underneath. Each resource is individually addressable
-by `d.link()`. Enclosures represent accounts, VPCs, subnets or logical resource groups;
-they can contain other enclosures.
+A template is a finished diagram to start from. You keep its shape and replace its words. Every template here is a
+JSON file, so it works the same way from the command line, from an AI agent over MCP, in Python, and in any other
+language that can write JSON.
 
 | Template | Purpose | Preview |
 | --- | --- | --- |
-| [aws_etl.py](aws_etl.py) | Six labeled pastel-yellow containers with sloped lids: orchestrate, extract, land, transform, curate/catalog, query/visualize | [PNG](../docs/images/aws_etl.png) |
-| [aws_architecture.py](aws_architecture.py) | Account, VPC and subnet boundaries around API Gateway, Lambda, RDS and S3 connectivity | [PNG](../docs/images/aws_architecture.png) |
+| [aws_etl.json](aws_etl.json) | Data ingestion on AWS in six numbered sections, from orchestration to dashboards | [PNG](../docs/images/aws_etl.png) |
+| [aws_architecture.json](aws_architecture.json) | An AWS account, network and subnets around an API, a function, a database and storage | [PNG](../docs/images/aws_architecture.png) |
+| [azure_web_app.json](azure_web_app.json) | A web app on Azure behind Front Door, with its database and cache inside a virtual network | [PNG](../docs/images/azure_web_app.png) |
+| [gcp_event_pipeline.json](gcp_event_pipeline.json) | An event pipeline on Google Cloud from Pub/Sub to a warehouse and a forecast model | [PNG](../docs/images/gcp_event_pipeline.png) |
 
-From the checkout, after installing the package's dependencies:
+## Start from a template
 
 ```sh
-PYTHONPATH=src python templates/aws_etl.py
-PYTHONPATH=src python -m open_diagram check templates/aws_etl.py templates/aws_architecture.py
+open-diagram new                           # list the templates
+open-diagram new azure_web_app             # write azure_web_app.json here
+open-diagram draw azure_web_app.json       # draw it; the icons come with the package
 ```
 
-Copy a template, edit its `RESOURCES` list, then edit the links and enclosure memberships.
-Keep assets beside your copy or update `ASSETS`. The cached artwork makes both templates
-work without network access. [Icon credits and licenses](assets/README.md) accompany the
-SVG/PNG previews. These templates are in the Git checkout, not the Python package.
+An agent connected over MCP calls the `template` tool to get the same JSON, edits it, then calls `check` and `draw`.
 
-## Resource nodes
+Change the `label` of each resource to your own words and keep its `sub`, which names the cloud service under its
+icon. Move a resource by changing its `x` and `y`. Run `open-diagram check` after each change: it names every
+overlap, crossing line and cramped label.
+
+## The standard
+
+Every template meets these rules. The tests in `tests/test_cloud.py` check each rule marked "tested", so a pull
+request that breaks one fails.
+
+1. **One JSON file per template** in this folder, named in lowercase words joined by underscores. (tested)
+2. **Listed in the table above**, with its purpose in plain words and a link to its preview. The website's Templates
+   page reads this table. (tested)
+3. **No layout problems**, and no text smaller than 10 px. (tested)
+4. **Fits on one screen or slide**: no wider than 2,000 px and no taller than 1,400 px. A picture larger than that has
+   to be shrunk to be seen whole, and its text stops being readable. (tested)
+5. **The same picture every time**, matching the committed preview in `docs/images/<name>.svg` and `.png`. (tested)
+6. **Works offline.** Every icon is a file in `assets/`; drawing a template never uses the network. (tested)
+7. **The service name sits under each icon**, in the resource's `sub`. Azure's icon terms ask for the product name
+   next to the icon, and it tells a reader what each picture is. (tested)
+8. **Icons are the providers' own files, unchanged**, each folder with its source, version and license in
+   [assets/README.md](assets/README.md). (tested: every icon folder has a section there)
+9. **A made-up workload.** Real cloud service names are fine; real company names, people and data are not. Say so in
+   a note or a subtitle.
+
+Colors, borders and the style of each box are up to the template.
+
+## What a template is made of
+
+A template uses the `resources` layout: each resource is placed where you say, with `x` and `y` in pixels.
+
+```json
+{
+  "title": "Web app on Azure",
+  "resources": [
+    {"id": "web", "label": "Web app", "sub": "Azure App Service", "icon": "azure/app-service", "x": 0, "y": 0},
+    {"id": "db", "label": "Orders database", "sub": "Azure SQL Database", "icon": "azure/sql-database", "x": 320, "y": 0}
+  ],
+  "enclosures": [
+    {"id": "data", "label": "Data subnet", "members": ["db"], "border": "dotted"},
+    {"id": "vnet", "label": "Virtual network", "members": ["web", "data"], "border": "dashed"}
+  ],
+  "links": [{"from": "web", "to": "db", "label": "SQL"}]
+}
+```
+
+- **Resource:** `label` (required), `x` and `y` (required), `id`, `sub`, `icon`, `icon_size` (default 64),
+  `max_width` (default 180), `border` (`solid`, `dashed` or `dotted`).
+- **Enclosure:** a box around resources or other enclosures. `label` and `members` (required), `id`, `sub`, `pad`
+  (default 24), `border` (default `dashed`), `fill` (`none` for see-through), `stroke`, `style` (`outline`, or
+  `panel` for the sloped lid and filled header), `tone` (a header color for `panel`). List enclosures from the inside
+  out: an enclosure must come before any enclosure that holds it.
+- **Icon:** a name inside an icon folder, such as `aws/s3`. The built-in folder is `assets/`. A JSON file can also
+  use icons in its own folder, and `--icons FOLDER` adds another folder. Full paths and `..` are refused, so a
+  diagram description can never read other files on the computer.
+- **Links** between resources work as they do between panels. Use `kind` with `dash` for a second kind of line, for
+  example `{"kind": "control", "dash": "dashed"}`, and name it in `theme.link_labels`.
+
+Resources can share a picture with panels: give both `x` and `y` and use the `panels` layout alongside `resources`.
+
+## From Python
+
+The same pieces exist in Python. `Resource` is a large icon with its label and service name under it; `d.enclosure()`
+draws a box around resources or other enclosures.
 
 ```python
 from open_diagram import Diagram, Resource, Theme
 
 d = Diagram("My cloud resources", theme=Theme(link_labels={"flow": "Data flow"}))
-a = d.add(Resource("API extractor", sub="AWS Lambda", icon="assets/lambda.svg"))
-b = d.right_of(a, Resource("Raw data", sub="Amazon S3", icon="assets/s3.svg"))
+a = d.add(Resource("API extractor", sub="AWS Lambda", icon="assets/aws/lambda.svg"))
+b = d.right_of(a, Resource("Raw data", sub="Amazon S3", icon="assets/aws/s3.svg"))
 d.link(a, b, label="objects")
 extract = d.enclosure("Extraction", [a], border="dashed")
 d.enclosure("Cloud account", [extract, b], border="solid", pad=40)
 ```
 
-`Resource` accepts `icon_size` (default 64), `max_width` (wrapped text width, default 180),
-`sub`, `name` and an optional `border` (`None`, `solid`, `dashed`, `dotted`). Missing artwork
-can be represented with a text-only `Resource`; an explicitly supplied missing file raises
-a named error. PNG and SVG files are embedded locally. Connections attach to an unframed
-icon's edges; labels remain inside the measured node bounds.
+To load a template and change it in Python: `from open_diagram.spec import load_spec; d = load_spec("aws_etl.json")`.
 
-The same API works with [Azure and GCP mappings](../cloud-icons/). Download the appropriate
-provider's SVGs using the [cloud-icons workflow](../skills/cloud-icons/SKILL.md), then pass
-the local paths to `Resource`. These sample architectures are AWS-specific; changing the
-provider also requires choosing appropriate services and boundaries.
+`d.enclosure(label, members, sub=..., pad=24, border="dashed", fill=..., stroke=..., style="outline", tone=...)`
+returns an enclosure that a later enclosure can hold. `style="panel", tone="accent"` reuses the panels' sloped lid
+and filled header. The lid, header, subtitle and nested enclosures all count toward the measured size, so the layout
+checks see the whole box. Border style says nothing about whether a resource is planned or live; `d.group()` keeps
+its shaded look.
 
-## Boundaries and connection styles
+## Add a template
 
-`d.enclosure(label, members, sub=..., pad=24, border="dashed", fill=..., stroke=...)`
-returns an enclosure that can be included in a later enclosure. Members must already
-belong to the same diagram. The parent includes each child's full boundary and heading.
-Borders can be solid, dashed or dotted. `fill="none"` makes the area transparent; leaving
-colors unset uses `Theme.group_fill` and `Theme.group_stroke` for outline enclosures. Styling does not imply that
-resources are planned or deployed. `d.group()` retains its existing shaded-group behavior.
+1. Write `templates/<name>.json` with a made-up workload. Put any new icons in `assets/<provider>/`, unchanged, and
+   add their source and license to `assets/README.md`.
+2. Run `open-diagram check templates/<name>.json` until it reports 0 problems.
+3. Draw the preview: `open-diagram draw templates/<name>.json -o docs/images/<name>`. Look at the PNG.
+4. Add a row to the table above, then run `python3 -m unittest discover -s tests`.
 
-For the original OpenDiagram container look, add `style="panel", tone="accent"`. This
-reuses the panel's sloped lid, with a filled header band and independently connected resources
-inside. The lid, header, subtitle and nested child containers all count toward measured bounds.
-Panel containers use `Theme.panel_fill` and `Theme.panel_stroke` unless `fill` or `stroke`
-overrides them; `tone` selects a header color from `Theme.tones` or a hex color.
-`Theme.lid=0` turns the sloped lid off.
-
-The ETL template sets a pale-yellow `Theme.paper` background and warm yellow panel colors.
-Edit its `CONTAINER` constant (`"panel"` or `"outline"`) and `BOUNDARY` constant (`"solid"`,
-`"dashed"` or `"dotted"`) to select the presentation without changing its resources or links:
-
-```python
-extract = d.enclosure("02  Extract", [a], style="panel", tone="accent", border="solid")
-d.enclosure("AWS account", [extract, b], style="panel", tone="accent", border="solid", pad=40)
-```
-
-For orchestration, add a distinct kind and style it independently of deployment status:
-
-```python
-theme = Theme(link_labels={"flow": "Data", "control": "Task control"})
-# Construct the diagram with this theme, then add resources.
-# d.link(mwaa, extractor, kind="control", dash="dashed")
-```
-
-Use a distinct kind for each connection's meaning. If one kind uses multiple styles, the
-legend lists each style separately. Link `dash` also
-works in JSON/MCP descriptions. Resource icons and nested enclosures use Python only;
-JSON and Mermaid still describe panels. Positions remain explicit; this adds no automatic
-DAG scheduling or layout engine. All existing overlap, crossing and label checks apply.
-
-The ETL example illustrates a scheduled batch design. It omits source systems, IAM and
-network deployment details. The architecture example shows logical VPC attachment and
-service connectivity; it does not provision subnets, endpoints or access policies.
+More provider icons, with links to each file, are listed in [cloud-icons/](../cloud-icons/); the
+[cloud-icons skill](../skills/cloud-icons/SKILL.md) downloads them.

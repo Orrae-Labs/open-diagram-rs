@@ -29,6 +29,14 @@ class HelperTests(unittest.TestCase):
         _, report = mcp_server.build(GUIDE_EXAMPLE).render()
         self.assertEqual(report.problems, [])
 
+    def test_templates_and_icons_are_offered(self):
+        self.assertIn("- gcp_event_pipeline:", mcp_server.template_text())
+        _, report = mcp_server.build(mcp_server.template_text("azure_web_app")).render()
+        self.assertEqual(report.problems, [])
+        self.assertIn("aws/s3", mcp_server.guide_text().splitlines()[-1])
+        with self.assertRaises(ValueError):
+            mcp_server.template_text("nope")
+
     def test_format_is_detected(self):
         self.assertEqual(mcp_server.build(EMAIL).title, "How an email is delivered")
         self.assertEqual(mcp_server.build(SIGNUP).title, "How a new account is created")
@@ -64,7 +72,12 @@ class ServerTests(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as tmp:
             async with Client(mcp_server.create_server(tmp)) as client:
                 names = sorted(t.name for t in (await client.list_tools()).tools)
-                self.assertEqual(names, ["check", "describe", "draw", "format_guide"])
+                self.assertEqual(names, ["check", "describe", "draw", "format_guide", "template"])
+                listed = await client.call_tool("template", {})
+                self.assertIn("azure_web_app", listed.content[0].text)
+                etl = await client.call_tool("template", {"name": "aws_etl"})
+                checked = await client.call_tool("check", {"source": etl.content[0].text})
+                self.assertEqual(checked.content[0].text, "0 layout problem(s)")
                 guide = await client.call_tool("format_guide", {})
                 self.assertIn('"columns"', guide.content[0].text)
                 checked = await client.call_tool("check", {"source": EMAIL})
