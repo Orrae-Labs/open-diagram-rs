@@ -17,6 +17,15 @@ open-diagram new                  # lists the templates; `open-diagram new azure
 
 Each command takes a JSON description (`.json`) or a Mermaid flowchart (`.mmd` or `.mermaid`). Add `--statuses states.json` to set states by name before drawing, and `--icons FOLDER` to use your own icons in JSON.
 
+## MCP
+
+`open-diagram-mcp` is the same drawings over stdio, for an MCP app. Tools: `format_guide`, `template`, `check`, `describe`, `draw`. Files stay inside `--out` (default `$OPEN_DIAGRAM_OUT` or `./open-diagram`).
+
+```bash
+cargo install open-diagram-mcp --locked
+open-diagram-mcp --out ./open-diagram
+```
+
 ## Keep diagrams from going stale
 
 Add this GitHub Action and every push redraws your diagrams and fails the check if a layout problem appears:

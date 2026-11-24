@@ -132,3 +132,68 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: cargo publish -p open-diagram-cli --locked
+
+  mcp-provenance:
+    needs: publish-lib
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/crate-provenance.yml
+    with:
+      package: open-diagram-mcp
+
+  publish-mcp:
+    needs: mcp-provenance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: crate-open-diagram-mcp
+          path: attested
+      - name: Verify the reusable workflow signed this crate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh attestation verify attested/*.crate \
+            --repo "${{ github.repository }}" \
+            --signer-workflow "${{ github.repository }}/.github/workflows/crate-provenance.yml"
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master 2026-11-24
+        with:
+          toolchain: 1.100.0
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: publish
+      - name: Rebuild and require the same bytes
+        run: |
+          set -eu
+          ok=0
+          for _ in 1 2 3 4 5 6; do
+            if cargo package -p open-diagram-mcp --locked; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+          test "$ok" = 1
+          attested=$(echo attested/*.crate)
+          name=$(basename "$attested")
+          a=$(sha256sum "$attested" | awk '{print $1}')
+          b=$(sha256sum "target/package/$name" | awk '{print $1}')
+          test "$a" = "$b"
+      - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+        id: auth
+      - name: Publish the MCP server
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish -p open-diagram-mcp --locked

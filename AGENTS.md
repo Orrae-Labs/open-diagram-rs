@@ -4,7 +4,7 @@ Rust library and `open-diagram` command. Every label is measured from the bundle
 
 ## Change
 
-1. Edit the crates under `crates/`. The library is `open-diagram`. The binary crate is `open-diagram-cli` and the binary name is `open-diagram`. `quickstart-consumer` is `publish = false`.
+1. Edit the crates under `crates/`. The library is `open-diagram`. The command crate is `open-diagram-cli` (binary `open-diagram`). The MCP crate is `open-diagram-mcp` (binary `open-diagram-mcp`). `quickstart-consumer` is `publish = false`.
 2. Run `cargo test --workspace --all-features`, then `cargo clippy --workspace --all-targets --all-features -- -D warnings`, then `cargo audit`.
 3. Done when all three succeed and every picture in `examples::pictures()` still matches the git blob of `docs/images/<name>.svg`.
 
@@ -25,6 +25,7 @@ Rust library and `open-diagram` command. Every label is measured from the bundle
 | `crates/open-diagram/src/render.rs` | `find_chrome`, `svg_to_png` |
 | `crates/open-diagram/src/examples.rs` | Picture builders. The golden test renders these |
 | `crates/open-diagram-cli` | `draw`, `check`, `describe`, `png`, `new`, hidden `--soundtrack` |
+| `crates/open-diagram-mcp` | stdio MCP server. Tools `format_guide`, `template`, `check`, `describe`, `draw` |
 | `docs/images/` | Committed SVG and PNG oracles |
 | `examples/` | JSON and Mermaid files a person can pass to the command. Copies used by the library live in the crate and the tests require the bytes to match |
 | `.github/workflows/ci.yml` | Test, clippy, rustfmt, and `cargo audit` on pinned runners. Push to `main`, or a pull request after `borrow-checker` approves it |
@@ -63,6 +64,8 @@ The library license field is `MIT AND OFL-1.1 AND Apache-2.0 AND CC-BY-ND-2.0`. 
 
 Push this tree to `git@github.com:Orrae-Labs/open-diagram-rs.git`. The remote named `origin` in a checkout that still tracks `Orrae-Labs/open-diagram` is the Python mirror. Leave it unchanged.
 
-## Not in this crate
+## MCP
 
-The Python command could draw a `.py` file by calling its `build()` function, and it ran an MCP server. This command reads `.json`, `.mmd`, and `.mermaid` only. It has no MCP server. There is no tag for a complete mapping of the Python project until both of those exist.
+`open-diagram-mcp` speaks MCP over stdio. Its tools are `format_guide`, `template`, `check`, `describe`, and `draw`. Input is JSON or Mermaid. Files go in the folder named by `--out`, `$OPEN_DIAGRAM_OUT`, or `./open-diagram`. When `skills/` is visible, or `$OPEN_DIAGRAM_SKILLS` points at it, the SDK skill catalog serves those folders.
+
+The command reads `.json`, `.mmd`, and `.mermaid`. It does not run a `.py` file. A Rust picture is a function that returns `Result<Diagram, DiagramError>`. `examples::pictures` and `quickstart-consumer` are that function.

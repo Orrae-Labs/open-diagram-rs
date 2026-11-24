@@ -9,7 +9,8 @@ open-diagram turns a short description (JSON or Mermaid) into a finished diagram
 
 ## 1. Pick the route
 
-- Run `open-diagram --version`. If the command is missing, install the `open-diagram-cli` crate (`cargo install open-diagram-cli --locked`) or build `crates/open-diagram-cli` from this repo.
+- If the `open-diagram` MCP server is connected, call `format_guide` once, then `check` until it reports 0 layout problems, then `draw`. The tools take JSON or Mermaid text. `template` with no name lists the starters. `describe` is the words, `check` is the problems and writes nothing, and `draw` is the only call that writes files.
+- Otherwise run `open-diagram --version`. If the command is missing, install the `open-diagram-cli` crate (`cargo install open-diagram-cli --locked`) or build `crates/open-diagram-cli` from this repo. The server is `cargo install open-diagram-mcp --locked`.
 - PNG output needs Chrome, Chromium or Edge. Set `CHROME` to its path when the usual locations miss it. The SVG is always written.
 - Write JSON. Cards, graphs, rows, resources and enclosures are JSON keys. Given a Mermaid flowchart, run `open-diagram draw flow.mmd` directly; dotted edges become planned connections and subgraphs become groups.
 - The Rust types are in [docs/rust.md](../../docs/rust.md). Use them when the picture is built from this crate rather than from a file.

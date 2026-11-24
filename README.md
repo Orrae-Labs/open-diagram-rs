@@ -16,7 +16,7 @@ This crate reproduces the diagram behavior of open-diagram 0.6.0. Its package ve
 cargo install open-diagram-cli --locked
 ```
 
-The command is `open-diagram`. In another crate, `cargo add open-diagram` adds the library.
+The command is `open-diagram`. In another crate, `cargo add open-diagram` adds the library. For an MCP app, `cargo install open-diagram-mcp --locked` installs the stdio server `open-diagram-mcp`.
 
 PNG output needs Chrome, Chromium or Edge. If the usual locations miss it, set `CHROME` to the browser path. The SVG is written either way.
 

@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       package:
-        description: open-diagram or open-diagram-cli
+        description: open-diagram, open-diagram-cli, or open-diagram-mcp
         required: true
         type: string
 
@@ -34,7 +34,7 @@ jobs:
         run: |
           set -eu
           case "$PACKAGE" in
-            open-diagram|open-diagram-cli) ;;
+            open-diagram|open-diagram-cli|open-diagram-mcp) ;;
             *) echo "unexpected package $PACKAGE"; exit 1 ;;
           esac
           if [ "$GITHUB_REF_TYPE" != "tag" ]; then
@@ -46,7 +46,7 @@ jobs:
             exit 1
           fi
           tag="${GITHUB_REF_NAME#v}"
-          for manifest in crates/open-diagram/Cargo.toml crates/open-diagram-cli/Cargo.toml; do
+          for manifest in crates/open-diagram/Cargo.toml crates/open-diagram-cli/Cargo.toml crates/open-diagram-mcp/Cargo.toml; do
             version=$(awk -F '"' '/^version = / { print $2; exit }' "$manifest")
             test "$version" = "$tag"
           done
