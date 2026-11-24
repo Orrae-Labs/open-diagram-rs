@@ -59,7 +59,7 @@ A comment records a constraint the code cannot show. A test that passes by weake
 
 Trusted publishing only. The OIDC exchange is `rust-lang/crates-io-auth-action` in `publish.yml`. Do not add a crates.io token to the repo or the environment.
 
-The attested files are the `.crate` packages from the package job in `crate-provenance.yml`. The publish job verifies that attestation and refuses to continue when a fresh `cargo package --locked` digest differs. `cargo publish` packs again and cannot upload the attested file. The registry token stays on the publish step. `quickstart-consumer` is not published.
+The attested files are the `.crate` packages from the package job in `crate-provenance.yml`. The publish job verifies that attestation for the tag and refuses to continue when a fresh `cargo package --locked --no-verify` digest differs. That repack and `cargo publish --locked --no-verify` do not compile. The registry token stays on the publish step. After upload, the crates.io index checksum must equal the attested digest. Release workflows do not restore a build cache. `quickstart-consumer` is not published.
 
 After `open-diagram-rs-mcp` is on crates.io, the same tag runs `mcp-publisher login github-oidc` and publishes `server.json`. The registry name is `io.github.Orrae-Labs/open-diagram-rs`. `server.json` and the three published crate versions use the same version number. The MCP crate README carries the visible `mcp-name:` line the registry checks.
 
