@@ -51,7 +51,7 @@ A comment records a constraint the code cannot show. A test that passes by weake
 
 ## Upstream
 
-`upstream` is lukendeasy/open-diagram. Port a commit when it changes a diagram, an error sentence, or the command, and name that commit in the Rust change. `rust-port` keeps the 0.6.0 SVG bytes. Fixes that differ from that snapshot are on `main`. The pictures in `examples::pictures()` still have to match `docs/images`.
+`upstream` is lukendeasy/open-diagram. Port a commit when it changes a diagram, an error sentence, or the command, and name that commit in the Rust change. `rust-port` keeps the 0.6.0 SVG bytes. This branch, `main`, is where a fix may differ from that snapshot. The pictures in `examples::pictures()` still have to match `docs/images`.
 
 ## Publishing
 
@@ -65,4 +65,4 @@ Push this tree to `git@github.com:Orrae-Labs/open-diagram-rs.git`. The remote na
 
 ## Not in this crate
 
-The command accepts `.json`, `.mmd` and `.mermaid`. It does not run a Rust or Python script from a path. There is no MCP server. Those two gaps are why this commit is not tagged as a complete mapping of the Python project.
+The Python command could draw a `.py` file by calling its `build()` function, and it ran an MCP server. This command reads `.json`, `.mmd`, and `.mermaid` only. It has no MCP server. There is no tag for a complete mapping of the Python project until both of those exist.
