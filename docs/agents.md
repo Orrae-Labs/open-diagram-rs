@@ -1,45 +1,44 @@
 # AI agents
 
-Let an agent draw diagrams and fix their layout problems with the `open-diagram-rs` command.
+An AI agent can use open-diagram-rs in two ways: by running the `open-diagram-rs` command, or by connecting to the `open-diagram-rs-mcp` server. Both read the same JSON and Mermaid, and both name each layout problem, so an agent can fix a diagram and check it again until the problems are gone.
 
-## Command
-
-```bash
-cargo install open-diagram-rs-cli --locked
-open-diagram-rs new
-open-diagram-rs check plan.json
-open-diagram-rs describe plan.json
-open-diagram-rs draw plan.json
-```
-
-The command reads JSON and Mermaid. It writes SVG and PNG next to the file, or to `-o NAME` without an extension. PNG needs Chrome, Chromium or Edge (`CHROME` when the usual locations miss it).
-
-Icons come from the built-in folder and from folders named with `--icons`. The command refuses absolute icon paths and `..`.
-
-The MCP server is `open-diagram-rs-mcp`. An MCP app starts it over stdio. It draws JSON and Mermaid, writes files only inside its output folder, and returns the PNG from `draw`.
+## The MCP server
 
 ```bash
 cargo install open-diagram-rs-mcp --locked
-open-diagram-rs-mcp --out ./open-diagram-rs
 ```
 
-`--icons FOLDER` may be repeated. `$OPEN_DIAGRAM_RS_ICONS` is the default, split on the system path separator. The built-in icons are always included. `$OPEN_DIAGRAM_RS_SKILLS` points at a skill folder. Without it, the server serves `skills/` when that folder is visible from the working directory. That catalog is Skills over MCP (`io.modelcontextprotocol/skills`, directory read included): `skills/list`, `skills/get`, and the skill files through `resources/read`.
+The AI app starts `open-diagram-rs-mcp` itself and talks to it over stdio. The server has five tools:
 
-The agent skill is [skills/open-diagram-rs/SKILL.md](../skills/open-diagram-rs/SKILL.md). Copy it into the agent's skills folder, install it with `npx skills add Orrae-Labs/open-diagram-rs`, or let the server serve it.
+| Tool | What it does |
+| --- | --- |
+| `format_guide` | Lists the JSON keys, the Mermaid subset, and how to fix each layout problem |
+| `template` | Lists the starter diagrams, or returns one by `name` as JSON |
+| `check` | Builds a diagram in memory and lists its layout problems |
+| `describe` | Says what a diagram contains, in plain words |
+| `draw` | Writes the SVG and PNG, and returns the problems, the file paths, a description and the picture |
 
-This checkout is also a Claude Code plugin (`.claude-plugin/`). Add the marketplace with `claude plugin marketplace add Orrae-Labs/open-diagram-rs`, then install `open-diagram-rs`. The server binary still comes from `cargo install`.
+`check`, `describe` and `draw` take the diagram, JSON or Mermaid, in their `source` argument. The server writes files only inside its output folder: `--out FOLDER` if given, otherwise `$OPEN_DIAGRAM_RS_OUT`, otherwise `./open-diagram-rs`.
+
+The built-in icons are always available. To add your own, pass `--icons FOLDER` (repeat it for more folders) or set `$OPEN_DIAGRAM_RS_ICONS` to a list of folders separated like `PATH`.
+
+## Connect an AI app
+
+Each app below starts the server with output going to `./open-diagram-rs`. Install the server first.
+
+**Claude Code**
 
 ```bash
-cp -r skills/open-diagram-rs ~/.claude/skills/
+claude mcp add open-diagram-rs -- open-diagram-rs-mcp --out ./open-diagram-rs
 ```
 
-Agents changing the library start with [AGENTS.md](../AGENTS.md).
+**Codex**
 
-## MCP hosts
+```bash
+codex mcp add open-diagram-rs -- open-diagram-rs-mcp --out ./open-diagram-rs
+```
 
-Install the server first: `cargo install open-diagram-rs-mcp --locked`. The process is `open-diagram-rs-mcp`. `--out` is the folder that receives SVG and PNG files.
-
-Grok reads `~/.grok/config.toml` (`%USERPROFILE%\.grok\config.toml` on Windows) and a project `.grok/config.toml`:
+Or add this to `~/.codex/config.toml`, or to `.codex/config.toml` in a project:
 
 ```toml
 [mcp_servers.open-diagram-rs]
@@ -47,21 +46,17 @@ command = "open-diagram-rs-mcp"
 args = ["--out", "./open-diagram-rs"]
 ```
 
-From the command line: `grok mcp add open-diagram-rs -- open-diagram-rs-mcp --out ./open-diagram-rs`.
+**Grok**
 
-Claude Code: `claude mcp add open-diagram-rs -- open-diagram-rs-mcp --out ./open-diagram-rs`.
-
-Codex reads `~/.codex/config.toml` and a project `.codex/config.toml`:
-
-```toml
-[mcp_servers.open-diagram-rs]
-command = "open-diagram-rs-mcp"
-args = ["--out", "./open-diagram-rs"]
+```bash
+grok mcp add open-diagram-rs -- open-diagram-rs-mcp --out ./open-diagram-rs
 ```
 
-From the command line: `codex mcp add open-diagram-rs -- open-diagram-rs-mcp --out ./open-diagram-rs`.
+Or add the same `[mcp_servers.open-diagram-rs]` table as for Codex to `~/.grok/config.toml` (`%USERPROFILE%\.grok\config.toml` on Windows), or to `.grok/config.toml` in a project.
 
-VS Code, `.vscode/mcp.json` (`servers`, with a transport type):
+**VS Code**
+
+Add this to `.vscode/mcp.json`:
 
 ```json
 {
@@ -75,9 +70,9 @@ VS Code, `.vscode/mcp.json` (`servers`, with a transport type):
 }
 ```
 
-Or: `code --add-mcp "{\"name\":\"open-diagram-rs\",\"type\":\"stdio\",\"command\":\"open-diagram-rs-mcp\",\"args\":[\"--out\",\"./open-diagram-rs\"]}"`.
+**Project files for Claude, Cursor and Grok**
 
-Claude, Cursor, and Grok also read a project `.mcp.json` (Cursor uses `.cursor/mcp.json`):
+Claude and Grok also read `.mcp.json` at the root of a project, and Cursor reads `.cursor/mcp.json`:
 
 ```json
 {
@@ -90,10 +85,48 @@ Claude, Cursor, and Grok also read a project `.mcp.json` (Cursor uses `.cursor/m
 }
 ```
 
+## The agent skill
+
+[skills/open-diagram-rs/SKILL.md](../skills/open-diagram-rs/SKILL.md) teaches an agent the format and how to fix each kind of layout problem. Install it in one of these ways:
+
+- Copy the folder into the agent's skills folder. For Claude Code: `cp -r skills/open-diagram-rs ~/.claude/skills/`
+- Run `npx skills add Orrae-Labs/open-diagram-rs`.
+- Let the MCP server provide it. The server offers the skills in `skills/` when it is started from a checkout of this repository, or from the folder that `$OPEN_DIAGRAM_RS_SKILLS` names. It uses the Skills over MCP extension (`io.modelcontextprotocol/skills`): `skills/list`, `skills/get`, and the skill files through `resources/read`.
+
+This repository is also a Claude Code plugin. Add it as a marketplace, then install the plugin:
+
+```bash
+claude plugin marketplace add Orrae-Labs/open-diagram-rs
+```
+
+```bash
+claude plugin install open-diagram-rs@open-diagram-rs
+```
+
+The plugin doesn't include the server binary. Install that with `cargo install` as above.
+
+## The command
+
+An agent that can run shell commands can use the command line instead of MCP:
+
+```bash
+cargo install open-diagram-rs-cli --locked
+open-diagram-rs new
+open-diagram-rs check plan.json
+open-diagram-rs describe plan.json
+open-diagram-rs draw plan.json
+```
+
+[cli.md](cli.md) describes every command and option.
+
 ## Cloud service icons
 
-[`cloud-icons/`](../cloud-icons) has one file each for AWS, Azure and Google Cloud. Each file lists service keys and the URL of a pinned SVG. The templates already embed the icons they use, under `crates/open-diagram/templates/assets/`. JSON refers to those by name (`"icon": "aws/s3"`). Mermaid does not take icons.
+The cloud templates embed the icons they use, under `crates/open-diagram/templates/assets/`, and JSON refers to them by name, such as `"icon": "aws/s3"`. Mermaid flowcharts can't use icons.
 
-The [cloud-icons skill](../skills/cloud-icons/SKILL.md) says how to add an icon that is not built in. The finished SVG contains the icon bytes.
+[cloud-icons/](../cloud-icons) has one list each for AWS, Azure and Google Cloud, giving each service's key and the URL of a pinned SVG. The [cloud-icons skill](../skills/cloud-icons/SKILL.md) shows how to add an icon that isn't built in. A finished SVG contains the icon's bytes, so it doesn't depend on the icon file afterwards.
 
-The icons belong to Amazon, Microsoft and Google, and keep their own terms. The MIT license on this code does not cover them.
+The icons belong to Amazon, Microsoft and Google and keep their own terms. The MIT license on this code doesn't cover them.
+
+## Changing open-diagram-rs itself
+
+An agent that works on this repository's code should start with [AGENTS.md](../AGENTS.md).

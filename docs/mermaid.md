@@ -1,41 +1,40 @@
 # Mermaid
 
-Draw a Mermaid flowchart you already have, and see what changes.
-
-open-diagram-rs lays the flowchart out again, with the same measuring and checks as any other diagram:
+open-diagram-rs can draw a Mermaid flowchart you already have. It reads the nodes, lines and subgraphs, then lays the picture out again with its own measuring and checks:
 
 ```bash
 open-diagram-rs draw signup_flow.mmd
 ```
 
-![A Mermaid flowchart drawn by open-diagram-rs](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/signup_flow.png)
+![A Mermaid flowchart drawn by open-diagram-rs](images/signup_flow.png)
 
-It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, chains, `&`, edge labels, and front-matter titles. Dotted edges (`-.->`) become planned connections. Each top-level `subgraph` becomes a shaded group with its own band, so groups never cover other nodes. A class named like a state (`A:::building`, or `class A,B planned`) sets that state. Lines that skip a step or point backwards travel above or below the picture. From Rust, call `open_diagram_rs::from_mermaid`. The example is [`examples/signup_flow.mmd`](https://github.com/Orrae-Labs/open-diagram-rs/blob/main/examples/signup_flow.mmd).
+The source is [examples/signup_flow.mmd](../examples/signup_flow.mmd). From Rust, `open_diagram_rs::from_mermaid` reads the same input.
 
 ## What carries over
 
-- `flowchart` and `graph`, with `LR`, `RL`, `TD`, `TB` or `BT`. `RL` and `BT` are drawn as the mirror image of `LR` and `TD`.
+- `flowchart` and `graph`, in any direction: `LR`, `RL`, `TD`, `TB` or `BT`. `RL` and `BT` are drawn as mirror images of `LR` and `TD`.
 - Nodes in any bracket shape, with or without quotes.
 - Chains (`A --> B --> C`) and `&` (`A & B --> C`).
 - Line labels: `-->|text|`, `-- text -->`, `-. text .->` and `== text ==>`.
-- Dotted lines (`-.->`) become connections still to build, drawn dotted.
-- Each top-level `subgraph` … `end` becomes a shaded group.
-- A class named after a state sets that state: `A:::building` or `class A,B planned`. The states are live, building, trial, planned and retiring.
-- A `title:` in the front matter. Without one the title is “Flowchart”, and `--title` sets it.
+- Dotted lines (`-.->`), which become connections still to be built and are drawn dotted.
+- Each top-level `subgraph` ... `end`, which becomes a shaded group. Each group gets its own band, so it never covers nodes outside it.
+- A class named after a state, which sets that state: `A:::building` or `class A,B planned`. The states are `live`, `building`, `trial`, `planned` and `retiring`.
+- A `title:` in the front matter. Without one the title is "Flowchart". `--title` on the command line overrides both.
 - `%%` comments, and `;` between statements.
 
 ## What changes
 
+- open-diagram-rs chooses the layout. Nodes are placed in steps by their longest path from the start. Lines that skip a step or point backwards run in a lane above or below the picture.
 - Every node is drawn as the same box. Diamonds, circles and other shapes are not kept.
-- `<br/>` becomes a space, so a label written on several lines is drawn as one line, wrapped to fit.
-- Thick lines (`==>`), lines with no arrowhead (`---`), circle and cross ends (`--o`, `--x`) and two-way arrows (`<-->`) are all drawn as ordinary one-way arrows.
+- `<br/>` becomes a space. A label written over several lines is drawn as one line and wrapped to fit.
+- Thick lines (`==>`), lines without an arrowhead (`---`), circle and cross ends (`--o`, `--x`) and two-way arrows (`<-->`) are all drawn as ordinary one-way arrows.
 - A subgraph inside another subgraph is merged into the outer one.
-- Class names that are not states are ignored, and so are styling lines: `classDef`, `style`, `linkStyle`, `click` and `direction`.
+- Class names that are not states are ignored, and so are the styling statements `classDef`, `style`, `linkStyle`, `click` and `direction`.
 - Markdown strings and icons such as `fa:fa-car` are shown exactly as typed.
-- open-diagram-rs chooses the layout. Boxes go in steps by their longest path, and lines that skip a step or point backwards run in a lane above or below the picture.
 
-## What it does not read
+## What it rejects
 
-- Other Mermaid diagram types, such as `sequenceDiagram`. The command stops and names the line.
-- The newer shape syntax, `A@{ shape: … }`. The command stops and names the node.
-- D2 files. open-diagram-rs has no D2 reader.
+- Other Mermaid diagram types, such as `sequenceDiagram`. The error names the line.
+- The newer shape syntax, `A@{ shape: ... }`. The error names the node.
+
+open-diagram-rs has no reader for D2 files.

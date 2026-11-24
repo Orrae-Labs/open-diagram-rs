@@ -1,36 +1,36 @@
 # Command line
 
-Draw, check and describe diagrams from a terminal or a CI job.
-
 ```bash
 cargo install open-diagram-rs-cli --locked
 ```
 
-The binary is named `open-diagram-rs`. From this repo, `cargo run -p open-diagram-rs-cli --` runs the same commands.
+This installs the `open-diagram-rs` command. Inside a checkout of this repository, `cargo run -p open-diagram-rs-cli --` runs the same command without installing it.
 
-```bash
-open-diagram-rs draw plan.json       # writes plan.svg and plan.png; exits with 1 if the layout has problems
-open-diagram-rs check docs/*.json    # checks without writing files, for scripts and CI
-open-diagram-rs describe plan.json   # prints what the picture says, in plain words
-open-diagram-rs new                  # lists the templates; `open-diagram-rs new azure_web_app` writes one to start from
-```
+Every command reads a JSON description (`.json`) or a Mermaid flowchart (`.mmd` or `.mermaid`).
 
-Each command takes a JSON description (`.json`) or a Mermaid flowchart (`.mmd` or `.mermaid`). Add `--statuses states.json` to set states by name before drawing, and `--icons FOLDER` to use your own icons in JSON.
+| Command | What it does |
+| --- | --- |
+| `open-diagram-rs draw FILE` | Writes `FILE.svg` and `FILE.png` next to the input, prints any layout problems, and exits with status 1 if there are any |
+| `open-diagram-rs check FILE...` | Builds each diagram in memory and prints its layout problems. Writes nothing. Exits with status 1 if any file has a problem |
+| `open-diagram-rs describe FILE` | Prints what the picture says in plain words: its blocks, groups and lines |
+| `open-diagram-rs new [TEMPLATE]` | Lists the templates, or writes `TEMPLATE.json` into the current folder |
+| `open-diagram-rs png SVG` | Converts an SVG to PNG with Chrome, Chromium or Edge |
 
-## MCP
+Useful options:
 
-`open-diagram-rs-mcp` is the same drawings over stdio, for an MCP app. Tools: `format_guide`, `template`, `check`, `describe`, `draw`. Files stay inside `--out` (default `$OPEN_DIAGRAM_RS_OUT` or `./open-diagram-rs`).
+- `draw -o PATH` writes `PATH.svg` and `PATH.png` instead. Leave out the extension.
+- `draw --no-png` writes the SVG only, so no browser is needed.
+- `draw --scale N` and `png --scale N` set the PNG's pixel scale. The default is 2.
+- `--title TEXT` on `draw` and `describe` replaces the title. A Mermaid file otherwise uses the `title:` in its front matter, or "Flowchart".
+- `--statuses FILE` on `draw`, `check` and `describe` sets states by name before building. See below.
+- `--icons FOLDER` on `draw`, `check` and `describe` adds a folder of icons that JSON icon names can use.
+- `new --force` replaces an existing file. `new -o FILE` writes somewhere else.
 
-```bash
-cargo install open-diagram-rs-mcp --locked
-open-diagram-rs-mcp --out ./open-diagram-rs
-```
+PNG output needs Chrome, Chromium or Edge. If the command can't find yours, set `CHROME` to its path.
 
-Connecting Claude, Codex, Cursor, or Grok is in [agents.md](agents.md).
+## Keep diagrams up to date with GitHub Actions
 
-## Keep diagrams from going stale
-
-Add this GitHub Action and every push redraws your diagrams and fails the check if a layout problem appears:
+This repository is also a GitHub Action. Add the workflow below and every push and pull request checks your diagrams, failing if one has a layout problem:
 
 ```yaml
 # .github/workflows/diagrams.yml
@@ -48,4 +48,20 @@ jobs:
           mode: check                           # or draw, to write SVG and PNG next to each file
 ```
 
-Keep states in a small file, such as `{"Fraud checks": "live", "Parcel lockers": "building"}`. When work ships, change one word; the pictures follow. Names match panel titles, panel ids and tile labels, and `live` returns a part to the default look. From the library, call `Diagram::set_statuses`.
+`files` takes globs separated by spaces or newlines, including `**`. A pattern that matches nothing fails the job, so a moved folder doesn't pass silently.
+
+## Track state in one file
+
+The parts of a system move from planned to being built to live. Instead of editing each diagram as that happens, keep the states in one JSON file and pass it with `--statuses`:
+
+```json
+{"Fraud checks": "live", "Parcel lockers": "building"}
+```
+
+Each name matches a panel title, a panel id or a tile label in any diagram. The states are `live`, `building`, `trial`, `planned` and `retiring`. Setting a part to `live` returns it to the default look. When work ships, change one word in this file and every diagram that mentions the part follows.
+
+From Rust, call `Diagram::set_statuses`.
+
+## MCP server
+
+The MCP server, `open-diagram-rs-mcp`, offers the same drawing and checking to AI apps. Setup is in [agents.md](agents.md).
