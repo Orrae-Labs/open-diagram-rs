@@ -25,7 +25,7 @@ class CompatibilityTests(unittest.TestCase):
             with self.subTest(example=path.name):
                 svg, report = load(str(path)).render()
                 self.assertEqual(report.problems, [])
-                self.assertEqual(svg, (ROOT / "docs/images" / (path.stem + ".svg")).read_text())
+                self.assertEqual(svg.encode("utf-8"), (ROOT / "docs/images" / (path.stem + ".svg")).read_bytes())
 
 
 class ResourceTests(unittest.TestCase):
@@ -233,7 +233,7 @@ class TemplateTests(unittest.TestCase):
                 self.assertEqual(report.problems, [])
                 self.assertGreaterEqual(report.min_text, 10)
                 self.assertEqual(svg, load(str(path)).render()[0])
-                self.assertEqual(svg, (ROOT / "docs/images" / (path.stem + ".svg")).read_text())
+                self.assertEqual(svg.encode("utf-8"), (ROOT / "docs/images" / (path.stem + ".svg")).read_bytes())
                 tree = ET.fromstring(svg)
                 images = tree.findall(".//s:image", NS)
                 self.assertTrue(images)

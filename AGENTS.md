@@ -22,7 +22,7 @@ PYTHONPATH=src python3 -m open_diagram check examples/*.py examples/*.json examp
 ```
 
 PNG output needs Chrome, Chromium or Edge; set `CHROME` to the binary if `find_chrome()` misses it. SVG output never
-needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10 and 3.14.
+needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Linux and Windows, Python 3.10 and 3.14.
 
 ## Map
 
@@ -40,7 +40,7 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
 | `src/open_diagram/catalog.py` | Where templates and icons live (`template_dir()`, `icon_dir()`), the template table read from `templates/README.md`, and `find_icon()`, which never returns a file outside the icon folders |
 | `src/open_diagram/mcp_server.py` | The MCP server (`open-diagram-mcp`): tools `format_guide`, `check`, `draw`, `describe`, `template`; the MCP toolkit is imported only inside `create_server()` |
 | `tests/test_mcp_server.py` | Helper tests (any Python) and protocol tests over memory and stdio (skipped without the `mcp` extra) |
-| `src/open_diagram/render.py` | `find_chrome()`, `svg_to_png()` (headless browser screenshot, optional Pillow crop) |
+| `src/open_diagram/render.py` | `find_chrome()`, `svg_to_png()` and `png_error()` (headless browser screenshot into a temporary file, optional Pillow crop; a failed run leaves an existing PNG alone and says why) |
 | `src/open_diagram/fonts/` | Inter 4.1, four weights, under the SIL OFL (`OFL.txt`). Do not replace or subset without updating the license note |
 | `examples/` | One script per example; each defines `build() -> Diagram` and saves to `docs/images/<name>` |
 | `templates/` | JSON cloud templates, their icons in `assets/` with credits, and the template standard in `README.md`. Ships in the package as `open_diagram.templates` (see `pyproject.toml`) |
@@ -71,7 +71,8 @@ needs a browser. CI (`.github/workflows/test.yml`) runs the tests on Python 3.10
 - **Text is drawn as outlines and measured from the font.** Use `text_width` / `wrap` / `Canvas.text`. Never
   estimate width from character counts, and never emit `<text>` elements.
 - **Output is deterministic.** The same script must produce a byte-identical SVG (the example test asserts this).
-  No timestamps, randomness, absolute paths or environment-dependent values in the SVG.
+  No timestamps, randomness, absolute paths or environment-dependent values in the SVG. Write SVG files with
+  `newline="\n"` so Windows does not change line endings, and compare files as bytes in tests.
 - **Problem messages are an API.** Agents act on them. Each message names parts by their labels and, where
   possible, says how to fix it. Keep these substrings stable: `overlap`, `px apart`, `crosses`, `sits on`,
   `needs N px`, `smallest text`, `group ... overlaps`, `sits on the title of group`, `facing away`, `graph: the label ... touches`,

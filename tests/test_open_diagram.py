@@ -14,6 +14,7 @@ from open_diagram import (Diagram, Graph, LayoutError, MermaidError, Panel, Spec
                           from_mermaid, from_spec, text_width, wrap)
 from open_diagram import cli  # noqa: E402
 from open_diagram.fonts import face  # noqa: E402
+from open_diagram.spec import panel_from_spec  # noqa: E402
 
 EXAMPLES = ["quickstart", "systems_map", "how_it_works", "pipeline", "card_payment", "layers", "concept_map",
             "smart_home", "incident_response", "business_map"]
@@ -189,6 +190,27 @@ class SpecTests(unittest.TestCase):
         _, report = cli.load(os.path.join(ROOT, "examples", "email_delivery.json")).render()
         self.assertEqual(report.problems, [])
 
+    def test_card_and_graph_mistakes_name_the_place(self):
+        # Issue #7: these raised a bare ValueError with no place, some only once the picture was measured.
+        def section(sec):
+            return {"title": "t", "columns": [[{"title": "P", "sections": [sec]}]]}
+
+        graph = {"nodes": {"a": "A", "b": "B"}, "links": [["a", "b"]], "at": {"a": [0, 0], "b": [1, 0]}}
+        cases = [({"graph": {**graph, "at": {"b": [1, 0]}}}, "graph.at: no position for node 'a'"),
+                 ({"graph": {**graph, "links": [["a", "z"]]}}, "graph.links[0]: no node 'z'"),
+                 ({"graph": {**graph, "at": {"a": 0, "b": [1, 0]}}}, "graph.at.a: expected [column, row]"),
+                 ({"card": {"title": "C", "rows": [["only"]]}}, "card.rows[0]: each row is [name, value]"),
+                 ({"card": {"title": "C", "rows": [["a", "b", "c"]]}}, "card.rows[0]: each row is [name, value]"),
+                 ({"card": {"title": "C", "rows": [["Cost", 3]]}}, "card.rows[0]: the name and the value")]
+        for sec, message in cases:
+            with self.subTest(message=message):
+                with self.assertRaises(SpecError) as caught:
+                    from_spec(section(sec))
+                self.assertIn("columns[0][0].sections[0]." + message, str(caught.exception))
+        with self.assertRaises(SpecError):
+            panel_from_spec({"title": "P", "sections": [{"card": {"title": "C", "rows": [["only"]]}}]})
+        self.assertEqual(from_spec(section({"graph": graph})).render()[1].problems, [])
+
 
 class MermaidTests(unittest.TestCase):
     TEXT = """flowchart LR
@@ -214,7 +236,7 @@ class MermaidTests(unittest.TestCase):
         self.assertIn("Do it (being built)", d.describe())
 
     def test_layout_is_clean_with_back_and_long_edges(self):
-        for direction in ("LR", "TD"):
+        for direction in ("LR", "RL", "TD", "BT"):
             with self.subTest(direction=direction):
                 d = from_mermaid(self.TEXT.replace("LR", direction))
                 _, report = d.render()
@@ -233,8 +255,25 @@ class MermaidTests(unittest.TestCase):
     def test_top_down_with_a_group_is_clean(self):
         text = ("flowchart TD\n a[Ask] --> b{Found?}\n b -->|yes| c[Send link]\n b -->|no| d[Same message]\n"
                 " c --> e[Click]\n e -.->|expired| a\n subgraph mail [Email service]\n  c\n end\n")
-        _, report = from_mermaid(text).render()
-        self.assertEqual(report.problems, [])
+        for direction in ("TD", "BT"):
+            with self.subTest(direction=direction):
+                _, report = from_mermaid(text.replace("TD", direction)).render()
+                self.assertEqual(report.problems, [])
+
+    def test_right_to_left_and_bottom_to_top(self):
+        # Issue #6: RL and BT were drawn exactly like LR and TD.
+        start, end = from_mermaid("flowchart RL\n  a[Start] --> b[End]\n").placed
+        self.assertGreater(start.x, end.right)
+        d = from_mermaid("flowchart RL\n  a[Start] --> b[End]\n")
+        self.assertEqual((d.links[0].start, d.links[0].end), ("left", "right"))
+        d = from_mermaid("flowchart BT\n  a[Start] --> b[End]\n")
+        start, end = d.placed
+        self.assertGreater(start.y, end.bottom)
+        self.assertEqual((d.links[0].start, d.links[0].end), ("top", "bottom"))
+        for forward, reverse in (("LR", "RL"), ("TD", "BT")):
+            with self.subTest(direction=reverse):
+                self.assertNotEqual(from_mermaid(self.TEXT.replace("LR", forward)).render()[0],
+                                    from_mermaid(self.TEXT.replace("LR", reverse)).render()[0])
 
     def test_errors_name_the_line(self):
         with self.assertRaises(MermaidError) as caught:

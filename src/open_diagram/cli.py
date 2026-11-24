@@ -23,7 +23,7 @@ from typing import List, Optional
 
 from . import __version__, catalog
 from .diagram import Diagram
-from .render import svg_to_png
+from .render import png_error
 
 SOUNDTRACK = "The Gathering Field: https://open.spotify.com/artist/0BfQ8COB7K647uB6a0kMZn"
 
@@ -78,9 +78,9 @@ def _png(svg: str, scale: float) -> int:
         print(f"{svg}: the SVG needs width and height attributes", file=sys.stderr)
         return 2
     out = svg[:-4] + ".png" if svg.lower().endswith(".svg") else svg + ".png"
-    if not svg_to_png(svg, out, float(w.group(1)), float(h.group(1)), scale):
-        print("PNG not written: Chrome or Chromium not found (set the CHROME environment variable to its path)",
-              file=sys.stderr)
+    error = png_error(svg, out, float(w.group(1)), float(h.group(1)), scale)
+    if error:
+        print(f"PNG not written: {error}", file=sys.stderr)
         return 2
     print(f"wrote {out}")
     return 0
@@ -100,7 +100,7 @@ def _new(template: Optional[str], out: Optional[str], force: bool) -> int:
         print(f"error: {target} already exists; choose another name with -o, or add --force to replace it",
               file=sys.stderr)
         return 2
-    with open(source, encoding="utf-8") as fh, open(target, "w", encoding="utf-8") as dst:
+    with open(source, encoding="utf-8") as fh, open(target, "w", encoding="utf-8", newline="\n") as dst:
         dst.write(fh.read())
     print(f"wrote {target}; change its labels, then: open-diagram check {target}")
     return 0

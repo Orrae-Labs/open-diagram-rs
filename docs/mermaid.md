@@ -14,7 +14,7 @@ It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, c
 
 ## What carries over
 
-- `flowchart` and `graph`, with `LR`, `TD` or `TB`.
+- `flowchart` and `graph`, with `LR`, `RL`, `TD`, `TB` or `BT`. `RL` and `BT` are drawn as the mirror image of `LR` and `TD`.
 - Nodes in any bracket shape, with or without quotes.
 - Chains (`A --> B --> C`) and `&` (`A & B --> C`).
 - Line labels: `-->|text|`, `-- text -->`, `-. text .->` and `== text ==>`.
@@ -29,7 +29,6 @@ It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, c
 - Every node is drawn as the same box. Diamonds, circles and other shapes are not kept.
 - `<br/>` becomes a space, so a label written on several lines is drawn as one line, wrapped to fit.
 - Thick lines (`==>`), lines with no arrowhead (`---`), circle and cross ends (`--o`, `--x`) and two-way arrows (`<-->`) are all drawn as ordinary one-way arrows.
-- `RL` is drawn left to right, and `BT` top to bottom.
 - A subgraph inside another subgraph is merged into the outer one.
 - Class names that are not states are ignored, and so are styling lines: `classDef`, `style`, `linkStyle`, `click` and `direction`.
 - Markdown strings and icons such as `fa:fa-car` are shown exactly as typed.

@@ -86,6 +86,47 @@ def _tiles(items: Any, where: str, cols=None, label=None, icons=None) -> Tiles:
     return Tiles([_tile(i, f"{where}[{n}]", icons) for n, i in enumerate(items)], cols=cols, label=label)
 
 
+def _card(c: Any, where: str) -> Card:
+    _keys(c, {"title", "rows", "intro"}, where, ("title", "rows"))
+    rows = c["rows"]
+    if not isinstance(rows, list):
+        raise SpecError(f"{where}.rows: expected a list of [name, value] pairs")
+    for n, row in enumerate(rows):
+        if not isinstance(row, list) or len(row) != 2:
+            got = f"{len(row)} item(s)" if isinstance(row, list) else f"a {type(row).__name__}"
+            raise SpecError(f"{where}.rows[{n}]: each row is [name, value]; got {got}")
+        if not all(isinstance(v, str) for v in row):
+            raise SpecError(f"{where}.rows[{n}]: the name and the value must both be text; put numbers in quotes")
+    return Card(c["title"], [tuple(r) for r in rows], intro=c.get("intro"))
+
+
+def _graph(g: Any, where: str) -> Graph:
+    _keys(g, {"nodes", "links", "at"}, where, ("nodes", "links", "at"))
+    nodes, links, at = g["nodes"], g["links"], g["at"]
+    if isinstance(nodes, list) and all(isinstance(x, list) and len(x) == 2 for x in nodes):
+        nodes = dict(nodes)                         # [[key, label], ...] worked before, so it still does
+    if not isinstance(nodes, dict) or not nodes:
+        raise SpecError(f"{where}.nodes: expected an object of node keys and labels, such as {{\"a\": \"Login\"}}")
+    if not isinstance(at, dict):
+        raise SpecError(f"{where}.at: expected an object giving each node [column, row], such as {{\"a\": [0, 0]}}")
+    for key in nodes:
+        if key not in at:
+            raise SpecError(f"{where}.at: no position for node '{key}'; give it [column, row]")
+    for key, value in at.items():
+        if not (isinstance(value, list) and len(value) == 2
+                and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in value)):
+            raise SpecError(f"{where}.at.{key}: expected [column, row], two numbers")
+    if not isinstance(links, list):
+        raise SpecError(f"{where}.links: expected a list of [from, to] or [from, to, label]")
+    for n, link in enumerate(links):
+        if not (isinstance(link, list) and len(link) in (2, 3)):
+            raise SpecError(f"{where}.links[{n}]: each link is [from, to] or [from, to, label]")
+        for end in link[:2]:
+            if end not in nodes:
+                raise SpecError(f"{where}.links[{n}]: no node '{end}'; nodes: {', '.join(nodes)}")
+    return Graph(nodes, [tuple(x) for x in links], {k: tuple(v) for k, v in at.items()})
+
+
 def _section(obj: Any, where: str, icons=None):
     if isinstance(obj, list):
         return _tiles(obj, where, icons=icons)
@@ -101,14 +142,10 @@ def _section(obj: Any, where: str, icons=None):
         return Text(obj["text"])
     if "card" in obj:
         _keys(obj, {"card"}, where)
-        c = obj["card"]
-        _keys(c, {"title", "rows", "intro"}, f"{where}.card", ("title", "rows"))
-        return Card(c["title"], [tuple(r) for r in c["rows"]], intro=c.get("intro"))
+        return _card(obj["card"], f"{where}.card")
     if "graph" in obj:
         _keys(obj, {"graph"}, where)
-        g = obj["graph"]
-        _keys(g, {"nodes", "links", "at"}, f"{where}.graph", ("nodes", "links", "at"))
-        return Graph(g["nodes"], [tuple(x) for x in g["links"]], {k: tuple(v) for k, v in g["at"].items()})
+        return _graph(obj["graph"], f"{where}.graph")
     if "row" in obj:
         _keys(obj, {"row"}, where)
         return Row(*[_section(s, f"{where}.row[{n}]", icons) for n, s in enumerate(obj["row"])])

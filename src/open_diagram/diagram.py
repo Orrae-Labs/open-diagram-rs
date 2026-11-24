@@ -640,14 +640,15 @@ class Diagram:
         folder = os.path.dirname(os.path.abspath(base))
         os.makedirs(folder, exist_ok=True)
         svg, report = self.render()
-        with open(base + ".svg", "w", encoding="utf-8") as fh:
+        with open(base + ".svg", "w", encoding="utf-8", newline="\n") as fh:   # the same bytes on every system
             fh.write(svg)
         report.files.append(base + ".svg")
         if png:
-            if _render.svg_to_png(base + ".svg", base + ".png", report.width, report.height, scale):
+            error = _render.png_error(base + ".svg", base + ".png", report.width, report.height, scale)
+            if error is None:
                 report.files.append(base + ".png")
             else:
-                print("PNG skipped: Chrome or Chromium not found (set the CHROME environment variable to its path)")
+                print(f"PNG skipped: {error}")
         print(f"wrote {', '.join(report.files)}: {report.width:g} x {report.height:g} px; "
               f"smallest text {report.min_text:g} px; {len(report.problems)} layout problem(s)")
         if report.problems and strict:

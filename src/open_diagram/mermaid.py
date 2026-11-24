@@ -171,6 +171,7 @@ def from_mermaid(source: str, title: Optional[str] = None, theme: Optional[Theme
     if not g.order:
         raise MermaidError("the flowchart has no nodes")
     across = g.direction in ("LR", "RL")
+    flip = g.direction in ("RL", "BT")              # the mirror image of LR or TD: the first step is drawn last
 
     # Break cycles: an edge back to a node still on the depth-first path points backwards.
     out_edges: Dict[str, List[int]] = {n: [] for n in g.order}
@@ -210,6 +211,10 @@ def from_mermaid(source: str, title: Optional[str] = None, theme: Optional[Theme
         if not changed:
             break
     n_layers = max(layer.values()) + 1
+
+    def slot(L: int) -> int:
+        """Where step L is drawn, counted from the left (LR, RL) or the top (TD, BT)."""
+        return n_layers - 1 - L if flip else L
 
     # Bands: each subgraph is one band; ungrouped nodes share one band. Bands keep first-appearance order.
     band_keys: List[Optional[int]] = []
@@ -255,19 +260,20 @@ def from_mermaid(source: str, title: Optional[str] = None, theme: Optional[Theme
         a, b, _, label = g.edges[i]
         if label and layer[b] == layer[a] + 1:
             w = text_width(label, t.small, "medium") + 14
-            label_w[layer[a]] = max(label_w.get(layer[a], 0), w)
+            gap = min(slot(layer[a]), slot(layer[b]))
+            label_w[gap] = max(label_w.get(gap, 0), w)
     grouped = [key is not None for key in band_keys]
     group_head = t.pad + 8 + t.line_h + 6
     if across:
         step_gap = [max(t.col_gap, label_w.get(L, 0) + 56) for L in range(n_layers)]
     else:
-        starts = {min(layer[n] for n in g.order if g.group_of.get(n) == key)
+        starts = {min(slot(layer[n]) for n in g.order if g.group_of.get(n) == key)
                   for key in band_keys if key is not None}
         step_gap = [64.0 + (group_head + 24 if (L + 1) in starts else 0) for L in range(n_layers)]
     item_gap = 24.0 if across else 40.0
 
     if across:
-        widths = [max(size[n][0] for n in g.order if layer[n] == L) for L in range(n_layers)]
+        widths = [max(size[n][0] for n in g.order if slot(layer[n]) == L) for L in range(n_layers)]
         band_h = []
         for bi in range(len(band_keys)):
             hs = [sum(size[n][1] for n in cells.get((L, bi), [])) + item_gap * max(0, len(cells.get((L, bi), [])) - 1)
@@ -287,11 +293,11 @@ def from_mermaid(source: str, title: Optional[str] = None, theme: Optional[Theme
                 stack_h = sum(size[n][1] for n in cell) + item_gap * max(0, len(cell) - 1)
                 cy = y + (band_h[bi] - stack_h) / 2
                 for node in cell:
-                    placed[node] = d.add(tiles[node], xs[L], cy, width=widths[L], name=g.text[node])
+                    placed[node] = d.add(tiles[node], xs[slot(L)], cy, width=widths[slot(L)], name=g.text[node])
                     cy += size[node][1] + item_gap
             y += band_h[bi]
     else:
-        heights = [max(size[n][1] for n in g.order if layer[n] == L) for L in range(n_layers)]
+        heights = [max(size[n][1] for n in g.order if slot(layer[n]) == L) for L in range(n_layers)]
         band_w = []
         for bi in range(len(band_keys)):
             ws = [sum(size[n][0] for n in cells.get((L, bi), [])) + item_gap * max(0, len(cells.get((L, bi), [])) - 1)
@@ -311,7 +317,7 @@ def from_mermaid(source: str, title: Optional[str] = None, theme: Optional[Theme
                 row_w = sum(size[n][0] for n in cell) + item_gap * max(0, len(cell) - 1)
                 cx = x + (band_w[bi] - row_w) / 2
                 for node in cell:
-                    placed[node] = d.add(tiles[node], cx, ys[L] + (heights[L] - size[node][1]) / 2,
+                    placed[node] = d.add(tiles[node], cx, ys[slot(L)] + (heights[slot(L)] - size[node][1]) / 2,
                                          name=g.text[node])
                     cx += size[node][0] + item_gap
             x += band_w[bi]
@@ -327,13 +333,14 @@ def from_mermaid(source: str, title: Optional[str] = None, theme: Optional[Theme
     hi = max((p.bottom if across else p.right) for p in placed.values()) + t.pad + 8
     mid = (lo + hi) / 2
     corridors = {"low": 0, "high": 0}
+    if across:
+        start, end = ("left", "right") if flip else ("right", "left")
+    else:
+        start, end = ("top", "bottom") if flip else ("bottom", "top")
     for i, (a, b, kind, label) in enumerate(g.edges):
         pa, pb = placed[a], placed[b]
         if i not in back and layer[b] == layer[a] + 1:
-            if across:
-                d.link(pa, pb, kind=kind, label=label)
-            else:
-                d.link(pa, pb, kind=kind, label=label, start="bottom", end="top")
+            d.link(pa, pb, kind=kind, label=label, start=start, end=end)
             continue
         centre = ((pa.cy + pb.cy) / 2) if across else ((pa.cx + pb.cx) / 2)
         side = "high" if centre > mid else "low"
@@ -341,9 +348,9 @@ def from_mermaid(source: str, title: Optional[str] = None, theme: Optional[Theme
         corridors[side] += 1
         at = (lo - 30 - 28 * k) if side == "low" else (hi + 30 + 28 * k)
         if across:
-            d.link(pa, pb, kind=kind, label=label, start="right", end="left", via_y=at)
+            d.link(pa, pb, kind=kind, label=label, start=start, end=end, via_y=at)
         else:
-            d.link(pa, pb, kind=kind, label=label, start="bottom", end="top", via_x=at)
+            d.link(pa, pb, kind=kind, label=label, start=start, end=end, via_x=at)
     return d
 
 

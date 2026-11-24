@@ -21,7 +21,7 @@ import sys
 
 from . import __version__, catalog
 from .mermaid import from_mermaid
-from .render import svg_to_png
+from .render import png_error
 from .spec import SpecError, default_icons, from_spec
 
 MAX_SOURCE = 200_000
@@ -176,16 +176,18 @@ def draw_files(source: str, fmt: str, name: str, out_dir: str, png: bool = True,
         svg, report = d.render()
         os.makedirs(out_dir, exist_ok=True)
         base = os.path.join(out_dir, safe_name(name))
-        with open(base + ".svg", "w", encoding="utf-8") as fh:
+        with open(base + ".svg", "w", encoding="utf-8", newline="\n") as fh:   # the same bytes on every system
             fh.write(svg)
         files = [base + ".svg"]
-        png_path = None
-        if png and svg_to_png(base + ".svg", base + ".png", report.width, report.height, 2.0):
-            png_path = base + ".png"
-            files.append(png_path)
+        png_path = error = None
+        if png:
+            error = png_error(base + ".svg", base + ".png", report.width, report.height, 2.0)
+            if error is None:
+                png_path = base + ".png"
+                files.append(png_path)
     text = [problems_text(report), "", "Files:"] + [f"- {f}" for f in files]
-    if png and not png_path:
-        text.append("PNG skipped: Chrome, Chromium or Edge was not found (set CHROME to its path). The SVG is written.")
+    if error:
+        text.append(f"PNG skipped: {error}. The SVG is written.")
     text += [f"Size: {report.width:g} x {report.height:g} px; smallest text {report.min_text:g} px", "",
              "What the picture says:", d.describe()]
     return {"text": "\n".join(text), "png": png_path, "files": files, "problems": list(report.problems)}

@@ -47,7 +47,10 @@ class Block:
 def _data_uri(path: str) -> str:
     kind = mimetypes.guess_type(path)[0] or "image/png"
     with open(path, "rb") as fh:
-        return f"data:{kind};base64,{base64.b64encode(fh.read()).decode('ascii')}"
+        data = fh.read()
+    if kind == "image/svg+xml":
+        data = data.replace(b"\r\n", b"\n")   # an SVG icon checked out with Windows line endings embeds the same bytes
+    return f"data:{kind};base64,{base64.b64encode(data).decode('ascii')}"
 
 
 class Resource(Block):
