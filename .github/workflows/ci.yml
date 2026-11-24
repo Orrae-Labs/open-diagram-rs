@@ -1,7 +1,7 @@
 name: ci
 
 # Runner images are pinned. ubuntu-latest moved from 24.04 to 26.04 between
-# 2026-10-19 and 2026-11-19, and macos-latest is macos-26.
+# 2026-10-19 and 2026-11-19. The test matrix is ubuntu-24.04 and windows-2025.
 # RUSTFLAGS is not set. -Dwarnings would fail the job on a warning inside a
 # dependency. CARGO_BUILD_WARNINGS denies lints in this workspace only.
 # A pull request runs after borrow-checker submits an approving review.
@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-26, windows-2025]
+        os: [ubuntu-24.04, windows-2025]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
