@@ -1,0 +1,67 @@
+name: dependabot-auto-merge
+
+# ci and diagrams start when borrow-checker approves. The GitHub auto-merge
+# queue would merge at that approval, before those jobs finish, because main
+# does not require status checks. This waits until both workflows have a
+# successful job for the same commit, then squash-merges.
+
+on:
+  workflow_run:
+    workflows: [ci, diagrams]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dependabot-merge-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request_review' &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Squash-merge when both workflows passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -eu
+          busy() {
+            workflow="$1"
+            count=$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$HEAD_SHA" --workflow "$workflow" --json status --jq '[.[] | select(.status == "queued" or .status == "in_progress" or .status == "pending" or .status == "waiting" or .status == "requested")] | length')
+            test "$count" = "0"
+          }
+          passed() {
+            workflow="$1"
+            ids=$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$HEAD_SHA" --workflow "$workflow" --json databaseId,status,conclusion --jq '.[] | select(.status == "completed" and .conclusion == "success") | .databaseId')
+            for id in $ids; do
+              count=$(gh run view "$id" --repo "$GITHUB_REPOSITORY" --json jobs --jq '[.jobs[] | select(.conclusion == "success")] | length')
+              if [ "$count" != "0" ]; then
+                return 0
+              fi
+            done
+            return 1
+          }
+          if ! busy ci || ! busy diagrams || ! passed ci || ! passed diagrams; then
+            echo "waiting for ci and diagrams on $HEAD_SHA"
+            exit 0
+          fi
+          json=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$HEAD_BRANCH" --base main --state open --json number,author,reviewDecision,headRefOid)
+          number=$(printf '%s' "$json" | jq -r --arg sha "$HEAD_SHA" 'first(.[] | select(.author.login == "dependabot[bot]" and .reviewDecision == "APPROVED" and .headRefOid == $sha) | .number) // empty')
+          if [ -z "$number" ]; then
+            echo "no approved Dependabot pull request at $HEAD_SHA"
+            exit 0
+          fi
+          if ! gh pr merge "$number" --repo "$GITHUB_REPOSITORY" --squash; then
+            state=$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json state --jq .state)
+            test "$state" = "MERGED"
+          fi
