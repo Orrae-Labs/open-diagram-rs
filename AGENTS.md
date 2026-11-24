@@ -43,7 +43,7 @@ Rust library and `open-diagram-rs` command. Every label is measured from the bun
 - Colors come from `Theme`. Derived shades use `shade`. Nothing is drawn below `theme.min_text` (10 px).
 - `describe()` shape: `->` for lines, `labeled "..."`, state words in parentheses, `[step N, state]` after panel titles.
 - JSON and Mermaid errors name the place (`columns[1][0].tiles[2]`, `line 7`).
-- Arithmetic that formats into the SVG uses `crate::num`. `mul_add` and `f64::midpoint` change those bytes. `base64` stays on 0.22. `ttf-parser` stays; its unmaintained advisory has no upgrade that keeps the outlines.
+- Arithmetic that formats into the SVG uses `crate::num`. `mul_add` and `f64::midpoint` change those bytes. `ttf-parser` stays; its unmaintained advisory has no upgrade that keeps the outlines.
 
 ## Style
 
