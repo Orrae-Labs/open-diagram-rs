@@ -331,7 +331,7 @@ fn expect_spec(value: &Value) -> Result<String, crate::SpecError> {
 }
 
 fn mermaid_errors() -> Result<String, crate::MermaidError> {
-    let line_2 = match from_mermaid("flowchart LR\n  a[ok] --> ???", None, None) {
+    let line_2 = match from_mermaid("flowchart LR\n  a[ok] --> ???", None, None, None) {
         Ok(_) => {
             return Err(crate::MermaidError::new(
                 "expected a mermaid error on line 2",
@@ -341,6 +341,7 @@ fn mermaid_errors() -> Result<String, crate::MermaidError> {
     };
     let line_7 = match from_mermaid(
         "flowchart LR\n  a[ok] --> b[ok]\n  b --> c[ok]\n  c --> d[ok]\n  d --> e[ok]\n  e --> f[ok]\n  f --> ???",
+        None,
         None,
         None,
     ) {

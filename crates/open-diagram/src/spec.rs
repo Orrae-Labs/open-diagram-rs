@@ -34,6 +34,7 @@ const TOP_KEYS: &[&str] = &[
     "statuses",
     "resources",
     "enclosures",
+    "routing",
 ];
 const LAYOUTS: &[&str] = &["columns", "panels", "ring"];
 const PANEL_KEYS: &[&str] = &[
@@ -57,6 +58,7 @@ const ENCLOSURE_KEYS: &[&str] = &[
 ];
 const LINK_KEYS: &[&str] = &[
     "from", "to", "kind", "label", "start", "end", "lane", "via_x", "via_y", "cross_ok", "dash",
+    "routing",
 ];
 const GROUP_KEYS: &[&str] = &["label", "members", "sub"];
 
@@ -870,6 +872,9 @@ fn add_link_list(
         if let Some(dash) = opt_str(map, "dash", &spot)? {
             spec_link = spec_link.dash(dash);
         }
+        if let Some(routing) = opt_str(map, "routing", &spot)? {
+            spec_link = spec_link.routing(routing);
+        }
         diagram
             .link(&a, &b, spec_link)
             .map_err(|err: DiagramError| SpecError::new(format!("{spot}: {err}")))?;
@@ -924,8 +929,17 @@ pub fn from_spec_with(spec: &Value, icons: Option<&[PathBuf]>) -> Result<Diagram
         None | Some(Value::Null) => None,
         Some(value) => note_from(value)?,
     };
+    let routing = opt_str(map, "routing", "diagram")?.unwrap_or_else(|| "curved".to_owned());
+    if !matches!(routing.as_str(), "curved" | "orthogonal") {
+        return Err(SpecError::new(format!(
+            "routing: use 'curved' or 'orthogonal' (straight runs that meet at right angles), not {}",
+            py_repr(&routing)
+        )));
+    }
     let mut diagram = Diagram::new(as_str(&map["title"], "diagram.title")?)
-        .theme(theme_from_spec(map.get("theme"))?);
+        .theme(theme_from_spec(map.get("theme"))?)
+        .routing(routing)
+        .map_err(SpecError::from)?;
     if let Some(subtitle) = opt_str(map, "subtitle", "diagram")? {
         diagram = diagram.subtitle(subtitle);
     }

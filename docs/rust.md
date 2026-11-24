@@ -22,20 +22,24 @@ Build a diagram from blocks, place them, and set its colors and sizes with a the
 
 | Method | What it does |
 | --- | --- |
-| `Diagram::new(title)` then `.subtitle`, `.tag`, `.note`, `.theme`, `.steps` | Start a picture |
+| `Diagram::new(title)` then `.subtitle`, `.tag`, `.note`, `.theme`, `.steps`, `.routing` | Start a picture. `routing("orthogonal")` draws every self-routed line as straight runs that meet at right angles; the default, `curved`, draws smooth curves |
 | `add(block, x, y)` | Place a block |
 | `right_of(refer, block, gap, align, width, name)` and `below(...)` | Place a block next to another. `gap` and `width` are `Option<f64>`. `align` is `center`, `left`, `right`, `top` or `bottom` |
 | `columns(cols, origin, gap, row_gap, valign, same_width)` and `stack(blocks, x, y, gap)` | Place columns left to right, or one column top to bottom. `valign` is `top`, `center` or `bottom` |
 | `ring(blocks, x, y, gap, start_angle, center)` | Place blocks around a circle. Returns `(ring, center)` |
 | `group(label, members, sub, pad)` | A shaded area around some blocks |
 | `enclosure(label, members, opts)` | A boundary around resources or nested enclosures. `EnclosureOpts` carries border, style, pad, fill, stroke and tone. `style = "panel"` adds the sloped lid and a filled header |
-| `link(a, b, spec)` | An arrow. `LinkSpec::default().kind("planned").label("new").start("auto").end("auto").via_y(y).dash("dashed")` |
+| `link(a, b, spec)` | An arrow. `LinkSpec::default().kind("planned").label("new").start("auto").end("auto").via_y(y).dash("dashed").routing("orthogonal")`. `routing` sets curved or right-angle for this line only |
 | `set_statuses(map)` | Set states by panel title, id or tile label |
 | `render()` | SVG text and a `Report` |
 | `save(path, png, scale, strict)` | Write `<path>.svg` and, when `png` is true, `<path>.png`. When `strict` is true and problems remain, the files are already written and the error is `SaveError::Layout` |
 | `describe()` | What the picture says, in plain words. The same text is the SVG `<desc>` |
 
 JSON goes through `from_spec` / `load_spec`. Mermaid goes through `from_mermaid` / `load_mermaid`. `SpecError` and `MermaidError` name the place of the mistake.
+
+## Right-angle lines
+
+`Diagram::new(title).routing("orthogonal")` draws every line the diagram routes itself as straight runs that meet at right angles, with slightly rounded corners. When two blocks face each other and their sides overlap, the line runs straight across. Lines that would share the same gap each get their own track, 12 px apart, ordered so they cross as little as possible. A line with `via_x` or `via_y` already has right angles. The layout checks work the same way for both kinds of line. Graph blocks inside panels keep their own straight lines.
 
 ## Statuses, colors and sizes
 

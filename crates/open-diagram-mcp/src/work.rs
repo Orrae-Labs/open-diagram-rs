@@ -43,7 +43,7 @@ pub(crate) fn build_diagram(
                 serde_json::from_str(text).map_err(|err| format!("not valid JSON: {err}"))?;
             from_spec_with(&spec, Some(icons)).map_err(|err| err.to_string())
         }
-        "mermaid" => from_mermaid(text, None, None).map_err(|err| err.to_string()),
+        "mermaid" => from_mermaid(text, None, None, None).map_err(|err| err.to_string()),
         _ => Err("format must be 'json', 'mermaid' or 'auto'".to_owned()),
     }
 }

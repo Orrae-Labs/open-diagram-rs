@@ -146,6 +146,7 @@ struct Graph {
     group_of: BTreeMap<String, usize>,
     direction: String,
     title: Option<String>,
+    curve: Option<String>,
 }
 
 impl Graph {
@@ -205,6 +206,8 @@ fn read_front(lines: &[&str], graph: &mut Graph) -> usize {
             let (key, value) = meta.split_once(':').unwrap_or((*meta, ""));
             if key.trim().eq_ignore_ascii_case("title") {
                 graph.title = Some(clean(value));
+            } else if key.trim().eq_ignore_ascii_case("curve") {
+                graph.curve = Some(value.trim().trim_matches(['\'', '"']).to_owned());
             }
         }
         end + 2
@@ -347,13 +350,21 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
         group_of: BTreeMap::new(),
         direction: "LR".to_owned(),
         title: None,
+        curve: None,
     };
     let lines: Vec<&str> = source.lines().collect();
     let index = read_front(&lines, &mut graph);
     let header = pattern(r"(?i)^(?:flowchart|graph)\s*(LR|RL|TD|TB|BT)?\s*;?\s*$");
+    let curve = pattern(r#"curve['"]?\s*:\s*['"]?([A-Za-z]+)"#);
     let mut header_seen = false;
     let mut stack: Vec<usize> = Vec::new();
     for (line_no, line) in lines.iter().enumerate().skip(index) {
+        if line.trim_start().starts_with("%%{")
+            && let Some(found) = curve.captures(line)
+            && let Some(name) = found.get(1)
+        {
+            graph.curve = Some(name.as_str().to_owned());
+        }
         let raw = line.split("%%").next().unwrap_or("").trim();
         for stmt in raw
             .split(';')
@@ -385,17 +396,23 @@ pub struct Parsed {
 
 /// Lay a Mermaid flowchart out as a diagram.
 ///
+/// `routing` is `curved` or `orthogonal`. `None` follows the flowchart `curve`: `step`, `stepBefore`
+/// and `stepAfter` are orthogonal, and anything else stays curved.
+///
 /// # Errors
-/// Returns an error naming a line that could not be read, or a layout that cannot be measured.
+/// Returns an error naming a line that could not be read, a layout that cannot be measured, or an unknown routing.
 pub fn from_mermaid(
     source: &str,
     title: Option<&str>,
     theme: Option<Theme>,
+    routing: Option<&str>,
 ) -> Result<Diagram, MermaidError> {
     let Parsed { graph } = parse(source)?;
     let theme = theme.unwrap_or_default();
-    let mut diagram =
-        Diagram::new(title.or(graph.title.as_deref()).unwrap_or("Flowchart")).theme(theme.clone());
+    let mut diagram = Diagram::new(title.or(graph.title.as_deref()).unwrap_or("Flowchart"))
+        .theme(theme.clone())
+        .routing(chosen_routing(routing, graph.curve.as_deref()))
+        .map_err(|err| MermaidError::new(err.to_string()))?;
     if graph.order.is_empty() {
         return Err(MermaidError::new("the flowchart has no nodes"));
     }
@@ -1089,5 +1106,16 @@ pub fn load_mermaid(path: impl AsRef<Path>, title: Option<&str>) -> Result<Diagr
     let path = path.as_ref();
     let text = std::fs::read_to_string(path)
         .map_err(|err| MermaidError::new(format!("{}: {err}", path.display())))?;
-    from_mermaid(&text, title, None)
+    from_mermaid(&text, title, None, None)
+}
+
+fn chosen_routing(requested: Option<&str>, curve: Option<&str>) -> String {
+    if let Some(requested) = requested {
+        return requested.to_owned();
+    }
+    if curve.unwrap_or("").to_ascii_lowercase().starts_with("step") {
+        "orthogonal".to_owned()
+    } else {
+        "curved".to_owned()
+    }
 }
