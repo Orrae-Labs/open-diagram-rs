@@ -30,7 +30,8 @@ Rust library and `open-diagram` command. Every label is measured from the bundle
 | `examples/` | JSON and Mermaid files a person can pass to the command. Copies used by the library live in the crate and the tests require the bytes to match |
 | `.github/workflows/ci.yml` | Test, clippy, rustfmt, and `cargo audit` on pinned runners. Push to `main`, or a pull request after `borrow-checker` approves it |
 | `.github/workflows/crate-provenance.yml` | Reusable build. The package job has no OIDC permission. A second job attests the uploaded `.crate` |
-| `.github/workflows/publish.yml` | Trusted publishing after the attestation verifies |
+| `server.json` | MCP Registry metadata for the `open-diagram-mcp` package |
+| `.github/workflows/publish.yml` | Trusted publishing, then the MCP Registry entry |
 
 ## Invariants
 
@@ -60,12 +61,14 @@ Trusted publishing only. The OIDC exchange is `rust-lang/crates-io-auth-action` 
 
 The attested files are the `.crate` packages from the package job in `crate-provenance.yml`. The publish job verifies that attestation and refuses to continue when a fresh `cargo package --locked` digest differs. `cargo publish` packs again and cannot upload the attested file. The registry token stays on the publish step. `quickstart-consumer` is not published.
 
+After `open-diagram-mcp` is on crates.io, the same tag runs `mcp-publisher login github-oidc` and publishes `server.json`. The registry name is `io.github.Orrae-Labs/open-diagram`. `server.json` and the three published crate versions use the same version number. The MCP crate README carries the visible `mcp-name:` line the registry checks.
+
 The library license field is `MIT AND OFL-1.1 AND Apache-2.0 AND CC-BY-ND-2.0`. Azure artwork also keeps Microsoft's icon terms, which are not SPDX. Leave those identifiers in place.
 
 Push this tree to `git@github.com:Orrae-Labs/open-diagram-rs.git`. The remote named `origin` in a checkout that still tracks `Orrae-Labs/open-diagram` is the Python mirror. Leave it unchanged.
 
 ## MCP
 
-`open-diagram-mcp` speaks MCP over stdio. Its tools are `format_guide`, `template`, `check`, `describe`, and `draw`. Input is JSON or Mermaid. Files go in the folder named by `--out`, `$OPEN_DIAGRAM_OUT`, or `./open-diagram`. When `skills/` is visible, or `$OPEN_DIAGRAM_SKILLS` points at it, the SDK skill catalog serves those folders.
+`open-diagram-mcp` speaks MCP over stdio. Its tools are `format_guide`, `template`, `check`, `describe`, and `draw`. Input is JSON or Mermaid. Files go in the folder named by `--out`, `$OPEN_DIAGRAM_OUT`, or `./open-diagram`. When `skills/` is visible, or `$OPEN_DIAGRAM_SKILLS` points at it, the SDK skill catalog serves those folders. Host setup is in `docs/agents.md`.
 
 The command reads `.json`, `.mmd`, and `.mermaid`. It does not run a `.py` file. A Rust picture is a function that returns `Result<Diagram, DiagramError>`. `examples::pictures` and `quickstart-consumer` are that function.

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "open-diagram": {
+      "command": "open-diagram-mcp",
+      "args": ["--out", "./open-diagram"]
+    }
+  }
+}

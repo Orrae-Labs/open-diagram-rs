@@ -1,0 +1,17 @@
+name: Bug
+description: A diagram, the command, or an MCP tool did something wrong. Security reports go to cybersec@orrae.ai, not here.
+labels:
+  - needs-triage
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: The command or tool, the input, and what you expected.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Revision
+      description: Commit, tag, or crate version.
+    validations:
+      required: true

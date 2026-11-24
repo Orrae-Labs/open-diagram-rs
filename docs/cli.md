@@ -26,6 +26,8 @@ cargo install open-diagram-mcp --locked
 open-diagram-mcp --out ./open-diagram
 ```
 
+Connecting Claude, Codex, Cursor, or Grok is in [agents.md](agents.md).
+
 ## Keep diagrams from going stale
 
 Add this GitHub Action and every push redraws your diagrams and fails the check if a layout problem appears:

@@ -6,8 +6,11 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
 description = "Draw and check architecture diagrams from JSON or Mermaid."
 readme = "README.md"
+keywords = ["diagram", "svg", "architecture", "mermaid", "cli"]
+categories = ["command-line-utilities", "visualization"]
 
 [lints]
 workspace = true

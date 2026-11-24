@@ -25,13 +25,70 @@ open-diagram-mcp --out ./open-diagram
 
 `--icons FOLDER` may be repeated. `$OPEN_DIAGRAM_ICONS` is the default, split on the system path separator. The built-in icons are always included. `$OPEN_DIAGRAM_SKILLS` points at a skill folder. Without it, the server serves `skills/` when that folder is visible from the working directory.
 
-The agent skill is [skills/open-diagram/SKILL.md](../skills/open-diagram/SKILL.md). Copy it into the agent's skills folder, or let the server serve it:
+The agent skill is [skills/open-diagram/SKILL.md](../skills/open-diagram/SKILL.md). Copy it into the agent's skills folder, install it with `npx skills add Orrae-Labs/open-diagram-rs`, or let the server serve it.
+
+This checkout is also a Claude Code plugin (`.claude-plugin/`). Add the marketplace with `claude plugin marketplace add Orrae-Labs/open-diagram-rs`, then install `open-diagram`. The server binary still comes from `cargo install`.
 
 ```bash
 cp -r skills/open-diagram ~/.claude/skills/
 ```
 
 Agents changing the library start with [AGENTS.md](../AGENTS.md).
+
+## MCP hosts
+
+Install the server first: `cargo install open-diagram-mcp --locked`. The process is `open-diagram-mcp`. `--out` is the folder that receives SVG and PNG files.
+
+Grok reads `~/.grok/config.toml` (`%USERPROFILE%\.grok\config.toml` on Windows) and a project `.grok/config.toml`:
+
+```toml
+[mcp_servers.open-diagram]
+command = "open-diagram-mcp"
+args = ["--out", "./open-diagram"]
+```
+
+From the command line: `grok mcp add open-diagram -- open-diagram-mcp --out ./open-diagram`.
+
+Claude Code: `claude mcp add open-diagram -- open-diagram-mcp --out ./open-diagram`.
+
+Codex reads `~/.codex/config.toml` and a project `.codex/config.toml`:
+
+```toml
+[mcp_servers.open-diagram]
+command = "open-diagram-mcp"
+args = ["--out", "./open-diagram"]
+```
+
+From the command line: `codex mcp add open-diagram -- open-diagram-mcp --out ./open-diagram`.
+
+VS Code, `.vscode/mcp.json` (`servers`, with a transport type):
+
+```json
+{
+  "servers": {
+    "open-diagram": {
+      "type": "stdio",
+      "command": "open-diagram-mcp",
+      "args": ["--out", "./open-diagram"]
+    }
+  }
+}
+```
+
+Or: `code --add-mcp "{\"name\":\"open-diagram\",\"type\":\"stdio\",\"command\":\"open-diagram-mcp\",\"args\":[\"--out\",\"./open-diagram\"]}"`.
+
+Claude, Cursor, and Grok also read a project `.mcp.json` (Cursor uses `.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "open-diagram": {
+      "command": "open-diagram-mcp",
+      "args": ["--out", "./open-diagram"]
+    }
+  }
+}
+```
 
 ## Cloud service icons
 

@@ -8,7 +8,7 @@ Gallery: [open-diagram.dev](https://open-diagram.dev). How it compares with Merm
 
 You describe panels, tiles, lines and groups in JSON or a Mermaid flowchart, or you build the same picture with the `open-diagram` crate. Every label is measured from the bundled Inter font before anything is placed. If two panels collide or a line runs through a panel, the build says so by name. The output is an SVG and a PNG.
 
-This crate reproduces the diagram behavior of open-diagram 0.6.0. Its package version is 0.1.0.
+This crate reproduces the diagram behavior of open-diagram 0.6.0. Its package version is 0.1.0. The minimum supported Rust version is 1.100, the same as `rust-toolchain.toml`. CI tests that toolchain. Raising `rust-version` is a minor release.
 
 ## Install
 
@@ -16,7 +16,7 @@ This crate reproduces the diagram behavior of open-diagram 0.6.0. Its package ve
 cargo install open-diagram-cli --locked
 ```
 
-The command is `open-diagram`. In another crate, `cargo add open-diagram` adds the library. For an MCP app, `cargo install open-diagram-mcp --locked` installs the stdio server `open-diagram-mcp`.
+The command is `open-diagram`. In another crate, `cargo add open-diagram` adds the library. For an MCP app, `cargo install open-diagram-mcp --locked` installs the stdio server `open-diagram-mcp`. In Claude Code, `/plugin install open-diagram --marketplace Orrae-Labs/open-diagram-rs` installs the plugin. Connecting a host is in [docs/agents.md](docs/agents.md).
 
 PNG output needs Chrome, Chromium or Edge. If the usual locations miss it, set `CHROME` to the browser path. The SVG is written either way.
 

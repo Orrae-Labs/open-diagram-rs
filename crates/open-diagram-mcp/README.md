@@ -12,3 +12,7 @@ Tools: `format_guide`, `template`, `check`, `describe`, `draw`. The input is JSO
 When this checkout's `skills/` folder is visible, or `$OPEN_DIAGRAM_SKILLS` points at a skill folder, those skills are served with the SDK's skill catalog. `draw` returns the PNG as a tool image.
 
 The library is the `open-diagram` crate. Repository: <https://github.com/Orrae-Labs/open-diagram-rs>
+
+- MCP Registry name: `mcp-name: io.github.Orrae-Labs/open-diagram`
+
+Host setup for Grok, Claude, Codex, Cursor, and VS Code: <https://github.com/Orrae-Labs/open-diagram-rs/blob/main/docs/agents.md>

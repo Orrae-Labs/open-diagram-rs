@@ -1,0 +1,52 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Orrae-Labs/open-diagram",
+  "title": "open-diagram",
+  "description": "Draws architecture diagrams from JSON or Mermaid.",
+  "repository": {
+    "url": "https://github.com/Orrae-Labs/open-diagram-rs",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "cargo",
+      "registryBaseUrl": "https://crates.io",
+      "identifier": "open-diagram-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "OPEN_DIAGRAM_OUT",
+          "description": "Folder for SVG and PNG files. The default is ./open-diagram when that directory is writable.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "OPEN_DIAGRAM_ICONS",
+          "description": "Extra icon folders, split on the system path separator. Built-in icons are always included.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "OPEN_DIAGRAM_SKILLS",
+          "description": "Folder of Agent Skills to serve. Without it, the server serves skills/ when that folder is visible.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "CHROME",
+          "description": "Path to Chrome, Chromium, or Edge when PNG rendering cannot find a browser.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
