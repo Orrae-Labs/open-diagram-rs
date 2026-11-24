@@ -97,17 +97,17 @@ Draw one with `open-diagram-rs draw examples/email_delivery.json`.
 
 Crates are published with [crates.io trusted publishing](https://crates.io/docs/trusted-publishing). The workflow exchanges a GitHub OIDC token for a token that lasts about 30 minutes. There is no crates.io API token in the repo.
 
-On a tag `vX.Y.Z` whose numbers match `version` in both package manifests:
+On a tag `vX.Y.Z` whose numbers match `version` in the three package manifests:
 
-1. [`.github/workflows/crate-provenance.yml`](.github/workflows/crate-provenance.yml) packages each crate with `cargo package --locked` in a job whose token cannot request OIDC. A second job attests those bytes with `actions/attest` and does not run Cargo. The workflow file lives in this repository. The `release` environment, limited to tags and to the people who may approve it, is what stops a rewritten workflow from publishing.
-2. [`.github/workflows/publish.yml`](.github/workflows/publish.yml) verifies that attestation, packages `open-diagram-rs` again, and continues only when the digest matches. It then publishes the library. `cargo publish` packs once more; Cargo cannot upload an existing `.crate`. The registry token exists only in that publish step. The command is packaged the same way after the library version is in the crates.io index, with retries while the index catches up.
+1. [`.github/workflows/crate-provenance.yml`](.github/workflows/crate-provenance.yml) packages each crate with `cargo package --locked` in a job whose token cannot request OIDC. A second job attests those bytes with `actions/attest` and does not run Cargo. The workflow file lives in this repository. The `release` environment, limited to `v*` tags and to its reviewer, is what stops a rewritten workflow from publishing.
+2. [`.github/workflows/publish.yml`](.github/workflows/publish.yml) verifies that attestation for this tag, repacks with `cargo package --locked --no-verify`, and continues only when the digest matches. That job does not compile. `cargo publish --locked --no-verify` uploads the pack. Cargo cannot upload an existing `.crate`. The registry token exists only on the publish step. The job then requires the crates.io index checksum to equal the attested digest. The command and the MCP server follow the same way after the library version is in the index.
 
-Before the first publish, a crates.io owner configures a trusted publisher: owner `Orrae-Labs`, repository `open-diagram-rs`, workflow filename `publish.yml`, environment `release`. Create the GitHub environment `release` and limit it to tags. As of November 2026, crates.io still requires an initial publish before a trusted publisher can be attached to a brand-new crate name. Do that once from a trusted machine, revoke any API token immediately, then turn on "Require trusted publishing". Later tags use the workflow only.
+Before the first publish, a crates.io owner publishes each new name once from a trusted machine and revokes that API token. Then configure a trusted publisher: owner `Orrae-Labs`, repository `open-diagram-rs`, workflow filename `publish.yml`, environment `release`, and turn on "Require trusted publishing". Later tags use the workflow only.
 
 Verify a downloaded `.crate`:
 
 ```bash
-gh attestation verify open-diagram-rs-0.1.0.crate --repo Orrae-Labs/open-diagram-rs --signer-workflow Orrae-Labs/open-diagram-rs/.github/workflows/crate-provenance.yml
+gh attestation verify open-diagram-rs-0.1.0.crate --repo Orrae-Labs/open-diagram-rs --signer-workflow Orrae-Labs/open-diagram-rs/.github/workflows/crate-provenance.yml --source-ref refs/tags/v0.1.0
 ```
 
 ## Contributing
