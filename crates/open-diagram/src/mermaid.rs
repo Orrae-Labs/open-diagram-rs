@@ -417,13 +417,16 @@ pub fn from_mermaid(
         return Err(MermaidError::new("the flowchart has no nodes"));
     }
     let across = graph.direction == "LR" || graph.direction == "RL";
-    let reverse = graph.direction == "RL" || graph.direction == "BT";
+    let flip = graph.direction == "RL" || graph.direction == "BT";
     let back = back_edges(&graph);
     let forward: Vec<usize> = (0..graph.edges.len())
         .filter(|index| !back.contains(index))
         .collect();
     let layer = layers(&graph, &forward);
-    let n_layers = layer.values().copied().max().unwrap_or(0) + 1;
+    let slots = Slots {
+        n_layers: layer.values().copied().max().unwrap_or(0) + 1,
+        flip,
+    };
     let mut band_keys: Vec<Option<usize>> = Vec::new();
     for node in &graph.order {
         let key = graph.group_of.get(node).copied();
@@ -431,38 +434,33 @@ pub fn from_mermaid(
             band_keys.push(key);
         }
     }
-    let cells = order_cells(&graph, &layer, &forward, &band_keys, n_layers);
+    let cells = order_cells(&graph, &layer, &forward, &band_keys, slots.n_layers);
     let NodeMeasure {
         tiles,
         size,
         label_w,
-    } = measure_nodes(&graph, &theme, &layer, &forward);
+    } = measure_nodes(&graph, &theme, &layer, &forward, slots);
     let grouped: Vec<bool> = band_keys.iter().map(Option::is_some).collect();
     let group_head = theme.pad + 8.0 + theme.line_h + 6.0;
-    let step_gap = step_gaps(
-        &graph, &theme, &layer, &band_keys, &label_w, across, n_layers,
-    );
+    let step_gap = step_gaps(&graph, &theme, &layer, &band_keys, &label_w, across, slots);
     let item_gap = if across { 24.0 } else { 40.0 };
     let grid = Grid {
         graph: &graph,
         tiles: &tiles,
         size: &size,
         layer: &layer,
-        n_layers,
+        slots,
         band_keys: &band_keys,
         cells: &cells,
         step_gap: &step_gap,
         item_gap,
         grouped: &grouped,
     };
-    let mut placed = if across {
+    let placed = if across {
         place_across(&mut diagram, &grid, group_head)?
     } else {
         place_down(&mut diagram, &grid)?
     };
-    if reverse {
-        mirror_placed(&mut diagram, &mut placed, across);
-    }
     for key in band_keys.iter().flatten() {
         let members: Vec<Placed> = graph
             .order
@@ -484,7 +482,7 @@ pub fn from_mermaid(
         &back,
         Route {
             across,
-            reverse,
+            flip,
             group_head,
             any_group,
         },
@@ -571,11 +569,11 @@ fn step_gaps(
     band_keys: &[Option<usize>],
     label_w: &BTreeMap<usize, f64>,
     across: bool,
-    n_layers: usize,
+    slots: Slots,
 ) -> Vec<f64> {
     let group_head = theme.pad + 8.0 + theme.line_h + 6.0;
     if across {
-        (0..n_layers)
+        (0..slots.n_layers)
             .map(|level| {
                 theme
                     .col_gap
@@ -592,11 +590,12 @@ fn step_gaps(
                     .iter()
                     .filter(|node| graph.group_of.get(node.as_str()) == Some(&key))
                     .filter_map(|node| layer.get(node).copied())
+                    .map(|level| slots.at(level))
                     .min()
                     .unwrap_or(0)
             })
             .collect();
-        (0..n_layers)
+        (0..slots.n_layers)
             .map(|level| {
                 64.0 + if starts.contains(&(level + 1)) {
                     group_head + 24.0
@@ -721,7 +720,7 @@ struct Grid<'a> {
     tiles: &'a BTreeMap<String, Tile>,
     size: &'a BTreeMap<String, (f64, f64)>,
     layer: &'a BTreeMap<String, usize>,
-    n_layers: usize,
+    slots: Slots,
     band_keys: &'a [Option<usize>],
     cells: &'a BTreeMap<(usize, usize), Vec<String>>,
     step_gap: &'a [f64],
@@ -732,38 +731,26 @@ struct Grid<'a> {
 #[derive(Clone, Copy)]
 struct Route {
     across: bool,
-    reverse: bool,
+    flip: bool,
     group_head: f64,
     any_group: bool,
 }
 
-fn mirror_placed(diagram: &mut Diagram, placed: &mut BTreeMap<String, Placed>, across: bool) {
-    if placed.is_empty() {
-        return;
-    }
-    let min = placed
-        .values()
-        .map(|panel| if across { panel.x } else { panel.y })
-        .fold(f64::INFINITY, f64::min);
-    let max = placed
-        .values()
-        .map(|panel| {
-            if across {
-                panel.right()
-            } else {
-                panel.bottom()
-            }
-        })
-        .fold(f64::NEG_INFINITY, f64::max);
-    for panel in placed.values_mut() {
-        if across {
-            panel.x = max - panel.x + min - panel.w;
+#[derive(Clone, Copy)]
+struct Slots {
+    n_layers: usize,
+    flip: bool,
+}
+
+impl Slots {
+    // lukendeasy/open-diagram 49982c0b93766aec4c2483da24afbda18e60c239 draws RL and BT
+    // by slot, not by flipping coordinates afterwards. The group-head gap is reserved
+    // in front of the first drawn step, so it stays on the leading side of the group.
+    const fn at(self, level: usize) -> usize {
+        if self.flip {
+            self.n_layers - 1 - level
         } else {
-            panel.y = max - panel.y + min - panel.h;
-        }
-        if let Some(stored) = diagram.nodes.get_mut(panel.id()) {
-            stored.placed.x = panel.x;
-            stored.placed.y = panel.y;
+            level
         }
     }
 }
@@ -779,6 +766,7 @@ fn measure_nodes(
     theme: &Theme,
     layer: &BTreeMap<String, usize>,
     forward: &[usize],
+    slots: Slots,
 ) -> NodeMeasure {
     let mut tiles = BTreeMap::new();
     for node in &graph.order {
@@ -814,8 +802,9 @@ fn measure_nodes(
             && layer[to_id] == layer[from_id] + 1
         {
             let width = text_width(label, theme.small, "medium") + 14.0;
-            let slot = label_w.entry(layer[from_id]).or_insert(0.0);
-            *slot = f64::max(*slot, width);
+            let gap = slots.at(layer[from_id]).min(slots.at(layer[to_id]));
+            let gap_w = label_w.entry(gap).or_insert(0.0);
+            *gap_w = f64::max(*gap_w, width);
         }
     }
     NodeMeasure {
@@ -839,7 +828,7 @@ fn place_across(
         tiles,
         size,
         layer,
-        n_layers,
+        slots,
         band_keys,
         cells,
         step_gap,
@@ -847,12 +836,13 @@ fn place_across(
         grouped,
     } = *grid;
     let theme = diagram.theme.clone();
+    let n_layers = slots.n_layers;
     let widths: Vec<f64> = (0..n_layers)
         .map(|level| {
             graph
                 .order
                 .iter()
-                .filter(|node| layer[*node] == level)
+                .filter(|node| slots.at(layer[*node]) == level)
                 .map(|node| size[node].0)
                 .fold(0.0, f64::max)
         })
@@ -901,8 +891,9 @@ fn place_across(
                     .get(node)
                     .cloned()
                     .unwrap_or_else(|| node.clone());
-                let level_x = xs.get(level).copied().unwrap_or(0.0);
-                let width = widths.get(level).copied().unwrap_or(0.0);
+                let drawn = slots.at(level);
+                let level_x = xs.get(drawn).copied().unwrap_or(0.0);
+                let width = widths.get(drawn).copied().unwrap_or(0.0);
                 placed.insert(
                     node.clone(),
                     diagram
@@ -926,7 +917,7 @@ fn place_down(
         tiles,
         size,
         layer,
-        n_layers,
+        slots,
         band_keys,
         cells,
         step_gap,
@@ -934,12 +925,13 @@ fn place_down(
         grouped,
     } = *grid;
     let theme = diagram.theme.clone();
+    let n_layers = slots.n_layers;
     let heights: Vec<f64> = (0..n_layers)
         .map(|level| {
             graph
                 .order
                 .iter()
-                .filter(|node| layer[*node] == level)
+                .filter(|node| slots.at(layer[*node]) == level)
                 .map(|node| size[node].1)
                 .fold(0.0, f64::max)
         })
@@ -988,8 +980,9 @@ fn place_down(
                     .get(node)
                     .cloned()
                     .unwrap_or_else(|| node.clone());
-                let level_y = ys.get(level).copied().unwrap_or(0.0);
-                let level_h = heights.get(level).copied().unwrap_or(0.0);
+                let drawn = slots.at(level);
+                let level_y = ys.get(drawn).copied().unwrap_or(0.0);
+                let level_h = heights.get(drawn).copied().unwrap_or(0.0);
                 let cy = level_y + (level_h - size[node].1) / 2.0;
                 placed.insert(
                     node.clone(),
@@ -1015,7 +1008,7 @@ fn route_edges(
 ) -> Result<(), MermaidError> {
     let Route {
         across,
-        reverse,
+        flip,
         group_head,
         any_group,
     } = route;
@@ -1051,12 +1044,12 @@ fn route_edges(
         }
         if !back.contains(&index) && layer[b] == layer[a] + 1 {
             spec = if across {
-                if reverse {
+                if flip {
                     spec.start("left").end("right")
                 } else {
                     spec
                 }
-            } else if reverse {
+            } else if flip {
                 spec.start("top").end("bottom")
             } else {
                 spec.start("bottom").end("top")
@@ -1085,7 +1078,7 @@ fn route_edges(
         } else {
             lo - 30.0 - mul(28.0, whole(k))
         };
-        spec = match (across, reverse) {
+        spec = match (across, flip) {
             (true, false) => spec.start("right").end("left").via_y(at),
             (true, true) => spec.start("left").end("right").via_y(at),
             (false, false) => spec.start("bottom").end("top").via_x(at),
