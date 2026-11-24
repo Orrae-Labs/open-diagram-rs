@@ -427,7 +427,7 @@ fn spec_and_mermaid_errors_name_the_place() {
         vec!["The work"]
     );
     assert!(flow.describe().contains("Do it (being built)"));
-    for direction in ["LR", "TD"] {
+    for direction in ["LR", "RL", "TD", "BT"] {
         let mut turned = from_mermaid(&text.replace("LR", direction), None, None)
             .unwrap_or_else(|err| panic!("{err}"));
         assert!(
@@ -464,8 +464,11 @@ fn spec_and_mermaid_errors_name_the_place() {
     );
     assert!(words.describe().contains("Style it (being built)"));
     let mail = "flowchart TD\n a[Ask] --> b{Found?}\n b -->|yes| c[Send link]\n b -->|no| d[Same message]\n c --> e[Click]\n e -.->|expired| a\n subgraph mail [Email service]\n  c\n end\n";
-    let mut mail = from_mermaid(mail, None, None).unwrap_or_else(|err| panic!("{err}"));
-    assert_clean(&mail.render().unwrap_or_else(|err| panic!("{err}")).problems);
+    for direction in ["TD", "BT"] {
+        let mut mail = from_mermaid(&mail.replace("TD", direction), None, None)
+            .unwrap_or_else(|err| panic!("{err}"));
+        assert_clean(&mail.render().unwrap_or_else(|err| panic!("{err}")).problems);
+    }
     let err = failure(
         from_mermaid("flowchart LR\n  a[ok] --> ???", None, None),
         "line",
@@ -708,6 +711,54 @@ fn reversed_mermaid_directions_put_the_source_on_the_far_side() {
     }
     assert_ne!(pictures[0], pictures[1], "RL matches LR");
     assert_ne!(pictures[2], pictures[3], "BT matches TD");
+}
+
+#[test]
+fn reversed_group_keeps_the_head_gap_on_the_leading_side() {
+    let source = |direction| {
+        format!(
+            "flowchart {direction}\n  a[Ask] --> b[Send]\n  subgraph mail [Email service]\n    b\n  end\n"
+        )
+    };
+    let ends = |direction| {
+        let mut diagram =
+            from_mermaid(&source(direction), None, None).unwrap_or_else(|err| panic!("{err}"));
+        let report = diagram
+            .render()
+            .unwrap_or_else(|err| panic!("{direction}: {err}"));
+        assert!(
+            report.problems.is_empty(),
+            "{direction}: {:?}",
+            report.problems
+        );
+        let ask = diagram
+            .placed()
+            .find(|panel| panel.name == "Ask")
+            .unwrap_or_else(|| panic!("{direction}: Ask"));
+        let send = diagram
+            .placed()
+            .find(|panel| panel.name == "Send")
+            .unwrap_or_else(|| panic!("{direction}: Send"));
+        (ask.y, ask.bottom(), send.y, send.bottom())
+    };
+    let (ask_y, ask_bottom, send_y, _) = ends("TD");
+    let (ask_bt, _, send_bt, send_bottom) = ends("BT");
+    let theme = Theme::default();
+    let group_head = theme.pad + 8.0 + theme.line_h + 6.0;
+    let plain = 64.0;
+    let headed = plain + group_head + 24.0;
+    let td_gap = send_y - ask_bottom;
+    let bt_gap = ask_bt - send_bottom;
+    assert!(ask_y < send_y, "TD draws Ask above Send");
+    assert!(send_bt < ask_bt, "BT draws Send above Ask");
+    assert!(
+        (td_gap - headed).abs() < 1e-9,
+        "TD gap {td_gap} expected {headed}"
+    );
+    assert!(
+        (bt_gap - plain).abs() < 1e-9,
+        "BT gap {bt_gap} expected {plain}"
+    );
 }
 
 #[test]
