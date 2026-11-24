@@ -6,7 +6,6 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
-homepage.workspace = true
 description = "MCP server that draws architecture diagrams from JSON or Mermaid."
 readme = "README.md"
 keywords = ["diagram", "mcp", "svg", "architecture", "mermaid"]

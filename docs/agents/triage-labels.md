@@ -12,4 +12,17 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
 
-Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
+## Other labels
+
+These are not triage roles.
+
+| Label | Meaning |
+| --- | --- |
+| `dependencies` | Dependabot updates |
+| `wayfinder:map` | Notes, decisions, and fog for one investigation |
+| `wayfinder:research` | Research ticket on a wayfinder map |
+| `wayfinder:prototype` | Prototype ticket on a wayfinder map |
+| `wayfinder:grilling` | Grilling ticket on a wayfinder map |
+| `wayfinder:task` | Task ticket on a wayfinder map |
+
+The default GitHub labels are not used: `bug`, `documentation`, `duplicate`, `enhancement`, `good first issue`, `help wanted`, `invalid`, `question`. The area of a report goes in the title, `area: what is wrong`.
