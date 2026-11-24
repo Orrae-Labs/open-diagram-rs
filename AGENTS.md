@@ -1,58 +1,64 @@
 # open-diagram
 
-A pure-Python library that turns a short script into a dense architecture diagram (SVG, plus PNG through a headless browser). Every label is measured from the font before anything is placed. The build reports layout problems as plain sentences that name the parts involved, so the picture can be checked without looking at it.
+Rust library and `open-diagram` command. Every label is measured from the bundled Inter fonts, then the layout is checked. SVG bytes are deterministic.
 
-Runtime depends on fontTools only. Pillow is optional (the `png` extra) and is used to crop screenshots. The MCP toolkit is an optional extra (`mcp`, Python 3.10+). The core targets Python 3.9+. PNG output needs Chrome, Chromium, or Edge (`CHROME` if the usual locations miss it). SVG output does not need a browser.
+## Change
+
+1. Edit the crates under `crates/`. The library is `open-diagram`. The binary crate is `open-diagram-cli` and the binary name is `open-diagram`. `quickstart-consumer` is `publish = false`.
+2. Run `cargo test --workspace --all-features`, then `cargo clippy --workspace --all-targets --all-features -- -D warnings`, then `cargo audit`.
+3. Done when all three succeed and every picture in `examples::pictures()` still matches the git blob of `docs/images/<name>.svg`.
 
 ## Map
 
 | Path | Role |
 | --- | --- |
-| `src/open_diagram/fonts.py` | `Face` (fontTools): glyph outlines, advance widths, GPOS pair kerning. `text_width`, `cap_height`, `wrap`, `fmt` |
-| `src/open_diagram/fonts/` | Inter 4.1, four weights, under the SIL OFL (`OFL.txt`) |
-| `src/open_diagram/svg.py` | `Canvas`: SVG primitives. `text()` emits outline paths with a `<title>` holding the string |
-| `src/open_diagram/theme.py` | `Theme` (colors, statuses, tones, type sizes, spacing, 3D `lid`/`depth`), `Status`, `shade()` |
-| `src/open_diagram/blocks.py` | `Block` and `Resource`, `Tile`, `Tiles`, `Text`, `Card`, `Note`, `Graph`, `Row`, `Panel`. Shared `_panel_frame` for panels and resource containers |
-| `src/open_diagram/diagram.py` | `Diagram`: placement, `link`/`group`/`enclosure`, routing, `_check()`, legend and header, `render()`, `save()` |
-| `src/open_diagram/describe.py` | `describe(diagram)`: the plain-text description behind `Diagram.describe()` and the SVG `<desc>` |
-| `src/open_diagram/spec.py` | `from_spec(dict)` / `load_spec(path)`: JSON descriptions. `SpecError` names the place of every mistake |
-| `src/open_diagram/mermaid.py` | `parse()` and `from_mermaid(text)`: a Mermaid flowchart subset and its layered, banded layout |
-| `src/open_diagram/cli.py` | The `open-diagram` command (`draw`, `check`, `describe`, `png`) and `load(path)` for `.json`, `.mmd`, and `.py` |
-| `src/open_diagram/render.py` | `find_chrome()`, `svg_to_png()` (headless browser screenshot, optional Pillow crop) |
-| `src/open_diagram/mcp_server.py` | MCP server `open-diagram-mcp`: tools `format_guide`, `check`, `draw`, `describe`. The toolkit is imported only inside `create_server()` |
-| `src/open_diagram/__init__.py` | Public API is `__all__` |
-| `examples/` | One script per example. Each defines `build() -> Diagram` and saves to `docs/images/<name>` |
-| `templates/` | Cloud resource and ETL starters, with cached provider artwork and attribution. `build() -> Diagram`, rendered offline |
-| `docs/images/` | Committed SVG and PNG output. The README embeds them |
-| `tests/test_open_diagram.py` | unittest suite. `EXAMPLES` lists every example that must build with zero problems |
-| `tests/test_cloud.py` | Resource measurement and attachment, enclosure nesting and styles, template checks, byte-identical existing SVGs |
-| `tests/test_mcp_server.py` | Helper tests, plus protocol tests over memory and stdio (skipped without the `mcp` extra) |
-| `action.yml` | Composite GitHub Action: installs the package from its own checkout, then runs `open-diagram check` or `draw` |
-| `.github/workflows/diagrams.yml` | Runs that action on this repo's examples |
-| `.github/workflows/test.yml` | Runs the tests on Python 3.10 and 3.14 |
-| `.github/workflows/publish.yml` | On a `vX.Y.Z` GitHub release, builds the package and uploads it to PyPI by trusted publishing |
+| `crates/open-diagram` | Library. Fonts, templates and three example inputs are inside this package |
+| `crates/open-diagram/src/font.rs` | Inter outlines, advances, GPOS pair kerning |
+| `crates/open-diagram/src/svg.rs` | `Canvas`. Text is outline paths plus a `<title>` |
+| `crates/open-diagram/src/theme.rs` | `Theme`, `Status`, `shade` |
+| `crates/open-diagram/src/blocks.rs` | `Block`, `Panel`, `Tile`, `Tiles`, `Resource`, `Card`, `Graph`, `Note`, `Row`, `Text` |
+| `crates/open-diagram/src/diagram.rs` | Placement, links, groups, enclosures, routing, checks, `render`, `save` |
+| `crates/open-diagram/src/describe.rs` | Plain-text description, also the SVG `<desc>` |
+| `crates/open-diagram/src/spec.rs` | JSON. `SpecError` names the place |
+| `crates/open-diagram/src/mermaid.rs` | Mermaid flowchart subset |
+| `crates/open-diagram/src/catalog.rs` | Templates and icon lookup. Bytes are embedded for `cargo install` |
+| `crates/open-diagram/src/render.rs` | `find_chrome`, `svg_to_png` |
+| `crates/open-diagram/src/examples.rs` | Picture builders. The golden test renders these |
+| `crates/open-diagram-cli` | `draw`, `check`, `describe`, `png`, `new`, hidden `--soundtrack` |
+| `docs/images/` | Committed SVG and PNG oracles |
+| `examples/` | JSON and Mermaid files a person can pass to the command. Copies used by the library live in the crate and the tests require the bytes to match |
+| `.github/workflows/ci.yml` | Test, clippy, `cargo audit` |
+| `.github/workflows/crate-provenance.yml` | Reusable build. The package job has no OIDC permission. A second job attests the uploaded `.crate` |
+| `.github/workflows/publish.yml` | Trusted publishing after the attestation verifies |
 
-Version is `0.5.0` in both `pyproject.toml` and `src/open_diagram/__init__.py`.
+## Invariants
 
-## How a build flows
+- Measure, then draw. A draw call may receive more space than measure asked for. Less space is reported by name. Text is not clipped or shrunk.
+- Everything drawn stays inside the measured box, including the 3D lid and raised tile faces.
+- Widths come from `text_width` and `wrap`. The SVG has no `<text>` elements and no width guessed from character counts.
+- The same inputs produce a byte-identical SVG. No timestamps, randomness, absolute paths, or host-dependent numbers. The renderer writes LF.
+- Problem sentences are part of the interface. Stable substrings: `overlap`, `px apart`, `crosses`, `sits on`, `needs N px`, `smallest text`, `group ... overlaps`, `sits on the title of group`, `facing away`, `graph: the label ... touches`, `graph: the line ... runs through`.
+- Colors come from `Theme`. Derived shades use `shade`. Nothing is drawn below `theme.min_text` (10 px).
+- `describe()` shape: `->` for lines, `labeled "..."`, state words in parentheses, `[step N, state]` after panel titles.
+- JSON and Mermaid errors name the place (`columns[1][0].tiles[2]`, `line 7`).
+- Arithmetic that formats into the SVG uses `crate::num`. `mul_add` and `f64::midpoint` change those bytes. `base64` stays on 0.22. `ttf-parser` stays; its unmaintained advisory has no upgrade that keeps the outlines.
 
-1. `Block.measure(theme)` returns `(w, h)` computed from text widths.
-2. `Diagram.add` / `right_of` / `below` / `stack` / `columns` / `ring` place blocks and return `Placed` records.
-3. `Diagram.link`, `Diagram.group`, and `Diagram.enclosure` record lines and shaded areas.
-4. `render()` runs `_route()` and `_shape()` for line paths, `_check()` for problems, then draws. It returns `Report(svg, width, height, min_text, problems, files)`.
-5. `save(path)` writes the SVG and PNG, prints a one-line summary, then raises `LayoutError(problems, files)` when `strict=True` and problems exist. Files are written before it raises.
+## Style
 
-`open-diagram --soundtrack` prints The Gathering Field's Spotify link and is hidden from `--help`.
+Clippy `pedantic` and `nursery` are warn at priority `-1` in the workspace `Cargo.toml`. That priority lets one lint be allowed without turning the group off. An allow is on one item, with a reason. The existing allow is `font.rs` `float_cmp`: SVG path `H` and `V` commands use exact coordinate equality before the numbers are formatted.
 
-## Properties of the system
+A comment records a constraint the code cannot show. A test that passes by weakening the assertion is a failure.
 
-- **Measure, then draw.** `draw()` may receive more space than `measure()` asked for, never less. Less space is reported by name. Text is not clipped or shrunk.
-- **Everything drawn stays inside the measured box.** The 3D lid on panels and the raised faces on tiles are included in `measure()`, so overlap and crossing checks see the whole shape.
-- **Text is outlines, measured from the font.** Widths come from `text_width` / `wrap`. Drawing goes through `Canvas.text`. The SVG contains no `<text>` elements and no width guessed from character counts.
-- **Output is deterministic.** The same script produces a byte-identical SVG. The SVG has no timestamps, randomness, absolute paths, or environment-dependent values.
-- **Problem messages are part of the interface.** Each one names parts by their labels and, where it can, says how to fix it. Stable substrings: `overlap`, `px apart`, `crosses`, `sits on`, `needs N px`, `smallest text`, `group ... overlaps`, `sits on the title of group`, `facing away`, `graph: the label ... touches`, `graph: the line ... runs through`.
-- **Colors come from `Theme`.** Blocks read colors from the theme. Derived shades use `shade()`. Header text color is chosen by contrast in `Theme.header_colors()`.
-- **Minimum text size.** Nothing is drawn below `theme.min_text` (10 px). `Report.min_text` records the smallest size actually drawn.
-- **`describe()` has a stable shape.** `->` for lines, `labeled "..."`, state words in parentheses, `[step N, state]` after panel titles. The same text is the SVG `<desc>`.
-- **JSON and Mermaid errors name the place** (`columns[1][0].tiles[2]`, `line 7`).
-- **The MCP server does not use stdout.** Stdout carries the protocol, so work is wrapped in `redirect_stdout(sys.stderr)`. It accepts JSON and Mermaid only, and writes only inside the output folder (`safe_name()`).
+## Publishing
+
+Trusted publishing only. The OIDC exchange is `rust-lang/crates-io-auth-action` in `publish.yml`. Do not add a crates.io token to the repo or the environment.
+
+The attested files are the `.crate` packages from the package job in `crate-provenance.yml`. The publish job verifies that attestation and refuses to continue when a fresh `cargo package --locked` digest differs. `cargo publish` packs again and cannot upload the attested file. The registry token stays on the publish step. `quickstart-consumer` is not published.
+
+The library license field is `MIT AND OFL-1.1 AND Apache-2.0 AND CC-BY-ND-2.0`. Azure artwork also keeps Microsoft's icon terms, which are not SPDX. Leave those identifiers in place.
+
+Push this tree to `git@github.com:Orrae-Labs/open-diagram-rs.git`. The remote named `origin` in a checkout that still tracks `Orrae-Labs/open-diagram` is the Python mirror. Leave it unchanged.
+
+## Not in this crate
+
+The command accepts `.json`, `.mmd` and `.mermaid`. It does not run a Rust or Python script from a path. There is no MCP server. Those two gaps are why this commit is not tagged as a complete mapping of the Python project.

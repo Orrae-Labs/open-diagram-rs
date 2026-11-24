@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/open-diagram",
+    "crates/open-diagram-cli",
+    "crates/quickstart-consumer",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MIT AND OFL-1.1 AND Apache-2.0 AND CC-BY-ND-2.0"
+rust-version = "1.100"
+repository = "https://github.com/Orrae-Labs/open-diagram-rs"
+description = "Building blocks for dense architecture diagrams that check their own layout."
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+[workspace.dependencies]
+indexmap = "2"
+serde_json = "1"
+ttf-parser = "0.25"
+base64 = "0.22"
+clap = "4"
+regex = "1"
+image = "0.25"
+which = "8"

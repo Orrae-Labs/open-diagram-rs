@@ -28,11 +28,11 @@ A small example:
 | Link | `from` and `to` (panel or resource ids), `kind` (`flow` or `planned`), `label`, `start` and `end` (a side, or `auto` for the side facing the other panel: the default in `ring` and `panels`), `lane` (`top` or `bottom`, to route around the picture), `via_x`, `via_y`, `cross_ok`, `dash` (`solid`, `dashed` or `dotted`, independent of state) |
 | Group | `label`, `members` (panel ids), `sub` |
 
-Every mistake names its place, for example `columns[0][0].tiles[2]: unknown key(s) 'colour'`. From Python, use `from_spec(data)`. The full example is [`examples/email_delivery.json`](https://github.com/lukendeasy/open-diagram/blob/main/examples/email_delivery.json).
+Every mistake names its place, for example `columns[0][0].tiles[2]: unknown key(s) 'colour'`. From Rust, call `open_diagram::from_spec`. The full example is [`examples/email_delivery.json`](https://github.com/Orrae-Labs/open-diagram-rs/blob/main/examples/email_delivery.json).
 
 ## Rings and free placement
 
-Cycles read best as a ring. Use `"ring"` instead of `"columns"`, optionally with panels in the `"center"`; links then leave from the sides that face each other. For any other shape, use `"panels"` and give each panel an `x` and `y`. In Python, the same is `d.ring(blocks, center=[...])` and `d.add(block, x, y)`, with `link(a, b, start="auto", end="auto")`.
+Cycles read best as a ring. Use `"ring"` instead of `"columns"`, optionally with panels in the `"center"`; links then leave from the sides that face each other. For any other shape, use `"panels"` and give each panel an `x` and `y`. In Rust, the same is `Diagram::ring`, `Diagram::add`, and `LinkSpec::start("auto").end("auto")`.
 
 ![A release cycle drawn with the ring layout](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/release_cycle.png)
 

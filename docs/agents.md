@@ -1,67 +1,33 @@
 # AI agents
 
-Let Claude, Cursor or Codex draw diagrams and fix their layout problems.
+Let an agent draw diagrams and fix their layout problems with the `open-diagram` command.
 
-## MCP server
-
-open-diagram can run as an MCP server: a small program that AI apps start on your computer, so the AI can draw diagrams as one of its own actions. Nothing is hosted and nothing leaves your computer. It accepts JSON and Mermaid only, never Python, and writes files only inside one output folder.
-
-The commands below use [uv](https://docs.astral.sh/uv/), which fetches open-diagram and the Python it needs (3.10 or later) the first time.
-
-**Claude Code**
+## Command
 
 ```bash
-claude mcp add open-diagram -- uvx --python 3.12 --from "open-diagram[mcp]" open-diagram-mcp
+cargo install open-diagram-cli --locked
+open-diagram new
+open-diagram check plan.json
+open-diagram describe plan.json
+open-diagram draw plan.json
 ```
 
-**Claude Desktop** (`claude_desktop_config.json`) **or Cursor** (`~/.cursor/mcp.json`)
+The command reads JSON and Mermaid. It writes SVG and PNG next to the file, or to `-o NAME` without an extension. PNG needs Chrome, Chromium or Edge (`CHROME` when the usual locations miss it).
 
-```json
-{
-  "mcpServers": {
-    "open-diagram": {
-      "command": "uvx",
-      "args": ["--python", "3.12", "--from", "open-diagram[mcp]", "open-diagram-mcp",
-               "--out", "/Users/you/Documents/open-diagram"]
-    }
-  }
-}
-```
+Icons come from the built-in folder and from folders named with `--icons`. The command refuses absolute icon paths and `..`.
 
-Without uv: `pip install "open-diagram[mcp]"`, then use `open-diagram-mcp` as the command. uv keeps a copy of what it downloaded; to pick up a new release, add `--refresh` once after `uvx`.
-
-| Action | What the AI gets |
-| --- | --- |
-| `format_guide` | A JSON example to copy, every key, Mermaid support, and how to fix each kind of problem |
-| `check` | The layout problems, without writing files, so it can fix and retry quickly |
-| `draw` | Writes the SVG and PNG, and returns the problems, the file paths, the plain-words description and the picture itself |
-| `describe` | What the picture says, in plain words |
-| `template` | The list of templates, or one template as JSON to start from |
-
-Icons come only from the built-in icons and from folders you name with `--icons` (or the `OPEN_DIAGRAM_ICONS` environment variable), never from a path the AI writes. Files go to `--out`, else the `OPEN_DIAGRAM_OUT` environment variable, else an `open-diagram` folder where the app starts the server (or in your home folder if that one cannot be written).
-
-## Agent skill
-
-The folder [`skills/open-diagram/`](https://github.com/lukendeasy/open-diagram/tree/main/skills/open-diagram) is an Agent Skill: instructions an agent loads when it needs them. For Claude Code, copy it into your skills folder:
+This crate does not ship an MCP server. The agent skill is the interface: [skills/open-diagram/SKILL.md](../skills/open-diagram/SKILL.md). Copy it into the agent's skills folder:
 
 ```bash
 cp -r skills/open-diagram ~/.claude/skills/
 ```
 
-Then ask for a picture in plain words, for example: "Draw a systems map of our checkout, warehouse and reporting, with what is live and what is planned." The skill tells the agent to plan the columns, write the script, run it, fix each named problem, and look at the PNG before it answers.
-
-Agents changing the library itself should start with [AGENTS.md](https://github.com/lukendeasy/open-diagram/blob/main/AGENTS.md).
+Agents changing the library start with [AGENTS.md](../AGENTS.md).
 
 ## Cloud service icons
 
-The [`cloud-icons/`](https://github.com/lukendeasy/open-diagram/tree/main/cloud-icons) folder has one file each for [AWS](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/aws.json), [Azure](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/azure.json) and [Google Cloud](https://github.com/lukendeasy/open-diagram/blob/main/cloud-icons/gcp.json). Each file lists service keys, such as `s3` or `lambda`, with the web address of that service's SVG icon. AWS also includes `mwaa`, `glue` and `athena` for ETL diagrams. Every address points to one fixed version of the icon file, so later changes to the icon collection do not change your diagrams. A third party, theSVG, hosts the files; once downloaded, they work offline.
+[`cloud-icons/`](../cloud-icons) has one file each for AWS, Azure and Google Cloud. Each file lists service keys and the URL of a pinned SVG. The templates already embed the icons they use, under `crates/open-diagram/templates/assets/`. JSON refers to those by name (`"icon": "aws/s3"`). Mermaid does not take icons.
 
-The [cloud-icons skill](https://github.com/lukendeasy/open-diagram/blob/main/skills/cloud-icons/SKILL.md) tells an agent how to pick icons, download them, and pass each file to `Resource(icon=...)` or `Tile(icon=...)`. The finished SVG and PNG contain the icons themselves, so you can share them without the icon links. JSON and the MCP server take icons by name (`"icon": "aws/s3"`) from the built-in icons or from a folder you add with `--icons`; Mermaid does not take icons. For Claude Code, copy the skill into your skills folder:
+The [cloud-icons skill](../skills/cloud-icons/SKILL.md) says how to add an icon that is not built in. The finished SVG contains the icon bytes.
 
-```bash
-cp -r skills/cloud-icons ~/.claude/skills/
-```
-
-The icon lists stay in your copy of this repo. If you run the skill's example from another folder, set its `ICON_DIR` to the `cloud-icons/` folder in your copy.
-
-The icons belong to Amazon, Microsoft and Google, and keep their own terms; this project's MIT license does not cover them. The skill links each provider's terms and says how to credit the icons when you share a diagram.
+The icons belong to Amazon, Microsoft and Google, and keep their own terms. The MIT license on this code does not cover them.

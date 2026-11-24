@@ -1,8 +1,4 @@
-__pycache__/
-*.pyc
-*.egg-info/
-build/
-dist/
-.venv/
+/target/
+**/*.rs.bk
 .DS_Store
 out/

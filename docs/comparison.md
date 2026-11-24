@@ -36,7 +36,7 @@ Made in 0.28 s. Its layout checks passed. [Source](https://github.com/lukendeasy
 
 | Tool | Input | Layout | Checks layout | Output | MCP | License | Price |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [open-diagram](https://github.com/lukendeasy/open-diagram) | Python, JSON, Mermaid | Automatic | Yes | SVG, PNG | Yes | MIT | Free |
+| [open-diagram](https://github.com/Orrae-Labs/open-diagram-rs) | Rust, JSON, Mermaid | Automatic | Yes | SVG, PNG | No | MIT | Free |
 | [Mermaid](https://mermaid.js.org) | Text | Automatic | No | SVG, PNG, PDF | Yes | MIT | Free; paid app from $10 a user a month |
 | [D2](https://d2lang.com) | Text | Automatic | No | SVG, PNG, PDF, PowerPoint, GIF | No | MPL-2.0 | Free |
 | [draw.io](https://www.drawio.com) | Editor | By hand | Only in its MCP viewer | PNG, SVG, PDF and more | Yes | Apache-2.0 | Free |

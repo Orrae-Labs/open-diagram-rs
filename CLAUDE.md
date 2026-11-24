@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues and specs live as GitHub issues on Orrae-Labs/open-diagram. See `docs/agents/issue-tracker.md`.
+Issues and specs live as GitHub issues on Orrae-Labs/open-diagram-rs. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

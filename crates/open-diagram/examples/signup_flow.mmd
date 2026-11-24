@@ -1,0 +1,20 @@
+---
+title: How a new account is created
+---
+%% Drawn from Mermaid: open-diagram draw examples/signup_flow.mmd
+flowchart LR
+  form[Sign-up form] --> check{Check details}
+  check -->|valid| create[Create account]
+  check -->|try again| form
+  create --> email[Send welcome email]
+  create --> profile[Set up profile]:::building
+  create -.-> trial[Start free trial]:::planned
+  email --> ready([Ready to use])
+  profile --> ready
+  form --> ready
+  subgraph service [Account service]
+    create
+    email
+    profile
+    trial
+  end

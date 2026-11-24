@@ -10,7 +10,7 @@ open-diagram draw signup_flow.mmd
 
 ![A Mermaid flowchart drawn by open-diagram](https://raw.githubusercontent.com/lukendeasy/open-diagram/main/docs/images/signup_flow.png)
 
-It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, chains, `&`, edge labels, and front-matter titles. Dotted edges (`-.->`) become planned connections. Each top-level `subgraph` becomes a shaded group with its own band, so groups never cover other nodes. A class named like a state (`A:::building`, or `class A,B planned`) sets that state. Lines that skip a step or point backwards travel above or below the picture. From Python, use `from_mermaid(text)`. The example is [`examples/signup_flow.mmd`](https://github.com/lukendeasy/open-diagram/blob/main/examples/signup_flow.mmd).
+It reads `flowchart` and `graph` in any direction, nodes of any bracket shape, chains, `&`, edge labels, and front-matter titles. Dotted edges (`-.->`) become planned connections. Each top-level `subgraph` becomes a shaded group with its own band, so groups never cover other nodes. A class named like a state (`A:::building`, or `class A,B planned`) sets that state. Lines that skip a step or point backwards travel above or below the picture. From Rust, call `open_diagram::from_mermaid`. The example is [`examples/signup_flow.mmd`](https://github.com/Orrae-Labs/open-diagram-rs/blob/main/examples/signup_flow.mmd).
 
 ## What carries over
 

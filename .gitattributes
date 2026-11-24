@@ -1,0 +1,4 @@
+# Byte fixtures. Git must not rewrite these line endings.
+docs/images/** -text
+crates/open-diagram/fonts/** -text
+crates/open-diagram/templates/assets/** -text

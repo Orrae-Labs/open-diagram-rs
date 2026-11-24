@@ -33,103 +33,28 @@ missing service with a different product's logo. The Azure `block-blob` key is s
 in Blob Storage; `event-grid` uses the Event Grid Topics symbol. Label those resources accordingly.
 
 Keep one icon family per provider. Preserve colors, orientation and proportions, with the product name beside or below
-each icon. For cloud topology or an ETL DAG, prefer `Resource(icon=...)`: it draws a 64 px standalone icon with labels
+each icon. For cloud topology or an ETL DAG, prefer a resource whose JSON sets `"icon": "aws/s3"`. That draws a 64 px standalone icon with labels
 underneath, and every resource can connect independently. Start with the repository's
-[cloud templates](../../templates/README.md); use `d.enclosure()` for nested accounts, networks and logical groups,
-with `border="solid"`, `"dashed"` or `"dotted"`. For dense panel summaries, `Tile` retains its 16 px icon box.
+[cloud templates](../../crates/open-diagram/templates/README.md). Enclosures nest accounts, networks and logical groups.
+Set the enclosure `border` to `solid`, `dashed`, or `dotted`. For dense panel summaries, a tile keeps its 16 px icon box.
 Use spacing and labels to unify a multi-cloud picture.
 
-## Download first, then embed local files
+## Name a built-in icon, or add a file
 
-`Resource(icon=...)` and `Tile(icon=...)` accept local PNG or SVG paths, not HTTP URLs. The Python API is the icon workflow: JSON tile
-specs, Mermaid input and MCP tools do not accept an icon field. Keep using those formats for diagrams without icons.
+JSON names an icon as `"icon": "aws/s3"`. The command looks in the JSON file's own folder, then each `--icons` folder, then the built-in folder `crates/open-diagram/templates/assets/`. Absolute paths and `..` are refused. Mermaid does not take icons.
 
-The mapping files stay in the repository even when the skill is copied to an agent's skills folder. Neither the
-skill nor the mappings are bundled in the Python package. In the example below, run from the repository root;
-when running elsewhere, set `ICON_DIR` to the checkout's `cloud-icons/` directory (or a separate copy of those three
-JSON files). Set `ASSET_DIR` to a local directory for this diagram's downloaded assets. All imports and asset
-preparation belong at module scope, before `build()`.
+The built-in set is the icons the templates use. For a service that is only in `cloud-icons/<provider>.json`:
 
-```python
-import hashlib
-import json
-from pathlib import Path
-import warnings
-from urllib.request import urlopen
-import xml.etree.ElementTree as ET
+1. Read that key's URL. Do not invent a URL from the service name.
+2. Download the file and confirm the root element is SVG.
+3. Save it as `<provider>/<service>.svg` inside a folder you pass with `--icons`.
+4. Use `"icon": "<provider>/<service>"` in the JSON.
 
-from open_diagram import Diagram, Panel, Tile
+The rendered SVG embeds the icon bytes, so the PNG and SVG can be shared without the icon host. If a download fails, tell the user which service is missing and keep the text label. A pinned URL fixes the selected file, not the host's availability.
 
-ICON_DIR = Path("cloud-icons").resolve()
-ASSET_DIR = Path("out/cloud-icons/assets")
-ICONS = {
-    provider: json.loads((ICON_DIR / f"{provider}.json").read_text(encoding="utf-8"))
-    for provider in ("aws", "azure", "gcp")
-}
+Enclosure borders and `"dash": "dashed"` are visual styles. Do not set `"status": "planned"` or `"kind": "planned"` just to obtain dashes. Give orchestration its own theme line kind, such as `control`, so the key explains the connection.
 
-
-def icon_file(provider, service):
-    url = ICONS.get(provider, {}).get(service)
-    if url is None:
-        warnings.warn(f"No mapped icon for {provider}/{service}; using a text-only tile")
-        return None
-    # Including the URL in the filename avoids reusing an older snapshot's artwork.
-    version = hashlib.sha256(url.encode("utf-8")).hexdigest()[:12]
-    path = ASSET_DIR / provider / f"{service}-{version}.svg"
-    try:
-        if path.is_file():
-            data = path.read_bytes()
-        else:
-            with urlopen(url, timeout=20) as response:
-                data = response.read()
-        if ET.fromstring(data).tag != "{http://www.w3.org/2000/svg}svg":
-            raise ValueError("the icon response is not SVG")
-        if not path.is_file():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-        return str(path)
-    except (OSError, ValueError, ET.ParseError) as error:
-        warnings.warn(f"Icon {provider}/{service} unavailable: {error}; using a text-only tile")
-        return None
-
-
-GATEWAY_ICON = icon_file("aws", "api-gateway")
-FUNCTION_ICON = icon_file("aws", "lambda")
-DATABASE_ICON = icon_file("aws", "rds")
-
-
-def build():
-    d = Diagram("Example service flow", subtitle="Illustrative architecture")
-    (edge,), (app,), (data,) = d.columns([
-        [Panel("Public edge", [Tile("API Gateway", icon=GATEWAY_ICON)])],
-        [Panel("Application", [Tile("Lambda", icon=FUNCTION_ICON)])],
-        [Panel("Data store", [Tile("RDS", icon=DATABASE_ICON)])],
-    ])
-    d.link(edge, app)
-    d.link(app, data)
-    return d
-
-
-if __name__ == "__main__":
-    build().save("out/cloud-icons/service-flow")
-```
-
-The example uses compact panel tiles. For a resource diagram, pass those same downloaded paths to `Resource` and
-place them individually, then connect the returned placements and add enclosures. Enclosure borders and optional
-link `dash="dashed"` are visual styles; do not assign `status="planned"` or `kind="planned"` just to obtain dashes.
-Give orchestration its own theme line kind, such as `control`, so the key explains the connection's meaning.
-
-The URL is the download source. During rendering, open-diagram embeds each local SVG as a base64 data URI in the
-compiled SVG. PNG generation uses that embedded image, so sharing either output does not require the recipient to
-reach the icon host. Keep the local assets to rebuild offline; rendering an existing downloaded icon needs no network.
-
-If a download fails, tell the user which service is missing and retain its text label. Do not silently present a
-text-only diagram as if all icons loaded. An invalid cached SVG also produces a warning; remove that file before
-retrying its download. A pinned URL fixes the selected content version, not the availability of the host.
-
-After embedding, run `open-diagram check` on the script, fix every named layout problem, and inspect the PNG for
-legibility and missing icons. Compare `describe()` with the requested services and connections. Use the main
-[open-diagram skill](../open-diagram/SKILL.md) for the rest of the layout and review workflow when it is installed.
+After the icons are named, run `open-diagram check` on the JSON file, fix every named layout problem, and inspect the PNG. Compare `open-diagram describe` with the requested services and connections. Use the [open-diagram skill](../open-diagram/SKILL.md) for layout and review.
 
 ## Sources, family versions and attribution
 
