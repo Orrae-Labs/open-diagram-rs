@@ -64,7 +64,9 @@ impl Scratch {
 
 impl Drop for Scratch {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.path);
+        match std::fs::remove_dir_all(&self.path) {
+            Ok(()) | Err(_) => {}
+        }
     }
 }
 
@@ -114,17 +116,17 @@ pub fn svg_to_png(
     let Ok(svg) = std::fs::read_to_string(svg_path) else {
         return Err(PngError::Failed);
     };
-    let Some(tmp) = Scratch::new() else {
+    let Some(scratch) = Scratch::new() else {
         return Err(PngError::Failed);
     };
-    let page = tmp.path.join("page.html");
+    let page = scratch.path.join("page.html");
     let html = format!(
         "<!doctype html><html><head><meta charset='utf-8'><style>html,body{{margin:0;padding:0;background:#fff;overflow:hidden}}svg{{display:block}}</style></head><body>{svg}</body></html>"
     );
     if std::fs::write(&page, html).is_err() {
         return Err(PngError::Failed);
     }
-    let profile = tmp.path.join("profile");
+    let profile = scratch.path.join("profile");
     let mut command = Command::new(&chrome);
     command
         .args([
@@ -154,12 +156,12 @@ pub fn svg_to_png(
 
 fn restore_png(path: &Path, prior: Option<Vec<u8>>) {
     match prior {
-        Some(bytes) => {
-            let _ = std::fs::write(path, bytes);
-        }
-        None => {
-            let _ = std::fs::remove_file(path);
-        }
+        Some(bytes) => match std::fs::write(path, bytes) {
+            Ok(()) | Err(_) => {}
+        },
+        None => match std::fs::remove_file(path) {
+            Ok(()) | Err(_) => {}
+        },
     }
 }
 
@@ -172,8 +174,12 @@ fn run_bounded(command: &mut Command, limit: Duration) -> bool {
         match child.try_wait() {
             Ok(Some(status)) => return status.success(),
             Ok(None) if started.elapsed() > limit => {
-                let _ = child.kill();
-                let _ = child.wait();
+                match child.kill() {
+                    Ok(()) | Err(_) => {}
+                }
+                match child.wait() {
+                    Ok(_) | Err(_) => {}
+                }
                 return false;
             }
             Ok(None) => std::thread::sleep(Duration::from_millis(50)),
@@ -201,7 +207,9 @@ fn file_uri(path: &Path) -> String {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~' | b'/') {
             uri.push(char::from(byte));
         } else {
-            let _ = write!(uri, "%{byte:02X}");
+            match write!(uri, "%{byte:02X}") {
+                Ok(()) | Err(_) => {}
+            }
         }
     }
     uri
@@ -209,8 +217,11 @@ fn file_uri(path: &Path) -> String {
 
 fn drive_split(text: &str) -> (&str, &str) {
     let bytes = text.as_bytes();
-    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
-        (&text[..2], &text[2..])
+    if bytes.len() >= 2
+        && bytes.first().is_some_and(u8::is_ascii_alphabetic)
+        && bytes.get(1).is_some_and(|byte| *byte == b':')
+    {
+        text.split_at(2)
     } else {
         ("", text)
     }
@@ -226,6 +237,8 @@ fn crop_png(path: &Path, width: u32, height: u32, scale: f64) {
         return;
     }
     if image.width() >= target_w && image.height() >= target_h {
-        let _ = image.crop_imm(0, 0, target_w, target_h).save(path);
+        match image.crop_imm(0, 0, target_w, target_h).save(path) {
+            Ok(()) | Err(_) => {}
+        }
     }
 }

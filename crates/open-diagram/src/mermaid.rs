@@ -11,7 +11,18 @@ use crate::num::{count, mul, whole};
 use crate::theme::Theme;
 
 fn pattern(source: &str) -> Regex {
-    Regex::new(source).unwrap_or_else(|err| panic!("mermaid pattern is fixed: {err}"))
+    match Regex::new(source) {
+        Ok(re) => re,
+        Err(err) => bad_pattern(&err),
+    }
+}
+
+#[expect(
+    clippy::panic,
+    reason = "mermaid patterns are fixed literals; an invalid one is a bug in this file"
+)]
+fn bad_pattern(err: &regex::Error) -> ! {
+    panic!("mermaid pattern is fixed: {err}");
 }
 
 fn clean(text: &str) -> String {
@@ -173,7 +184,9 @@ fn split_edges(stmt: &str) -> EdgeSplit {
     let mut edges = Vec::new();
     let mut rest = stmt;
     while let Some(found) = edge.captures(rest) {
-        let whole = found.get(0).unwrap_or_else(|| unreachable!());
+        let Some(whole) = found.get(0) else {
+            break;
+        };
         nodes.push(rest[..whole.start()].to_owned());
         let label = found.get(2).map(|item| item.as_str().to_owned());
         edges.push((found[1].to_owned(), label));
@@ -186,8 +199,9 @@ fn split_edges(stmt: &str) -> EdgeSplit {
 fn read_front(lines: &[&str], graph: &mut Graph) -> usize {
     if lines.first().is_some_and(|line| line.trim() == "---")
         && let Some(end) = lines.iter().skip(1).position(|line| line.trim() == "---")
+        && let Some(meta_lines) = lines.get(1..=end)
     {
-        for meta in &lines[1..=end] {
+        for meta in meta_lines {
             let (key, value) = meta.split_once(':').unwrap_or((*meta, ""));
             if key.trim().eq_ignore_ascii_case("title") {
                 graph.title = Some(clean(value));
@@ -218,8 +232,11 @@ fn record_chain(
     }
     for (index, (op, label)) in split.edges.iter().enumerate() {
         let kind = if op.contains('.') { "planned" } else { "flow" };
-        let left = &groups_of_nodes[index];
-        let right = &groups_of_nodes[index + 1];
+        let (Some(left), Some(right)) =
+            (groups_of_nodes.get(index), groups_of_nodes.get(index + 1))
+        else {
+            continue;
+        };
         for left_id in left {
             for right_id in right {
                 if left_id != right_id {
@@ -235,6 +252,85 @@ fn record_chain(
         }
     }
     Ok(())
+}
+
+fn read_statement(
+    graph: &mut Graph,
+    stmt: &str,
+    n: usize,
+    header: &Regex,
+    header_seen: &mut bool,
+    stack: &mut Vec<usize>,
+) -> Result<(), MermaidError> {
+    if !*header_seen {
+        let Some(found) = header.captures(stmt) else {
+            return Err(MermaidError::new(format!(
+                "line {n}: expected 'flowchart LR' or 'graph TD' first, got '{stmt}'"
+            )));
+        };
+        graph.direction = found
+            .get(1)
+            .map_or("TD", |item| item.as_str())
+            .to_ascii_uppercase();
+        *header_seen = true;
+        return Ok(());
+    }
+    let word = stmt
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let has_edge =
+        pattern(r"\s*(<?(?:-\.+->|-\.+-|={2,}>|={3,}|-{2,}>|-{3,}|--[ox]))").is_match(stmt);
+    if matches!(
+        word.as_str(),
+        "classdef" | "style" | "linkstyle" | "click" | "direction"
+    ) && !has_edge
+    {
+        return Ok(());
+    }
+    if word == "subgraph" {
+        let rest = stmt[word.len()..].trim();
+        let titled = pattern(r"^([\w.-]+)\s*\[\s*(.*?)\s*\]\s*$");
+        let title = if let Some(found) = titled.captures(rest) {
+            clean(&found[2])
+        } else {
+            let cleaned = clean(rest);
+            if cleaned.is_empty() {
+                format!("Group {}", graph.groups.len() + 1)
+            } else {
+                cleaned
+            }
+        };
+        if stack.is_empty() {
+            graph.groups.push(title);
+            stack.push(graph.groups.len() - 1);
+        } else if let Some(&group) = stack.first() {
+            stack.push(group);
+        }
+        return Ok(());
+    }
+    if word == "end" {
+        if stack.is_empty() {
+            return Err(MermaidError::new(format!(
+                "line {n}: 'end' without a matching 'subgraph'"
+            )));
+        }
+        stack.pop();
+        return Ok(());
+    }
+    if word == "class" && !has_edge {
+        let parts: Vec<&str> = stmt.split_whitespace().collect();
+        if let (Some(ids), Some(class_name)) = (parts.get(1), parts.get(2)) {
+            for node_id in ids.split(',') {
+                graph
+                    .class_name
+                    .insert(node_id.trim().to_owned(), (*class_name).to_owned());
+            }
+        }
+        return Ok(());
+    }
+    record_chain(graph, stmt, n, stack.first().copied())
 }
 
 /// Read a Mermaid flowchart into its nodes, edges and groups.
@@ -264,76 +360,14 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
             .map(str::trim)
             .filter(|stmt| !stmt.is_empty())
         {
-            let n = line_no + 1;
-            if !header_seen {
-                let Some(found) = header.captures(stmt) else {
-                    return Err(MermaidError::new(format!(
-                        "line {n}: expected 'flowchart LR' or 'graph TD' first, got '{stmt}'"
-                    )));
-                };
-                graph.direction = found
-                    .get(1)
-                    .map_or("TD", |item| item.as_str())
-                    .to_ascii_uppercase();
-                header_seen = true;
-                continue;
-            }
-            let word = stmt
-                .split_whitespace()
-                .next()
-                .unwrap_or("")
-                .to_ascii_lowercase();
-            let has_edge =
-                pattern(r"\s*(<?(?:-\.+->|-\.+-|={2,}>|={3,}|-{2,}>|-{3,}|--[ox]))").is_match(stmt);
-            if matches!(
-                word.as_str(),
-                "classdef" | "style" | "linkstyle" | "click" | "direction"
-            ) && !has_edge
-            {
-                continue;
-            }
-            if word == "subgraph" {
-                let rest = stmt[word.len()..].trim();
-                let titled = pattern(r"^([\w.-]+)\s*\[\s*(.*?)\s*\]\s*$");
-                let title = if let Some(found) = titled.captures(rest) {
-                    clean(&found[2])
-                } else {
-                    let cleaned = clean(rest);
-                    if cleaned.is_empty() {
-                        format!("Group {}", graph.groups.len() + 1)
-                    } else {
-                        cleaned
-                    }
-                };
-                if stack.is_empty() {
-                    graph.groups.push(title);
-                    stack.push(graph.groups.len() - 1);
-                } else {
-                    stack.push(stack[0]);
-                }
-                continue;
-            }
-            if word == "end" {
-                if stack.is_empty() {
-                    return Err(MermaidError::new(format!(
-                        "line {n}: 'end' without a matching 'subgraph'"
-                    )));
-                }
-                stack.pop();
-                continue;
-            }
-            if word == "class" && !has_edge {
-                let parts: Vec<&str> = stmt.split_whitespace().collect();
-                if parts.len() >= 3 {
-                    for node_id in parts[1].split(',') {
-                        graph
-                            .class_name
-                            .insert(node_id.trim().to_owned(), parts[2].to_owned());
-                    }
-                }
-                continue;
-            }
-            record_chain(&mut graph, stmt, n, stack.first().copied())?;
+            read_statement(
+                &mut graph,
+                stmt,
+                line_no + 1,
+                &header,
+                &mut header_seen,
+                &mut stack,
+            )?;
         }
     }
     if !header_seen {
@@ -380,60 +414,7 @@ pub fn from_mermaid(
             band_keys.push(key);
         }
     }
-    let mut pos: BTreeMap<String, i64> = graph
-        .order
-        .iter()
-        .enumerate()
-        .map(|(k, node)| (node.clone(), i64::try_from(k).unwrap_or(0)))
-        .collect();
-    let mut cells: BTreeMap<(usize, usize), Vec<String>> = BTreeMap::new();
-    for node in &graph.order {
-        let band = band_keys
-            .iter()
-            .position(|key| key == &graph.group_of.get(node).copied())
-            .unwrap_or(0);
-        cells
-            .entry((layer[node], band))
-            .or_default()
-            .push(node.clone());
-    }
-    let (preds, succs) = neighbours(&graph, &forward);
-    for sweep in 0..6 {
-        let neighbours = if sweep % 2 == 0 { &preds } else { &succs };
-        let layers: Vec<usize> = if sweep % 2 == 0 {
-            (0..n_layers).collect()
-        } else {
-            (0..n_layers).rev().collect()
-        };
-        for level in layers {
-            for band in 0..band_keys.len() {
-                let Some(cell) = cells.get_mut(&(level, band)) else {
-                    continue;
-                };
-                if cell.is_empty() {
-                    continue;
-                }
-                let mut keyed = Vec::new();
-                for node in cell.iter() {
-                    let near = &neighbours[node];
-                    let average = if near.is_empty() {
-                        whole(pos[node])
-                    } else {
-                        near.iter().map(|item| whole(pos[item])).sum::<f64>() / count(near.len())
-                    };
-                    keyed.push((average, pos[node], node.clone()));
-                }
-                keyed.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-                *cell = keyed.iter().map(|item| item.2.clone()).collect();
-                for (k, node) in cell.iter().enumerate() {
-                    pos.insert(
-                        node.clone(),
-                        i64::try_from(band).unwrap_or(0) * 1000 + i64::try_from(k).unwrap_or(0),
-                    );
-                }
-            }
-        }
-    }
+    let cells = order_cells(&graph, &layer, &forward, &band_keys, n_layers);
     let NodeMeasure {
         tiles,
         size,
@@ -441,38 +422,9 @@ pub fn from_mermaid(
     } = measure_nodes(&graph, &theme, &layer, &forward);
     let grouped: Vec<bool> = band_keys.iter().map(Option::is_some).collect();
     let group_head = theme.pad + 8.0 + theme.line_h + 6.0;
-    let step_gap: Vec<f64> = if across {
-        (0..n_layers)
-            .map(|level| {
-                theme
-                    .col_gap
-                    .max(label_w.get(&level).copied().unwrap_or(0.0) + 56.0)
-            })
-            .collect()
-    } else {
-        let starts: BTreeSet<usize> = band_keys
-            .iter()
-            .filter_map(|key| *key)
-            .map(|key| {
-                graph
-                    .order
-                    .iter()
-                    .filter(|node| graph.group_of.get(node.as_str()) == Some(&key))
-                    .map(|node| layer[node])
-                    .min()
-                    .unwrap_or(0)
-            })
-            .collect();
-        (0..n_layers)
-            .map(|level| {
-                64.0 + if starts.contains(&(level + 1)) {
-                    group_head + 24.0
-                } else {
-                    0.0
-                }
-            })
-            .collect()
-    };
+    let step_gap = step_gaps(
+        &graph, &theme, &layer, &band_keys, &label_w, across, n_layers,
+    );
     let item_gap = if across { 24.0 } else { 40.0 };
     let grid = Grid {
         graph: &graph,
@@ -499,9 +451,12 @@ pub fn from_mermaid(
             .order
             .iter()
             .filter(|node| graph.group_of.get(node.as_str()) == Some(key))
-            .map(|node| placed[node].clone())
+            .filter_map(|node| placed.get(node).cloned())
             .collect();
-        diagram.group(&graph.groups[*key], &members, None, None);
+        let Some(label) = graph.groups.get(*key) else {
+            continue;
+        };
+        diagram.group(label, &members, None, None);
     }
     let any_group = grouped.iter().any(|flag| *flag);
     route_edges(
@@ -520,6 +475,122 @@ pub fn from_mermaid(
     Ok(diagram)
 }
 
+fn order_cells(
+    graph: &Graph,
+    layer: &BTreeMap<String, usize>,
+    forward: &[usize],
+    band_keys: &[Option<usize>],
+    n_layers: usize,
+) -> BTreeMap<(usize, usize), Vec<String>> {
+    let mut pos: BTreeMap<String, i64> = graph
+        .order
+        .iter()
+        .enumerate()
+        .map(|(k, node)| (node.clone(), i64::try_from(k).unwrap_or(0)))
+        .collect();
+    let mut cells: BTreeMap<(usize, usize), Vec<String>> = BTreeMap::new();
+    for node in &graph.order {
+        let band = band_keys
+            .iter()
+            .position(|key| key == &graph.group_of.get(node).copied())
+            .unwrap_or(0);
+        let Some(&level) = layer.get(node) else {
+            continue;
+        };
+        cells.entry((level, band)).or_default().push(node.clone());
+    }
+    let (preds, succs) = neighbours(graph, forward);
+    for sweep in 0..6 {
+        let neighbours = if sweep % 2 == 0 { &preds } else { &succs };
+        let levels: Vec<usize> = if sweep % 2 == 0 {
+            (0..n_layers).collect()
+        } else {
+            (0..n_layers).rev().collect()
+        };
+        for level in levels {
+            for band in 0..band_keys.len() {
+                let Some(cell) = cells.get_mut(&(level, band)) else {
+                    continue;
+                };
+                if cell.is_empty() {
+                    continue;
+                }
+                let mut keyed = Vec::new();
+                for node in cell.iter() {
+                    let Some(near) = neighbours.get(node) else {
+                        continue;
+                    };
+                    let Some(&at) = pos.get(node) else {
+                        continue;
+                    };
+                    let average = if near.is_empty() {
+                        whole(at)
+                    } else {
+                        near.iter()
+                            .map(|item| pos.get(item).copied().map_or(0.0, whole))
+                            .sum::<f64>()
+                            / count(near.len())
+                    };
+                    keyed.push((average, at, node.clone()));
+                }
+                keyed.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+                *cell = keyed.iter().map(|item| item.2.clone()).collect();
+                for (k, node) in cell.iter().enumerate() {
+                    pos.insert(
+                        node.clone(),
+                        i64::try_from(band).unwrap_or(0) * 1000 + i64::try_from(k).unwrap_or(0),
+                    );
+                }
+            }
+        }
+    }
+    cells
+}
+
+fn step_gaps(
+    graph: &Graph,
+    theme: &Theme,
+    layer: &BTreeMap<String, usize>,
+    band_keys: &[Option<usize>],
+    label_w: &BTreeMap<usize, f64>,
+    across: bool,
+    n_layers: usize,
+) -> Vec<f64> {
+    let group_head = theme.pad + 8.0 + theme.line_h + 6.0;
+    if across {
+        (0..n_layers)
+            .map(|level| {
+                theme
+                    .col_gap
+                    .max(label_w.get(&level).copied().unwrap_or(0.0) + 56.0)
+            })
+            .collect()
+    } else {
+        let starts: BTreeSet<usize> = band_keys
+            .iter()
+            .filter_map(|key| *key)
+            .map(|key| {
+                graph
+                    .order
+                    .iter()
+                    .filter(|node| graph.group_of.get(node.as_str()) == Some(&key))
+                    .filter_map(|node| layer.get(node).copied())
+                    .min()
+                    .unwrap_or(0)
+            })
+            .collect();
+        (0..n_layers)
+            .map(|level| {
+                64.0 + if starts.contains(&(level + 1)) {
+                    group_head + 24.0
+                } else {
+                    0.0
+                }
+            })
+            .collect()
+    }
+}
+
 fn back_edges(graph: &Graph) -> BTreeSet<usize> {
     let mut out_edges: BTreeMap<&str, Vec<usize>> = graph
         .order
@@ -527,10 +598,9 @@ fn back_edges(graph: &Graph) -> BTreeSet<usize> {
         .map(|node| (node.as_str(), Vec::new()))
         .collect();
     for (index, (a, _, _, _)) in graph.edges.iter().enumerate() {
-        out_edges
-            .get_mut(a.as_str())
-            .unwrap_or_else(|| unreachable!())
-            .push(index);
+        if let Some(list) = out_edges.get_mut(a.as_str()) {
+            list.push(index);
+        }
     }
     let mut state: BTreeMap<&str, u8> = BTreeMap::new();
     let mut back = BTreeSet::new();
@@ -541,15 +611,26 @@ fn back_edges(graph: &Graph) -> BTreeSet<usize> {
         state.insert(root.as_str(), 1);
         let mut walk = vec![(root.as_str(), 0_usize)];
         while let Some((node, next)) = walk.last().copied() {
-            let edges = &out_edges[node];
+            let Some(edges) = out_edges.get(node) else {
+                state.insert(node, 2);
+                walk.pop();
+                continue;
+            };
             if next >= edges.len() {
                 state.insert(node, 2);
                 walk.pop();
                 continue;
             }
-            walk.last_mut().unwrap_or_else(|| unreachable!()).1 = next + 1;
-            let edge = edges[next];
-            let child = graph.edges[edge].1.as_str();
+            let Some(frame) = walk.last_mut() else {
+                break;
+            };
+            frame.1 = next + 1;
+            let Some(&edge) = edges.get(next) else {
+                continue;
+            };
+            let Some(child) = graph.edges.get(edge).map(|item| item.1.as_str()) else {
+                continue;
+            };
             match state.get(child).copied() {
                 Some(1) => {
                     back.insert(edge);
@@ -571,9 +652,14 @@ fn layers(graph: &Graph, forward: &[usize]) -> BTreeMap<String, usize> {
     for _ in 0..graph.order.len() {
         let mut changed = false;
         for index in forward {
-            let (a, b, _, _) = &graph.edges[*index];
-            if layer[b] < layer[a] + 1 {
-                layer.insert(b.clone(), layer[a] + 1);
+            let Some((a, b, _, _)) = graph.edges.get(*index) else {
+                continue;
+            };
+            let (Some(&layer_b), Some(&layer_a)) = (layer.get(b), layer.get(a)) else {
+                continue;
+            };
+            if layer_b < layer_a + 1 {
+                layer.insert(b.clone(), layer_a + 1);
                 changed = true;
             }
         }
@@ -599,15 +685,15 @@ fn neighbours(
         .map(|node| (node.clone(), Vec::new()))
         .collect();
     for index in forward {
-        let (a, b, _, _) = &graph.edges[*index];
-        succs
-            .get_mut(a)
-            .unwrap_or_else(|| unreachable!())
-            .push(b.clone());
-        preds
-            .get_mut(b)
-            .unwrap_or_else(|| unreachable!())
-            .push(a.clone());
+        let Some((a, b, _, _)) = graph.edges.get(*index) else {
+            continue;
+        };
+        if let Some(list) = succs.get_mut(a) {
+            list.push(b.clone());
+        }
+        if let Some(list) = preds.get_mut(b) {
+            list.push(a.clone());
+        }
     }
     (preds, succs)
 }
@@ -658,9 +744,10 @@ fn mirror_placed(diagram: &mut Diagram, placed: &mut BTreeMap<String, Placed>, a
         } else {
             panel.y = max - panel.y + min - panel.h;
         }
-        let stored = &mut diagram.nodes[panel.id()].placed;
-        stored.x = panel.x;
-        stored.y = panel.y;
+        if let Some(stored) = diagram.nodes.get_mut(panel.id()) {
+            stored.placed.x = panel.x;
+            stored.placed.y = panel.y;
+        }
     }
 }
 
@@ -685,7 +772,10 @@ fn measure_nodes(
                 theme.statuses.contains_key(status.as_str()) && status.as_str() != "live"
             })
             .cloned();
-        let mut node_tile = Tile::new(&graph.text[node]);
+        let Some(label) = graph.text.get(node) else {
+            continue;
+        };
+        let mut node_tile = Tile::new(label);
         if let Some(class_status) = class_status {
             node_tile = node_tile.status(class_status);
         }
@@ -694,11 +784,15 @@ fn measure_nodes(
     }
     let mut size = BTreeMap::new();
     for node in &graph.order {
-        size.insert(node.clone(), tiles[node].measure(theme));
+        if let Some(tile) = tiles.get(node) {
+            size.insert(node.clone(), tile.measure(theme));
+        }
     }
     let mut label_w = BTreeMap::new();
     for index in forward {
-        let (from_id, to_id, _, label) = &graph.edges[*index];
+        let Some((from_id, to_id, _, label)) = graph.edges.get(*index) else {
+            continue;
+        };
         if let Some(label) = label
             && layer[to_id] == layer[from_id] + 1
         {
@@ -761,36 +855,47 @@ fn place_across(
     let mut x = 0.0;
     for level in 0..n_layers {
         xs.push(x);
-        x += widths[level] + step_gap[level];
+        let width = widths.get(level).copied().unwrap_or(0.0);
+        let gap = step_gap.get(level).copied().unwrap_or(0.0);
+        x += width + gap;
     }
     let mut placed = BTreeMap::new();
     let mut y = 0.0;
     for band in 0..band_keys.len() {
         if band > 0 {
-            y += if grouped[band] || grouped[band - 1] {
+            let here = grouped.get(band).copied().unwrap_or(false);
+            let prev = grouped.get(band - 1).copied().unwrap_or(false);
+            y += if here || prev {
                 mul(2.0, theme.pad + 8.0) + group_head + 8.0
             } else {
                 theme.row_gap + 16.0
             };
         }
+        let band_height = band_h.get(band).copied().unwrap_or(0.0);
         for level in 0..n_layers {
             let cell = cell_at(cells, level, band);
             let stack_h = cell.iter().map(|node| size[node].1).sum::<f64>()
                 + mul(item_gap, count(cell.len().saturating_sub(1)));
-            let mut cy = y + (band_h[band] - stack_h) / 2.0;
+            let mut cy = y + (band_height - stack_h) / 2.0;
             for node in cell {
                 let tile = tiles[node].clone();
-                let name = graph.text[node].clone();
+                let name = graph
+                    .text
+                    .get(node)
+                    .cloned()
+                    .unwrap_or_else(|| node.clone());
+                let level_x = xs.get(level).copied().unwrap_or(0.0);
+                let width = widths.get(level).copied().unwrap_or(0.0);
                 placed.insert(
                     node.clone(),
                     diagram
-                        .add_named(tile, xs[level], cy, Some(widths[level]), Some(name))
+                        .add_named(tile, level_x, cy, Some(width), Some(name))
                         .map_err(|err| MermaidError::new(err.to_string()))?,
                 );
                 cy += size[node].1 + item_gap;
             }
         }
-        y += band_h[band];
+        y += band_height;
     }
     Ok(placed)
 }
@@ -837,27 +942,38 @@ fn place_down(
     let mut y = 0.0;
     for level in 0..n_layers {
         ys.push(y);
-        y += heights[level] + step_gap[level];
+        let height = heights.get(level).copied().unwrap_or(0.0);
+        let gap = step_gap.get(level).copied().unwrap_or(0.0);
+        y += height + gap;
     }
     let mut placed = BTreeMap::new();
     let mut x = 0.0;
     for band in 0..band_keys.len() {
         if band > 0 {
-            x += if grouped[band] || grouped[band - 1] {
+            let here = grouped.get(band).copied().unwrap_or(false);
+            let prev = grouped.get(band - 1).copied().unwrap_or(false);
+            x += if here || prev {
                 mul(2.0, theme.pad + 8.0) + 16.0
             } else {
                 theme.col_gap
             };
         }
+        let band_width = band_w.get(band).copied().unwrap_or(0.0);
         for level in 0..n_layers {
             let cell = cell_at(cells, level, band);
             let row_w = cell.iter().map(|node| size[node].0).sum::<f64>()
                 + mul(item_gap, count(cell.len().saturating_sub(1)));
-            let mut cx = x + (band_w[band] - row_w) / 2.0;
+            let mut cx = x + (band_width - row_w) / 2.0;
             for node in cell {
                 let tile = tiles[node].clone();
-                let name = graph.text[node].clone();
-                let cy = ys[level] + (heights[level] - size[node].1) / 2.0;
+                let name = graph
+                    .text
+                    .get(node)
+                    .cloned()
+                    .unwrap_or_else(|| node.clone());
+                let level_y = ys.get(level).copied().unwrap_or(0.0);
+                let level_h = heights.get(level).copied().unwrap_or(0.0);
+                let cy = level_y + (level_h - size[node].1) / 2.0;
                 placed.insert(
                     node.clone(),
                     diagram
@@ -867,7 +983,7 @@ fn place_down(
                 cx += size[node].0 + item_gap;
             }
         }
-        x += band_w[band];
+        x += band_width;
     }
     Ok(placed)
 }

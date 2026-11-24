@@ -68,6 +68,19 @@ fn span(diagram: &Diagram) -> (f64, f64) {
     (top, bottom)
 }
 
+fn at<T>(items: &[T], index: usize) -> Result<&T, DiagramError> {
+    items
+        .get(index)
+        .ok_or_else(|| DiagramError::new(format!("index {index} is missing")))
+}
+
+fn cell(placed: &[Vec<Placed>], column: usize, row: usize) -> Result<&Placed, DiagramError> {
+    placed
+        .get(column)
+        .and_then(|items| items.get(row))
+        .ok_or_else(|| DiagramError::new(format!("column {column} row {row} is missing")))
+}
+
 /// # Errors
 /// Returns an error when a block cannot be measured or a line is not valid.
 pub fn quickstart() -> Result<Diagram, DiagramError> {
@@ -116,6 +129,66 @@ pub fn quickstart() -> Result<Diagram, DiagramError> {
     Ok(diagram)
 }
 
+fn card_payment_columns() -> Result<Vec<Vec<Block>>, DiagramError> {
+    Ok(vec![
+        vec![
+            Panel::new("Shopper")
+                .section(tiles(
+                    vec![tile("Card"), tile("Phone wallet")],
+                    Some(1),
+                    None,
+                )?)
+                .step(1)
+                .into(),
+        ],
+        vec![
+            Panel::new("Shop")
+                .section(tiles(
+                    vec![tile("Card reader"), tile("Checkout system")],
+                    Some(1),
+                    None,
+                )?)
+                .into(),
+        ],
+        vec![
+            Panel::new("Shop's bank")
+                .section(tiles(
+                    vec![tile("Payment processor"), tile("Fraud screening")],
+                    Some(1),
+                    None,
+                )?)
+                .subtitle("The acquirer")
+                .step(4)
+                .into(),
+        ],
+        vec![
+            Panel::new("Card network")
+                .section(tiles(
+                    vec![tile("Routes the request"), tile("Network rules")],
+                    Some(1),
+                    None,
+                )?)
+                .step(2)
+                .into(),
+        ],
+        vec![
+            Panel::new("Card's bank")
+                .section(tiles(
+                    vec![
+                        tile("Checks the balance"),
+                        tile("Fraud checks"),
+                        tile("Approves or declines"),
+                    ],
+                    Some(1),
+                    None,
+                )?)
+                .subtitle("The issuer")
+                .step(3)
+                .into(),
+        ],
+    ])
+}
+
 /// # Errors
 /// Returns an error when a block cannot be measured or a line is not valid.
 pub fn card_payment() -> Result<Diagram, DiagramError> {
@@ -132,74 +205,18 @@ pub fn card_payment() -> Result<Diagram, DiagramError> {
             "Order",
         );
     let placed = diagram.columns(
-        vec![
-            vec![
-                Panel::new("Shopper")
-                    .section(tiles(
-                        vec![tile("Card"), tile("Phone wallet")],
-                        Some(1),
-                        None,
-                    )?)
-                    .step(1)
-                    .into(),
-            ],
-            vec![
-                Panel::new("Shop")
-                    .section(tiles(
-                        vec![tile("Card reader"), tile("Checkout system")],
-                        Some(1),
-                        None,
-                    )?)
-                    .into(),
-            ],
-            vec![
-                Panel::new("Shop's bank")
-                    .section(tiles(
-                        vec![tile("Payment processor"), tile("Fraud screening")],
-                        Some(1),
-                        None,
-                    )?)
-                    .subtitle("The acquirer")
-                    .step(4)
-                    .into(),
-            ],
-            vec![
-                Panel::new("Card network")
-                    .section(tiles(
-                        vec![tile("Routes the request"), tile("Network rules")],
-                        Some(1),
-                        None,
-                    )?)
-                    .step(2)
-                    .into(),
-            ],
-            vec![
-                Panel::new("Card's bank")
-                    .section(tiles(
-                        vec![
-                            tile("Checks the balance"),
-                            tile("Fraud checks"),
-                            tile("Approves or declines"),
-                        ],
-                        Some(1),
-                        None,
-                    )?)
-                    .subtitle("The issuer")
-                    .step(3)
-                    .into(),
-            ],
-        ],
+        card_payment_columns()?,
         (0.0, 0.0),
         Some(64.0),
         None,
         "center",
         true,
     )?;
-    let shopper = &placed[0][0];
-    let shop = &placed[1][0];
-    let acquirer = &placed[2][0];
-    let network = &placed[3][0];
-    let issuer = &placed[4][0];
+    let shopper = cell(&placed, 0, 0)?;
+    let shop = cell(&placed, 1, 0)?;
+    let acquirer = cell(&placed, 2, 0)?;
+    let network = cell(&placed, 3, 0)?;
+    let issuer = cell(&placed, 4, 0)?;
     diagram.link(shopper, shop, flow().label("tap"))?;
     diagram.link(shop, acquirer, flow())?;
     diagram.link(acquirer, network, flow())?;
@@ -254,6 +271,107 @@ fn order_map() -> Result<Graph, DiagramError> {
     )
 }
 
+fn business_columns(order: Row) -> Result<Vec<Vec<Block>>, DiagramError> {
+    Ok(vec![
+        vec![
+            Panel::new("Where orders come from")
+                .section(tiles(
+                    vec![
+                        tile("Website"),
+                        tile("Mobile app"),
+                        marked("Showroom tablets", "retiring"),
+                        marked("Marketplace listings", "trial"),
+                    ],
+                    Some(2),
+                    None,
+                )?)
+                .subtitle("Four ways in")
+                .footer("Owner: Digital team")
+                .into(),
+        ],
+        vec![
+            Panel::new("Checkout")
+                .section(tiles(
+                    vec![
+                        tile("Basket"),
+                        tile("Payments"),
+                        marked("Fraud checks", "building"),
+                        marked("Buy now, pay later", "planned"),
+                    ],
+                    Some(2),
+                    None,
+                )?)
+                .step(1)
+                .footer("Owner: Payments team")
+                .into(),
+            Panel::new("Order record")
+                .section(order.into())
+                .subtitle("Every order kept in one place")
+                .step(2)
+                .status("building")
+                .footer("Owner: Platform team")
+                .into(),
+        ],
+        vec![
+            Panel::new("Fulfilment")
+                .section(tiles(
+                    vec![tile("Pick and pack"), tile("Stock counts")],
+                    None,
+                    Some("Warehouse"),
+                )?)
+                .section(tiles(
+                    vec![
+                        tile("Two-person delivery"),
+                        marked("Same-day vans", "trial"),
+                        marked("Parcel lockers", "planned"),
+                    ],
+                    None,
+                    Some("Delivery"),
+                )?)
+                .footer("Owner: Operations")
+                .into(),
+            Panel::new("Returns")
+                .section(tiles(
+                    vec![tile("Book a collection"), tile("Refund on pickup")],
+                    None,
+                    None,
+                )?)
+                .step(3)
+                .status("planned")
+                .footer("Owner: Not yet named")
+                .into(),
+        ],
+        vec![
+            Panel::new("Reporting")
+                .section(tiles(
+                    vec![
+                        tile("Daily sales"),
+                        tile("Stock cover"),
+                        marked("Demand forecast", "trial"),
+                    ],
+                    Some(1),
+                    None,
+                )?)
+                .tone("neutral")
+                .footer("Owner: Finance")
+                .into(),
+            Panel::new("Customer service")
+                .section(tiles(
+                    vec![
+                        tile("Order lookup"),
+                        tile("Delivery changes"),
+                        marked("Chat assistant", "building"),
+                    ],
+                    Some(1),
+                    None,
+                )?)
+                .tone("neutral")
+                .footer("Owner: Service team")
+                .into(),
+        ],
+    ])
+}
+
 /// # Errors
 /// Returns an error when a block cannot be measured or a line is not valid.
 pub fn business_map() -> Result<Diagram, DiagramError> {
@@ -292,104 +410,7 @@ pub fn business_map() -> Result<Diagram, DiagramError> {
         None,
     );
     let placed = diagram.columns(
-        vec![
-            vec![
-                Panel::new("Where orders come from")
-                    .section(tiles(
-                        vec![
-                            tile("Website"),
-                            tile("Mobile app"),
-                            marked("Showroom tablets", "retiring"),
-                            marked("Marketplace listings", "trial"),
-                        ],
-                        Some(2),
-                        None,
-                    )?)
-                    .subtitle("Four ways in")
-                    .footer("Owner: Digital team")
-                    .into(),
-            ],
-            vec![
-                Panel::new("Checkout")
-                    .section(tiles(
-                        vec![
-                            tile("Basket"),
-                            tile("Payments"),
-                            marked("Fraud checks", "building"),
-                            marked("Buy now, pay later", "planned"),
-                        ],
-                        Some(2),
-                        None,
-                    )?)
-                    .step(1)
-                    .footer("Owner: Payments team")
-                    .into(),
-                Panel::new("Order record")
-                    .section(order.into())
-                    .subtitle("Every order kept in one place")
-                    .step(2)
-                    .status("building")
-                    .footer("Owner: Platform team")
-                    .into(),
-            ],
-            vec![
-                Panel::new("Fulfilment")
-                    .section(tiles(
-                        vec![tile("Pick and pack"), tile("Stock counts")],
-                        None,
-                        Some("Warehouse"),
-                    )?)
-                    .section(tiles(
-                        vec![
-                            tile("Two-person delivery"),
-                            marked("Same-day vans", "trial"),
-                            marked("Parcel lockers", "planned"),
-                        ],
-                        None,
-                        Some("Delivery"),
-                    )?)
-                    .footer("Owner: Operations")
-                    .into(),
-                Panel::new("Returns")
-                    .section(tiles(
-                        vec![tile("Book a collection"), tile("Refund on pickup")],
-                        None,
-                        None,
-                    )?)
-                    .step(3)
-                    .status("planned")
-                    .footer("Owner: Not yet named")
-                    .into(),
-            ],
-            vec![
-                Panel::new("Reporting")
-                    .section(tiles(
-                        vec![
-                            tile("Daily sales"),
-                            tile("Stock cover"),
-                            marked("Demand forecast", "trial"),
-                        ],
-                        Some(1),
-                        None,
-                    )?)
-                    .tone("neutral")
-                    .footer("Owner: Finance")
-                    .into(),
-                Panel::new("Customer service")
-                    .section(tiles(
-                        vec![
-                            tile("Order lookup"),
-                            tile("Delivery changes"),
-                            marked("Chat assistant", "building"),
-                        ],
-                        Some(1),
-                        None,
-                    )?)
-                    .tone("neutral")
-                    .footer("Owner: Service team")
-                    .into(),
-            ],
-        ],
+        business_columns(order)?,
         (0.0, 0.0),
         Some(88.0),
         Some(40.0),
@@ -398,25 +419,37 @@ pub fn business_map() -> Result<Diagram, DiagramError> {
     )?;
     diagram.group(
         "Order platform",
-        &[placed[1][0].clone(), placed[1][1].clone()],
+        &[cell(&placed, 1, 0)?.clone(), cell(&placed, 1, 1)?.clone()],
         Some("Run by the platform team".to_owned()),
         None,
     );
-    diagram.link(&placed[0][0], &placed[1][0], flow())?;
+    diagram.link(cell(&placed, 0, 0)?, cell(&placed, 1, 0)?, flow())?;
     diagram.link(
-        &placed[1][0],
-        &placed[1][1],
+        cell(&placed, 1, 0)?,
+        cell(&placed, 1, 1)?,
         flow().start("bottom").end("top"),
     )?;
-    diagram.link(&placed[1][1], &placed[2][0], flow())?;
-    diagram.link(&placed[1][1], &placed[2][1], flow().kind("planned"))?;
-    diagram.link(&placed[2][0], &placed[3][0], flow())?;
-    diagram.link(&placed[2][0], &placed[3][1], flow().label("updates"))?;
-    diagram.link(&placed[2][1], &placed[3][0], flow().kind("planned"))?;
+    diagram.link(cell(&placed, 1, 1)?, cell(&placed, 2, 0)?, flow())?;
+    diagram.link(
+        cell(&placed, 1, 1)?,
+        cell(&placed, 2, 1)?,
+        flow().kind("planned"),
+    )?;
+    diagram.link(cell(&placed, 2, 0)?, cell(&placed, 3, 0)?, flow())?;
+    diagram.link(
+        cell(&placed, 2, 0)?,
+        cell(&placed, 3, 1)?,
+        flow().label("updates"),
+    )?;
+    diagram.link(
+        cell(&placed, 2, 1)?,
+        cell(&placed, 3, 0)?,
+        flow().kind("planned"),
+    )?;
     let (top, bottom) = span(&diagram);
     diagram.link(
-        &placed[0][0],
-        &placed[3][0],
+        cell(&placed, 0, 0)?,
+        cell(&placed, 3, 0)?,
         flow()
             .start("top")
             .end("top")
@@ -424,8 +457,8 @@ pub fn business_map() -> Result<Diagram, DiagramError> {
             .label("Web traffic, sent nightly"),
     )?;
     diagram.link(
-        &placed[0][0],
-        &placed[3][1],
+        cell(&placed, 0, 0)?,
+        cell(&placed, 3, 1)?,
         flow()
             .start("bottom")
             .end("bottom")
@@ -559,9 +592,12 @@ pub fn how_it_works() -> Result<Diagram, DiagramError> {
     let mut diagram =
         Diagram::new("How open-diagram turns a script into a picture").tag("HOW IT WORKS");
     let placed = diagram.columns(columns, (0.0, 0.0), Some(64.0), None, "center", true)?;
-    let panels: Vec<Placed> = placed.iter().map(|col| col[0].clone()).collect();
+    let mut panels = Vec::new();
+    for col in &placed {
+        panels.push(at(col, 0)?.clone());
+    }
     for pair in panels.windows(2) {
-        diagram.link(&pair[0], &pair[1], flow())?;
+        diagram.link(at(pair, 0)?, at(pair, 1)?, flow())?;
     }
     let bottom = panels
         .iter()
@@ -671,11 +707,19 @@ pub fn incident_response() -> Result<Diagram, DiagramError> {
         "center",
         true,
     )?;
-    diagram.link(&placed[0][0], &placed[1][0], flow())?;
-    diagram.link(&placed[1][0], &placed[2][0], flow())?;
-    diagram.link(&placed[1][0], &placed[2][1], flow().label("every 30 min"))?;
-    diagram.link(&placed[2][0], &placed[3][0], flow())?;
-    diagram.link(&placed[2][1], &placed[3][0], flow().label("what users saw"))?;
+    diagram.link(cell(&placed, 0, 0)?, cell(&placed, 1, 0)?, flow())?;
+    diagram.link(cell(&placed, 1, 0)?, cell(&placed, 2, 0)?, flow())?;
+    diagram.link(
+        cell(&placed, 1, 0)?,
+        cell(&placed, 2, 1)?,
+        flow().label("every 30 min"),
+    )?;
+    diagram.link(cell(&placed, 2, 0)?, cell(&placed, 3, 0)?, flow())?;
+    diagram.link(
+        cell(&placed, 2, 1)?,
+        cell(&placed, 3, 0)?,
+        flow().label("what users saw"),
+    )?;
     Ok(diagram)
 }
 
@@ -730,7 +774,11 @@ pub fn layers() -> Result<Diagram, DiagramError> {
     let mut diagram = Diagram::new("A web product, top to bottom").tag("EXAMPLE");
     let stacked = diagram.stack(blocks, 0.0, 0.0, Some(36.0))?;
     for pair in stacked.windows(2) {
-        diagram.link(&pair[0], &pair[1], flow().start("bottom").end("top"))?;
+        diagram.link(
+            at(pair, 0)?,
+            at(pair, 1)?,
+            flow().start("bottom").end("top"),
+        )?;
     }
     let side = Panel::new("Sign-in and access")
         .section(tiles(
@@ -744,17 +792,17 @@ pub fn layers() -> Result<Diagram, DiagramError> {
         )?)
         .footer("Owner: Security team");
     let (_, height) = side.measure(&diagram.theme)?;
-    let span = stacked[1].y + stacked[2].bottom();
+    let span = at(&stacked, 1)?.y + at(&stacked, 2)?.bottom();
     let middle = span / 2.0;
-    let access = diagram.add(side, stacked[0].right() + 96.0, middle - height / 2.0)?;
+    let access = diagram.add(side, at(&stacked, 0)?.right() + 96.0, middle - height / 2.0)?;
     diagram.link(
         &access,
-        &stacked[1],
+        at(&stacked, 1)?,
         flow().start("left").end("right").kind("planned"),
     )?;
     diagram.link(
         &access,
-        &stacked[2],
+        at(&stacked, 2)?,
         flow().start("left").end("right").kind("planned"),
     )?;
     Ok(diagram)
@@ -838,17 +886,17 @@ pub fn pipeline() -> Result<Diagram, DiagramError> {
         "center",
         true,
     )?;
-    diagram.link(&placed[0][0], &placed[1][0], flow())?;
-    diagram.link(&placed[1][0], &placed[2][0], flow())?;
-    diagram.link(&placed[2][0], &placed[3][0], flow())?;
+    diagram.link(cell(&placed, 0, 0)?, cell(&placed, 1, 0)?, flow())?;
+    diagram.link(cell(&placed, 1, 0)?, cell(&placed, 2, 0)?, flow())?;
+    diagram.link(cell(&placed, 2, 0)?, cell(&placed, 3, 0)?, flow())?;
     let bottom = placed
         .iter()
         .flatten()
         .map(Placed::bottom)
         .fold(f64::NEG_INFINITY, f64::max);
     diagram.link(
-        &placed[3][0],
-        &placed[0][0],
+        cell(&placed, 3, 0)?,
+        cell(&placed, 0, 0)?,
         flow()
             .start("bottom")
             .end("bottom")
@@ -934,13 +982,13 @@ pub fn smart_home() -> Result<Diagram, DiagramError> {
         "center",
         true,
     )?;
-    diagram.link(&placed[0][0], &placed[1][0], flow())?;
-    diagram.link(&placed[1][0], &placed[2][0], flow())?;
-    diagram.link(&placed[2][0], &placed[3][0], flow())?;
+    diagram.link(cell(&placed, 0, 0)?, cell(&placed, 1, 0)?, flow())?;
+    diagram.link(cell(&placed, 1, 0)?, cell(&placed, 2, 0)?, flow())?;
+    diagram.link(cell(&placed, 2, 0)?, cell(&placed, 3, 0)?, flow())?;
     let (top, bottom) = span(&diagram);
     diagram.link(
-        &placed[3][0],
-        &placed[1][0],
+        cell(&placed, 3, 0)?,
+        cell(&placed, 1, 0)?,
         flow()
             .start("top")
             .end("top")
@@ -948,8 +996,8 @@ pub fn smart_home() -> Result<Diagram, DiagramError> {
             .label("At home, the phone talks to the hub directly"),
     )?;
     diagram.link(
-        &placed[2][0],
-        &placed[0][0],
+        cell(&placed, 2, 0)?,
+        cell(&placed, 0, 0)?,
         flow()
             .start("bottom")
             .end("bottom")
@@ -986,6 +1034,103 @@ fn video_map() -> Result<Graph, DiagramError> {
             ("view", 3.0, 2.0),
         ]),
     )
+}
+
+fn systems_columns(record: Row) -> Result<Vec<Vec<Block>>, DiagramError> {
+    Ok(vec![
+        vec![
+            Panel::new("Where videos come from")
+                .section(tiles(
+                    vec![
+                        tile("Creator app"),
+                        tile("Web uploader"),
+                        tile("Partner API"),
+                        marked("Live streams", "trial"),
+                    ],
+                    Some(2),
+                    None,
+                )?)
+                .subtitle("Four ways in")
+                .footer("Owner: Creator team")
+                .into(),
+        ],
+        vec![
+            Panel::new("Processing")
+                .section(tiles(
+                    vec![
+                        tile("Upload checks"),
+                        tile("Transcoding"),
+                        marked("GPU encoding", "building"),
+                        marked("Auto captions", "planned"),
+                    ],
+                    Some(2),
+                    None,
+                )?)
+                .step(1)
+                .footer("Owner: Media team")
+                .into(),
+            Panel::new("Video record")
+                .section(record.into())
+                .subtitle("Everything known about each video")
+                .step(2)
+                .status("building")
+                .footer("Owner: Media team")
+                .into(),
+        ],
+        vec![
+            Panel::new("Storage")
+                .section(tiles(
+                    vec![tile("Original files"), tile("Renditions")],
+                    None,
+                    Some("Files"),
+                )?)
+                .section(tiles(
+                    vec![
+                        tile("Metadata database"),
+                        marked("Search index", "trial"),
+                        marked("Cold archive", "planned"),
+                    ],
+                    None,
+                    Some("Records"),
+                )?)
+                .footer("Owner: Platform team")
+                .into(),
+            Panel::new("Recommendations")
+                .section(tiles(
+                    vec![tile("Watch history"), tile("Ranking model")],
+                    None,
+                    None,
+                )?)
+                .step(3)
+                .status("planned")
+                .footer("Owner: Not yet named")
+                .into(),
+        ],
+        vec![
+            Panel::new("Player apps")
+                .section(tiles(
+                    vec![tile("Web"), tile("Phones"), marked("TV", "building")],
+                    Some(1),
+                    None,
+                )?)
+                .tone("neutral")
+                .footer("Owner: Apps team")
+                .into(),
+            Panel::new("Service health")
+                .section(tiles(
+                    vec![
+                        tile("Playback errors"),
+                        tile("Start-up time"),
+                        marked("Old dashboards", "retiring"),
+                    ],
+                    Some(1),
+                    None,
+                )?)
+                .tone("neutral")
+                .footer("Owner: Reliability team")
+                .into(),
+        ],
+    ])
 }
 
 /// # Errors
@@ -1026,100 +1171,7 @@ pub fn systems_map() -> Result<Diagram, DiagramError> {
         None,
     );
     let placed = diagram.columns(
-        vec![
-            vec![
-                Panel::new("Where videos come from")
-                    .section(tiles(
-                        vec![
-                            tile("Creator app"),
-                            tile("Web uploader"),
-                            tile("Partner API"),
-                            marked("Live streams", "trial"),
-                        ],
-                        Some(2),
-                        None,
-                    )?)
-                    .subtitle("Four ways in")
-                    .footer("Owner: Creator team")
-                    .into(),
-            ],
-            vec![
-                Panel::new("Processing")
-                    .section(tiles(
-                        vec![
-                            tile("Upload checks"),
-                            tile("Transcoding"),
-                            marked("GPU encoding", "building"),
-                            marked("Auto captions", "planned"),
-                        ],
-                        Some(2),
-                        None,
-                    )?)
-                    .step(1)
-                    .footer("Owner: Media team")
-                    .into(),
-                Panel::new("Video record")
-                    .section(record.into())
-                    .subtitle("Everything known about each video")
-                    .step(2)
-                    .status("building")
-                    .footer("Owner: Media team")
-                    .into(),
-            ],
-            vec![
-                Panel::new("Storage")
-                    .section(tiles(
-                        vec![tile("Original files"), tile("Renditions")],
-                        None,
-                        Some("Files"),
-                    )?)
-                    .section(tiles(
-                        vec![
-                            tile("Metadata database"),
-                            marked("Search index", "trial"),
-                            marked("Cold archive", "planned"),
-                        ],
-                        None,
-                        Some("Records"),
-                    )?)
-                    .footer("Owner: Platform team")
-                    .into(),
-                Panel::new("Recommendations")
-                    .section(tiles(
-                        vec![tile("Watch history"), tile("Ranking model")],
-                        None,
-                        None,
-                    )?)
-                    .step(3)
-                    .status("planned")
-                    .footer("Owner: Not yet named")
-                    .into(),
-            ],
-            vec![
-                Panel::new("Player apps")
-                    .section(tiles(
-                        vec![tile("Web"), tile("Phones"), marked("TV", "building")],
-                        Some(1),
-                        None,
-                    )?)
-                    .tone("neutral")
-                    .footer("Owner: Apps team")
-                    .into(),
-                Panel::new("Service health")
-                    .section(tiles(
-                        vec![
-                            tile("Playback errors"),
-                            tile("Start-up time"),
-                            marked("Old dashboards", "retiring"),
-                        ],
-                        Some(1),
-                        None,
-                    )?)
-                    .tone("neutral")
-                    .footer("Owner: Reliability team")
-                    .into(),
-            ],
-        ],
+        systems_columns(record)?,
         (0.0, 0.0),
         Some(88.0),
         Some(40.0),
@@ -1128,25 +1180,37 @@ pub fn systems_map() -> Result<Diagram, DiagramError> {
     )?;
     diagram.group(
         "Media pipeline",
-        &[placed[1][0].clone(), placed[1][1].clone()],
+        &[cell(&placed, 1, 0)?.clone(), cell(&placed, 1, 1)?.clone()],
         Some("Run by the media team".to_owned()),
         None,
     );
-    diagram.link(&placed[0][0], &placed[1][0], flow())?;
+    diagram.link(cell(&placed, 0, 0)?, cell(&placed, 1, 0)?, flow())?;
     diagram.link(
-        &placed[1][0],
-        &placed[1][1],
+        cell(&placed, 1, 0)?,
+        cell(&placed, 1, 1)?,
         flow().start("bottom").end("top"),
     )?;
-    diagram.link(&placed[1][1], &placed[2][0], flow())?;
-    diagram.link(&placed[1][1], &placed[2][1], flow().kind("planned"))?;
-    diagram.link(&placed[2][0], &placed[3][0], flow())?;
-    diagram.link(&placed[2][0], &placed[3][1], flow().label("logs"))?;
-    diagram.link(&placed[2][1], &placed[3][0], flow().kind("planned"))?;
+    diagram.link(cell(&placed, 1, 1)?, cell(&placed, 2, 0)?, flow())?;
+    diagram.link(
+        cell(&placed, 1, 1)?,
+        cell(&placed, 2, 1)?,
+        flow().kind("planned"),
+    )?;
+    diagram.link(cell(&placed, 2, 0)?, cell(&placed, 3, 0)?, flow())?;
+    diagram.link(
+        cell(&placed, 2, 0)?,
+        cell(&placed, 3, 1)?,
+        flow().label("logs"),
+    )?;
+    diagram.link(
+        cell(&placed, 2, 1)?,
+        cell(&placed, 3, 0)?,
+        flow().kind("planned"),
+    )?;
     let (top, bottom) = span(&diagram);
     diagram.link(
-        &placed[0][0],
-        &placed[3][0],
+        cell(&placed, 0, 0)?,
+        cell(&placed, 3, 0)?,
         flow()
             .start("top")
             .end("top")
@@ -1154,8 +1218,8 @@ pub fn systems_map() -> Result<Diagram, DiagramError> {
             .label("Live streams skip processing"),
     )?;
     diagram.link(
-        &placed[0][0],
-        &placed[3][1],
+        cell(&placed, 0, 0)?,
+        cell(&placed, 3, 1)?,
         flow()
             .start("bottom")
             .end("bottom")

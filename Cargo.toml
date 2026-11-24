@@ -15,9 +15,26 @@ rust-version = "1.100"
 repository = "https://github.com/Orrae-Labs/open-diagram-rs"
 description = "Building blocks for dense architecture diagrams that check their own layout."
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unreachable_pub = "warn"
+
 [workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
+wildcard_enum_match_arm = "warn"
+mem_forget = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+unreachable = "warn"
+exit = "warn"
+todo = "warn"
+unimplemented = "warn"
+indexing_slicing = "warn"
+let_underscore_must_use = "warn"
+allow_attributes = "warn"
 
 [workspace.dependencies]
 indexmap = "2"

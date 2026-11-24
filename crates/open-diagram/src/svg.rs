@@ -1,3 +1,8 @@
+#![expect(
+    clippy::redundant_pub_crate,
+    reason = "sibling modules use these items; pub would fail unreachable_pub because they are not the external API"
+)]
+
 use crate::font::{self, cap_height};
 use crate::num::fmt;
 
@@ -252,7 +257,7 @@ impl<'a> Letter<'a> {
     }
 }
 
-pub fn xml_escape(text: &str) -> String {
+pub(crate) fn xml_escape(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")

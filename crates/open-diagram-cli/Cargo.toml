@@ -23,3 +23,6 @@ clap = { workspace = true, features = ["derive"] }
 indexmap.workspace = true
 open-diagram-rs = { path = "../open-diagram", version = "0.1.0" }
 serde_json.workspace = true
+
+[dev-dependencies]
+parking_lot = "0.13"

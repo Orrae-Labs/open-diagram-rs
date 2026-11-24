@@ -35,121 +35,121 @@ fn keep(log: &mut Vec<String>, missing: &mut Vec<String>, text: &str, needles: &
     }
 }
 
-#[test]
-fn problem_sentences_describe_and_place_errors() {
+fn expect_sentences(
+    result: Result<String, impl std::fmt::Display>,
+    context: &str,
+    needles: &[&str],
+) {
     let mut missing = Vec::new();
     let mut log = Vec::new();
-
-    match overlap_gap_cross_and_width() {
-        Ok(text) => keep(
-            &mut log,
-            &mut missing,
-            &text,
-            &[
-                "'Alpha' and 'Beta' overlap",
-                "only 5 px apart",
-                "crosses 'Beta'",
-                "needs ",
-                " px wide",
-                "smallest text",
-            ],
-        ),
-        Err(err) => missing.push(format!("layout checks: {err}")),
+    match result {
+        Ok(text) => keep(&mut log, &mut missing, &text, needles),
+        Err(err) => missing.push(format!("{context}: {err}")),
     }
-
-    match group_facing_and_title() {
-        Ok(text) => keep(
-            &mut log,
-            &mut missing,
-            &text,
-            &[
-                "group 'Box' overlaps 'Outside'",
-                "facing away",
-                "sits on the title of group 'Group title'",
-            ],
-        ),
-        Err(err) => missing.push(format!("group checks: {err}")),
-    }
-
-    match graph_messages() {
-        Ok(text) => keep(
-            &mut log,
-            &mut missing,
-            &text,
-            &[
-                "graph: the label ",
-                "touches the node",
-                "graph: the line ",
-                "runs through",
-            ],
-        ),
-        Err(err) => missing.push(format!("graph checks: {err}")),
-    }
-
-    match describe_wording() {
-        Ok(text) => keep(
-            &mut log,
-            &mut missing,
-            &text,
-            &[
-                "->",
-                "labeled \"new\"",
-                "(being built)",
-                "[step 1, planned]",
-                "(connection to build)",
-            ],
-        ),
-        Err(err) => missing.push(format!("describe: {err}")),
-    }
-
-    match crate::examples::quickstart().map(|diagram| diagram.describe()) {
-        Ok(text) => keep(
-            &mut log,
-            &mut missing,
-            &text,
-            &[
-                "How a search request is answered",
-                "Web app: Search box; Results page; Filters",
-                "Caches results (being built)",
-                "Search index [planned]",
-                "Search API -> Search index",
-                "(connection to build)",
-                "labeled \"new\"",
-            ],
-        ),
-        Err(err) => missing.push(format!("quickstart describe: {err}")),
-    }
-
-    match spec_errors() {
-        Ok(text) => keep(
-            &mut log,
-            &mut missing,
-            &text,
-            &[
-                "columns[0][0].tiles[0]",
-                "columns[1][0].tiles[2]",
-                "'colour'",
-                "no panel with id 'c'",
-                "needs numbers for x and y",
-                "only work in the 'panels' layout",
-                "exactly one layout",
-                "; got columns, ring",
-            ],
-        ),
-        Err(err) => missing.push(format!("spec errors: {err}")),
-    }
-
-    match mermaid_errors() {
-        Ok(text) => keep(&mut log, &mut missing, &text, &["line 2", "line 7"]),
-        Err(err) => missing.push(format!("mermaid errors: {err}")),
-    }
-
     assert!(
         missing.is_empty(),
         "{}\n---\n{}",
         missing.join("\n"),
         log.join("\n---\n")
     );
+}
+
+#[test]
+fn overlap_gap_cross_and_width_sentences() {
+    expect_sentences(
+        overlap_gap_cross_and_width(),
+        "layout checks",
+        &[
+            "'Alpha' and 'Beta' overlap",
+            "only 5 px apart",
+            "crosses 'Beta'",
+            "needs ",
+            " px wide",
+            "smallest text",
+        ],
+    );
+}
+
+#[test]
+fn group_facing_and_title_sentences() {
+    expect_sentences(
+        group_facing_and_title(),
+        "group checks",
+        &[
+            "group 'Box' overlaps 'Outside'",
+            "facing away",
+            "sits on the title of group 'Group title'",
+        ],
+    );
+}
+
+#[test]
+fn graph_problem_sentences() {
+    expect_sentences(
+        graph_messages(),
+        "graph checks",
+        &[
+            "graph: the label ",
+            "touches the node",
+            "graph: the line ",
+            "runs through",
+        ],
+    );
+}
+
+#[test]
+fn describe_wording_sentences() {
+    expect_sentences(
+        describe_wording(),
+        "describe",
+        &[
+            "->",
+            "labeled \"new\"",
+            "(being built)",
+            "[step 1, planned]",
+            "(connection to build)",
+        ],
+    );
+}
+
+#[test]
+fn quickstart_describe_sentences() {
+    expect_sentences(
+        crate::examples::quickstart().map(|diagram| diagram.describe()),
+        "quickstart describe",
+        &[
+            "How a search request is answered",
+            "Web app: Search box; Results page; Filters",
+            "Caches results (being built)",
+            "Search index [planned]",
+            "Search API -> Search index",
+            "(connection to build)",
+            "labeled \"new\"",
+        ],
+    );
+}
+
+#[test]
+fn spec_error_sentences() {
+    expect_sentences(
+        spec_errors(),
+        "spec errors",
+        &[
+            "columns[0][0].tiles[0]",
+            "columns[1][0].tiles[2]",
+            "'colour'",
+            "no panel with id 'c'",
+            "needs numbers for x and y",
+            "only work in the 'panels' layout",
+            "exactly one layout",
+            "; got columns, ring",
+        ],
+    );
+}
+
+#[test]
+fn mermaid_error_sentences() {
+    expect_sentences(mermaid_errors(), "mermaid errors", &["line 2", "line 7"]);
 }
 
 fn overlap_gap_cross_and_width() -> Result<String, crate::DiagramError> {

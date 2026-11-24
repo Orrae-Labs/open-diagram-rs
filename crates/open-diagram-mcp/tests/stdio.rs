@@ -9,7 +9,7 @@ use tokio::process::Command;
 
 #[tokio::test]
 async fn stdio_tools_draw_inside_the_output_folder() {
-    let out = scratch();
+    let out = scratch().expect("scratch");
     let mut command = Command::new(env!("CARGO_BIN_EXE_open-diagram-rs-mcp"));
     command.arg("--out").arg(&out).kill_on_drop(true);
     let client =
@@ -18,21 +18,7 @@ async fn stdio_tools_draw_inside_the_output_folder() {
             .expect("stdio handshake");
 
     let tools = client.list_all_tools().await.expect("list tools");
-    let mut names: Vec<&str> = tools.iter().map(|tool| tool.name.as_ref()).collect();
-    names.sort_unstable();
-    assert_eq!(
-        names,
-        ["check", "describe", "draw", "format_guide", "template"]
-    );
-    let check = tools.iter().find(|tool| tool.name == "check").unwrap();
-    let notes = check.annotations.as_ref().expect("check annotations");
-    assert_eq!(notes.read_only_hint, Some(true));
-    assert_eq!(notes.open_world_hint, Some(false));
-    let draw = tools.iter().find(|tool| tool.name == "draw").unwrap();
-    let notes = draw.annotations.as_ref().expect("draw annotations");
-    assert_eq!(notes.read_only_hint, Some(false));
-    assert_eq!(notes.destructive_hint, Some(false));
-    assert_eq!(notes.open_world_hint, Some(false));
+    assert_tools(&tools);
 
     let info = client.peer_info().expect("server info");
     let server = info.server_info.as_ref().expect("implementation");
@@ -99,20 +85,7 @@ async fn stdio_tools_draw_inside_the_output_folder() {
     assert!(svg.is_file(), "{drawn_text}");
     assert!(drawn_text.contains(&format!("- {}", svg.display())));
     assert!(!out.parent().expect("parent").join("escape.svg").exists());
-    if drawn_text.contains("PNG skipped") {
-        assert!(drawn.content.iter().all(|block| block.as_image().is_none()));
-    } else {
-        let image = drawn
-            .content
-            .iter()
-            .find_map(|block| block.as_image())
-            .expect("png image");
-        assert_eq!(image.mime_type, "image/png");
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(image.data.as_bytes())
-            .expect("base64");
-        assert!(bytes.starts_with(b"\x89PNG"), "png magic");
-    }
+    assert_picture(&drawn, &drawn_text);
 
     let skills = client.list_all_skills().await.expect("skills");
     let uris: Vec<_> = skills.iter().map(|skill| skill.uri.clone()).collect();
@@ -127,12 +100,64 @@ async fn stdio_tools_draw_inside_the_output_folder() {
     );
 
     client.cancel().await.expect("cancel");
-    let _ = std::fs::remove_dir_all(out);
+    std::fs::remove_dir_all(&out).unwrap_or_else(|err| panic!("remove {}: {err}", out.display()));
+}
+
+#[expect(
+    clippy::unwrap_used,
+    reason = "this helper runs only from the stdio integration test"
+)]
+#[expect(
+    clippy::expect_used,
+    reason = "this helper runs only from the stdio integration test"
+)]
+fn assert_tools(tools: &[rmcp::model::Tool]) {
+    let mut names: Vec<&str> = tools.iter().map(|tool| tool.name.as_ref()).collect();
+    names.sort_unstable();
+    assert_eq!(
+        names,
+        ["check", "describe", "draw", "format_guide", "template"]
+    );
+    let check = tools.iter().find(|tool| tool.name == "check").unwrap();
+    let notes = check.annotations.as_ref().expect("check annotations");
+    assert_eq!(notes.read_only_hint, Some(true));
+    assert_eq!(notes.open_world_hint, Some(false));
+    let draw = tools.iter().find(|tool| tool.name == "draw").unwrap();
+    let notes = draw.annotations.as_ref().expect("draw annotations");
+    assert_eq!(notes.read_only_hint, Some(false));
+    assert_eq!(notes.destructive_hint, Some(false));
+    assert_eq!(notes.open_world_hint, Some(false));
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "this helper runs only from the stdio integration test"
+)]
+fn assert_picture(drawn: &rmcp::model::CallToolResult, drawn_text: &str) {
+    if drawn_text.contains("PNG skipped") {
+        assert!(drawn.content.iter().all(|block| block.as_image().is_none()));
+        return;
+    }
+    let image = drawn
+        .content
+        .iter()
+        .find_map(|block| block.as_image())
+        .expect("png image");
+    assert_eq!(image.mime_type, "image/png");
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(image.data.as_bytes())
+        .expect("base64");
+    assert!(bytes.starts_with(b"\x89PNG"), "png magic");
 }
 
 fn args(name: &str, value: serde_json::Value) -> CallToolRequestParams {
-    let serde_json::Value::Object(arguments) = value else {
-        panic!("tool arguments must be a JSON object");
+    let arguments = match value {
+        serde_json::Value::Object(arguments) => arguments,
+        serde_json::Value::Null
+        | serde_json::Value::Bool(_)
+        | serde_json::Value::Number(_)
+        | serde_json::Value::String(_)
+        | serde_json::Value::Array(_) => serde_json::Map::new(),
     };
     CallToolRequestParams::new(name.to_owned()).with_arguments(arguments)
 }
@@ -146,13 +171,13 @@ fn text_of(result: &rmcp::model::CallToolResult) -> String {
         .join("\n")
 }
 
-fn scratch() -> PathBuf {
+fn scratch() -> std::io::Result<PathBuf> {
     static N: AtomicU64 = AtomicU64::new(0);
     let path = std::env::temp_dir().join(format!(
         "open-diagram-rs-mcp-stdio-{}-{}",
         std::process::id(),
         N.fetch_add(1, Ordering::Relaxed)
     ));
-    std::fs::create_dir_all(&path).expect("scratch");
-    path
+    std::fs::create_dir_all(&path)?;
+    Ok(path)
 }

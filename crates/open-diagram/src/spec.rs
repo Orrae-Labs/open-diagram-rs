@@ -72,11 +72,11 @@ fn type_name(value: &Value) -> &'static str {
     }
 }
 
-fn keys(obj: &Value, allowed: &[&str], place: &str, required: &[&str]) -> Result<(), SpecError> {
-    let Value::Object(map) = obj else {
+fn keys(value: &Value, allowed: &[&str], place: &str, required: &[&str]) -> Result<(), SpecError> {
+    let Value::Object(map) = value else {
         return Err(SpecError::new(format!(
             "{place}: expected an object, got {}",
-            type_name(obj)
+            type_name(value)
         )));
     };
     let mut extra: Vec<&str> = map
@@ -213,20 +213,20 @@ fn cols_of(map: &Map<String, Value>, place: &str) -> Result<Option<usize>, SpecE
     }
 }
 
-fn section_from(obj: &Value, place: &str, icons: IconFolders<'_>) -> Result<Block, SpecError> {
-    if obj.is_array() {
-        return Ok(tiles_from(obj, place, None, None, icons)?.into());
+fn section_from(value: &Value, place: &str, icons: IconFolders<'_>) -> Result<Block, SpecError> {
+    if value.is_array() {
+        return Ok(tiles_from(value, place, None, None, icons)?.into());
     }
-    if let Some(text) = obj.as_str() {
+    if let Some(text) = value.as_str() {
         return Ok(Text::new(text).into());
     }
-    let Value::Object(map) = obj else {
+    let Value::Object(map) = value else {
         return Err(SpecError::new(format!(
             "{place}: a section is a list of tiles, a string, or an object"
         )));
     };
     if map.contains_key("tiles") {
-        keys(obj, &["tiles", "cols", "label"], place, &[])?;
+        keys(value, &["tiles", "cols", "label"], place, &[])?;
         return Ok(tiles_from(
             &map["tiles"],
             &format!("{place}.tiles"),
@@ -237,19 +237,19 @@ fn section_from(obj: &Value, place: &str, icons: IconFolders<'_>) -> Result<Bloc
         .into());
     }
     if map.contains_key("text") {
-        keys(obj, &["text"], place, &[])?;
+        keys(value, &["text"], place, &[])?;
         return Ok(Text::new(as_str(&map["text"], &format!("{place}.text"))?).into());
     }
     if map.contains_key("card") {
-        keys(obj, &["card"], place, &[])?;
+        keys(value, &["card"], place, &[])?;
         return Ok(card_from(&map["card"], &format!("{place}.card"))?.into());
     }
     if map.contains_key("graph") {
-        keys(obj, &["graph"], place, &[])?;
+        keys(value, &["graph"], place, &[])?;
         return Ok(graph_from(&map["graph"], &format!("{place}.graph"))?.into());
     }
     if map.contains_key("row") {
-        keys(obj, &["row"], place, &[])?;
+        keys(value, &["row"], place, &[])?;
         let list = map["row"]
             .as_array()
             .ok_or_else(|| SpecError::new(format!("{place}.row: expected a list")))?;
@@ -285,9 +285,14 @@ fn card_from(value: &Value, place: &str) -> Result<Card, SpecError> {
                 "{place}.rows[{n}]: expected a pair"
             )));
         }
+        let (Some(left), Some(right)) = (pair.first(), pair.get(1)) else {
+            return Err(SpecError::new(format!(
+                "{place}.rows[{n}]: expected a pair"
+            )));
+        };
         rows.push((
-            as_str(&pair[0], &format!("{place}.rows[{n}]"))?.to_owned(),
-            as_str(&pair[1], &format!("{place}.rows[{n}]"))?.to_owned(),
+            as_str(left, &format!("{place}.rows[{n}]"))?.to_owned(),
+            as_str(right, &format!("{place}.rows[{n}]"))?.to_owned(),
         ));
     }
     Ok(Card::new(
@@ -326,14 +331,28 @@ fn graph_from(value: &Value, place: &str) -> Result<Graph, SpecError> {
                 "{place}.links[{n}]: expected from, to, and an optional label"
             )));
         }
-        let label = if parts.len() >= 3 && !parts[2].is_null() {
-            Some(as_str(&parts[2], &format!("{place}.links[{n}]"))?.to_owned())
+        let (Some(from), Some(to)) = (parts.first(), parts.get(1)) else {
+            return Err(SpecError::new(format!(
+                "{place}.links[{n}]: expected from, to, and an optional label"
+            )));
+        };
+        let label = if parts.len() >= 3 {
+            let Some(part) = parts.get(2) else {
+                return Err(SpecError::new(format!(
+                    "{place}.links[{n}]: expected from, to, and an optional label"
+                )));
+            };
+            if part.is_null() {
+                None
+            } else {
+                Some(as_str(part, &format!("{place}.links[{n}]"))?.to_owned())
+            }
         } else {
             None
         };
         links.push((
-            as_str(&parts[0], &format!("{place}.links[{n}]"))?.to_owned(),
-            as_str(&parts[1], &format!("{place}.links[{n}]"))?.to_owned(),
+            as_str(from, &format!("{place}.links[{n}]"))?.to_owned(),
+            as_str(to, &format!("{place}.links[{n}]"))?.to_owned(),
             label,
         ));
     }
@@ -344,11 +363,16 @@ fn graph_from(value: &Value, place: &str) -> Result<Graph, SpecError> {
             .as_array()
             .filter(|pair| pair.len() == 2)
             .ok_or_else(|| SpecError::new(format!("{place}.at.{key}: expected two numbers")))?;
+        let (Some(x), Some(y)) = (pair.first(), pair.get(1)) else {
+            return Err(SpecError::new(format!(
+                "{place}.at.{key}: expected two numbers"
+            )));
+        };
         at.insert(
             key.clone(),
             (
-                as_f64(&pair[0], &format!("{place}.at.{key}"))?,
-                as_f64(&pair[1], &format!("{place}.at.{key}"))?,
+                as_f64(x, &format!("{place}.at.{key}"))?,
+                as_f64(y, &format!("{place}.at.{key}"))?,
             ),
         );
     }
@@ -358,14 +382,18 @@ fn graph_from(value: &Value, place: &str) -> Result<Graph, SpecError> {
 /// Build one panel from its JSON object.
 ///
 /// # Errors
-/// Returns an error naming the place of any mistake in `obj`.
-pub fn panel_from_spec(obj: &Value, place: &str) -> Result<Panel, SpecError> {
-    panel_with_icons(obj, place, None)
+/// Returns an error naming the place of any mistake in `value`.
+pub fn panel_from_spec(value: &Value, place: &str) -> Result<Panel, SpecError> {
+    panel_with_icons(value, place, None)
 }
 
-fn panel_with_icons(obj: &Value, place: &str, icons: IconFolders<'_>) -> Result<Panel, SpecError> {
-    keys(obj, PANEL_KEYS, place, &["title"])?;
-    let map = object(obj, place)?;
+fn panel_with_icons(
+    value: &Value,
+    place: &str,
+    icons: IconFolders<'_>,
+) -> Result<Panel, SpecError> {
+    keys(value, PANEL_KEYS, place, &["title"])?;
+    let map = object(value, place)?;
     let title = as_str(&map["title"], &format!("{place}.title"))?;
     let mut panel = Panel::new(title);
     if map.contains_key("tiles") {
@@ -395,7 +423,7 @@ fn panel_with_icons(obj: &Value, place: &str, icons: IconFolders<'_>) -> Result<
     if let Some(status) = opt_str(map, "status", place)? {
         panel = panel.status(status);
     }
-    if let Some(step) = map.get("step").filter(|value| !value.is_null()) {
+    if let Some(step) = map.get("step").filter(|item| !item.is_null()) {
         panel = panel.step(as_i64(step, &format!("{place}.step"))?);
     }
     if let Some(footer) = opt_str(map, "footer", place)? {
@@ -478,12 +506,12 @@ fn apply_string(theme: &mut Theme, key: &str, value: String) -> bool {
 ///
 /// # Errors
 /// Returns an error naming any unknown setting or malformed status.
-pub fn theme_from_spec(obj: Option<&Value>) -> Result<Theme, SpecError> {
+pub fn theme_from_spec(setting: Option<&Value>) -> Result<Theme, SpecError> {
     let mut theme = Theme::default();
-    let Some(obj) = obj else {
+    let Some(setting) = setting else {
         return Ok(theme);
     };
-    let map = object(obj, "theme")?;
+    let map = object(setting, "theme")?;
     for (key, value) in map {
         if key == "tones" {
             let tones = object(value, "theme.tones")?;
@@ -547,15 +575,15 @@ pub fn theme_from_spec(obj: Option<&Value>) -> Result<Theme, SpecError> {
     Ok(theme)
 }
 
-fn plain_panel(obj: &Value, place: &str, icons: IconFolders<'_>) -> Result<Panel, SpecError> {
-    if let Some(map) = obj.as_object()
+fn plain_panel(value: &Value, place: &str, icons: IconFolders<'_>) -> Result<Panel, SpecError> {
+    if let Some(map) = value.as_object()
         && (map.contains_key("x") || map.contains_key("y"))
     {
         return Err(SpecError::new(format!(
             "{place}: x and y only work in the 'panels' layout"
         )));
     }
-    panel_with_icons(obj, place, icons)
+    panel_with_icons(value, place, icons)
 }
 
 fn steps_from(value: &Value) -> Result<Vec<(i64, String)>, SpecError> {
@@ -568,9 +596,14 @@ fn steps_from(value: &Value) -> Result<Vec<(i64, String)>, SpecError> {
             .as_array()
             .filter(|pair| pair.len() == 2)
             .ok_or_else(|| SpecError::new(format!("steps[{n}]: expected a number and a label")))?;
+        let (Some(number), Some(label)) = (pair.first(), pair.get(1)) else {
+            return Err(SpecError::new(format!(
+                "steps[{n}]: expected a number and a label"
+            )));
+        };
         steps.push((
-            as_i64(&pair[0], &format!("steps[{n}]"))?,
-            as_str(&pair[1], &format!("steps[{n}]"))?.to_owned(),
+            as_i64(number, &format!("steps[{n}]"))?,
+            as_str(label, &format!("steps[{n}]"))?.to_owned(),
         ));
     }
     Ok(steps)
@@ -629,9 +662,9 @@ fn place_panels(
     icons: IconFolders<'_>,
 ) -> Result<Vec<Placed>, SpecError> {
     let mut placed = Vec::new();
-    for (n, obj) in items.iter().enumerate() {
+    for (n, value) in items.iter().enumerate() {
         let spot = format!("panels[{n}]");
-        let map = obj.as_object().ok_or_else(|| {
+        let map = value.as_object().ok_or_else(|| {
             SpecError::new(format!(
                 "{spot}: each panel needs numbers for x and y (its top-left corner, in pixels)"
             ))
@@ -649,7 +682,7 @@ fn place_panels(
         placed.push(
             diagram
                 .add(
-                    panel_with_icons(obj, &spot, icons)?,
+                    panel_with_icons(value, &spot, icons)?,
                     as_f64(x, &format!("{spot}.x"))?,
                     as_f64(y, &format!("{spot}.y"))?,
                 )
@@ -750,6 +783,17 @@ fn add_links(
         }
     }
     place_enclosures(diagram, spec, &by_id)?;
+    add_link_list(diagram, spec, placed, layout, &by_id, &find)
+}
+
+fn add_link_list(
+    diagram: &mut Diagram,
+    spec: &Map<String, Value>,
+    placed: &[Placed],
+    layout: &str,
+    by_id: &IndexMap<String, Placed>,
+    find: &impl Fn(&str, &str, &IndexMap<String, Placed>) -> Result<Placed, SpecError>,
+) -> Result<(), SpecError> {
     let top = placed
         .iter()
         .map(|panel| panel.y)
@@ -774,12 +818,12 @@ fn add_links(
         let a = find(
             as_str(&map["from"], &format!("{spot}.from"))?,
             &format!("{spot}.from"),
-            &by_id,
+            by_id,
         )?;
         let b = find(
             as_str(&map["to"], &format!("{spot}.to"))?,
             &format!("{spot}.to"),
-            &by_id,
+            by_id,
         )?;
         let mut start = opt_str(map, "start", &spot)?.unwrap_or_else(|| default_sides.0.to_owned());
         let mut end = opt_str(map, "end", &spot)?.unwrap_or_else(|| default_sides.1.to_owned());
@@ -856,10 +900,12 @@ pub fn from_spec_with(spec: &Value, icons: Option<&[PathBuf]>) -> Result<Diagram
         .filter(|key| map.contains_key(*key))
         .collect();
     let has_resources = map.contains_key("resources");
-    if has_resources && !chosen.is_empty() && chosen.as_slice() != ["panels"] {
+    if has_resources
+        && chosen.as_slice() != ["panels"]
+        && let Some(layout_name) = chosen.first()
+    {
         return Err(SpecError::new(format!(
-            "resources: each resource is placed with x and y, so they work alone or with the 'panels' layout, not with '{}'",
-            chosen[0]
+            "resources: each resource is placed with x and y, so they work alone or with the 'panels' layout, not with '{layout_name}'",
         )));
     }
     if chosen.len() != 1 && !(chosen.is_empty() && has_resources) {
@@ -915,7 +961,7 @@ pub fn from_spec_with(spec: &Value, icons: Option<&[PathBuf]>) -> Result<Diagram
     add_links(&mut diagram, map, &placed, layout, has_resources)?;
     if let Some(statuses) = map
         .get("statuses")
-        .filter(|value| value.as_object().is_some_and(|obj| !obj.is_empty()))
+        .filter(|value| value.as_object().is_some_and(|fields| !fields.is_empty()))
     {
         let mut named = IndexMap::new();
         for (name, state) in object(statuses, "statuses")? {
@@ -1016,10 +1062,10 @@ fn place_resources(
     else {
         return Err(SpecError::new("resources: expected a non-empty list"));
     };
-    for (n, obj) in list.iter().enumerate() {
+    for (n, value) in list.iter().enumerate() {
         let place = format!("resources[{n}]");
-        keys(obj, RESOURCE_KEYS, &place, &["label", "x", "y"])?;
-        let map = object(obj, &place)?;
+        keys(value, RESOURCE_KEYS, &place, &["label", "x", "y"])?;
+        let map = object(value, &place)?;
         if !map["x"].is_number() || !map["y"].is_number() {
             return Err(SpecError::new(format!(
                 "{place}: each resource needs numbers for x and y (its top-left corner, in pixels)"

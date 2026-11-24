@@ -4,21 +4,21 @@
 //! with [`from_mermaid`]. The `open-diagram-rs` command and the `open-diagram-rs-mcp`
 //! server are separate crates.
 
-mod blocks;
+pub(crate) mod blocks;
 pub mod catalog;
-mod describe;
-mod diagram;
-mod error;
+pub(crate) mod describe;
+pub(crate) mod diagram;
+pub(crate) mod error;
 pub mod examples;
-mod font;
-mod mermaid;
+pub(crate) mod font;
+pub(crate) mod mermaid;
 #[cfg(test)]
 mod messages;
-mod num;
-mod render;
-mod spec;
-mod svg;
-mod theme;
+pub(crate) mod num;
+pub(crate) mod render;
+pub(crate) mod spec;
+pub(crate) mod svg;
+pub(crate) mod theme;
 
 pub use blocks::{Block, Card, Graph, Note, Panel, Resource, Row, Text, Tile, Tiles};
 pub use diagram::{Diagram, Enclosed, EnclosureOpts, GroupId, LineView, LinkSpec, Placed, Report};

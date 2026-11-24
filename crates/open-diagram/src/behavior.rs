@@ -93,7 +93,7 @@ fn wrap_respects_width_and_newlines() {
 }
 
 #[test]
-fn overlap_gap_crossing_lane_and_graph_label_are_named() {
+fn overlapping_panels_are_named() {
     let mut crowded = Diagram::new("t");
     crowded
         .add(panel("Alpha"), 0.0, 0.0)
@@ -111,7 +111,10 @@ fn overlap_gap_crossing_lane_and_graph_label_are_named() {
             .any(|problem| problem.contains("'Alpha' and 'Beta' overlap")),
         "{problems:?}"
     );
+}
 
+#[test]
+fn a_five_pixel_gap_is_named() {
     let mut gap = Diagram::new("t");
     let alpha = gap
         .add(panel("Alpha"), 0.0, 0.0)
@@ -125,7 +128,10 @@ fn overlap_gap_crossing_lane_and_graph_label_are_named() {
             .any(|problem| problem.contains("only 5 px apart")),
         "{problems:?}"
     );
+}
 
+#[test]
+fn a_default_link_between_separated_panels_is_clean() {
     let mut clean = Diagram::new("t");
     let alpha = clean
         .add(panel("Alpha"), 0.0, 0.0)
@@ -142,7 +148,10 @@ fn overlap_gap_crossing_lane_and_graph_label_are_named() {
             .unwrap_or_else(|err| panic!("{err}"))
             .problems,
     );
+}
 
+#[test]
+fn a_crossing_link_names_the_panel_until_cross_ok() {
     let mut crossing = Diagram::new("t");
     let alpha = crossing
         .add(panel("Alpha"), 0.0, 0.0)
@@ -173,7 +182,10 @@ fn overlap_gap_crossing_lane_and_graph_label_are_named() {
             .unwrap_or_else(|err| panic!("{err}"))
             .problems,
     );
+}
 
+#[test]
+fn a_lane_above_the_row_is_clean() {
     let mut lane = Diagram::new("t");
     let alpha = lane
         .add(panel("Alpha"), 0.0, 0.0)
@@ -194,7 +206,10 @@ fn overlap_gap_crossing_lane_and_graph_label_are_named() {
     )
     .unwrap_or_else(|err| panic!("{err}"));
     assert_clean(&lane.render().unwrap_or_else(|err| panic!("{err}")).problems);
+}
 
+#[test]
+fn a_graph_label_names_the_node_it_touches() {
     let mut nodes = IndexMap::new();
     nodes.insert("a".to_owned(), "A".to_owned());
     nodes.insert("b".to_owned(), "B".to_owned());
@@ -255,7 +270,7 @@ fn save_writes_the_svg_before_reporting_overlap() {
     assert!(path.with_extension("svg").is_file());
     assert!(err.to_string().contains("overlap"), "{err}");
     let _: LayoutError = err;
-    let _ = std::fs::remove_dir_all(dir);
+    std::fs::remove_dir_all(dir).unwrap_or_else(|err| panic!("{err}"));
 }
 
 #[test]
@@ -627,52 +642,67 @@ fn json_layouts_and_public_helpers() {
     );
 }
 
+#[derive(Clone, Copy)]
+enum Flow {
+    Lr,
+    Rl,
+    Td,
+    Bt,
+}
+
+impl Flow {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Lr => "LR",
+            Self::Rl => "RL",
+            Self::Td => "TD",
+            Self::Bt => "BT",
+        }
+    }
+}
+
 #[test]
 fn reversed_mermaid_directions_put_the_source_on_the_far_side() {
     let source = |direction| format!("flowchart {direction}\n  a[Start] --> b[End]\n");
     let mut pictures = Vec::new();
-    for direction in ["LR", "RL", "TD", "BT"] {
-        let mut diagram = from_mermaid(&source(direction), None, None)
-            .unwrap_or_else(|err| panic!("{direction}: {err}"));
+    for direction in [Flow::Lr, Flow::Rl, Flow::Td, Flow::Bt] {
+        let label = direction.label();
+        let mut diagram =
+            from_mermaid(&source(label), None, None).unwrap_or_else(|err| panic!("{label}: {err}"));
         let report = diagram
             .render()
-            .unwrap_or_else(|err| panic!("{direction}: {err}"));
-        assert!(
-            report.problems.is_empty(),
-            "{direction}: {:?}",
-            report.problems
-        );
+            .unwrap_or_else(|err| panic!("{label}: {err}"));
+        assert!(report.problems.is_empty(), "{label}: {:?}", report.problems);
         let (sx, sy, ex, ey) = {
             let start = diagram
                 .placed()
                 .find(|panel| panel.name == "Start")
-                .unwrap_or_else(|| panic!("{direction}: Start"));
+                .unwrap_or_else(|| panic!("{label}: Start"));
             let end = diagram
                 .placed()
                 .find(|panel| panel.name == "End")
-                .unwrap_or_else(|| panic!("{direction}: End"));
+                .unwrap_or_else(|| panic!("{label}: End"));
             (start.x, start.y, end.x, end.y)
         };
         let lines = diagram.lines();
         let line = &lines[0];
         match direction {
-            "LR" => {
-                assert!(sx < ex, "{direction}");
+            Flow::Lr => {
+                assert!(sx < ex, "{label}");
                 assert_eq!((line.start.as_str(), line.end.as_str()), ("right", "left"));
             }
-            "RL" => {
-                assert!(sx > ex, "{direction}");
+            Flow::Rl => {
+                assert!(sx > ex, "{label}");
                 assert_eq!((line.start.as_str(), line.end.as_str()), ("left", "right"));
             }
-            "TD" => {
-                assert!(sy < ey, "{direction}");
+            Flow::Td => {
+                assert!(sy < ey, "{label}");
                 assert_eq!((line.start.as_str(), line.end.as_str()), ("bottom", "top"));
             }
-            "BT" => {
-                assert!(sy > ey, "{direction}");
+            Flow::Bt => {
+                assert!(sy > ey, "{label}");
                 assert_eq!((line.start.as_str(), line.end.as_str()), ("top", "bottom"));
             }
-            _ => unreachable!(),
         }
         pictures.push(report.svg);
     }
@@ -804,7 +834,7 @@ fn resources_embed_icons_and_reject_bad_inputs() {
         )
         .is_err()
     );
-    let _ = std::fs::remove_dir_all(dir);
+    std::fs::remove_dir_all(dir).unwrap_or_else(|err| panic!("{err}"));
 }
 
 #[test]
@@ -966,7 +996,10 @@ fn nested_titles_fit_and_bad_members_are_rejected() {
     assert!(report.svg.contains("stroke-dasharray=\"0.1 3.4\""));
     assert!(report.svg.contains("stroke-dasharray=\"5 3.5\""));
     assert!(diagram.describe().contains("Private subnet"));
+}
 
+#[test]
+fn a_long_enclosure_title_stays_inside_the_group() {
     let mut solid = Diagram::new("Enclosure");
     let node = solid
         .add(resource("S3"), 0.0, 0.0)
@@ -984,7 +1017,10 @@ fn nested_titles_fit_and_bad_members_are_rejected() {
     let (gx, _, gw, _) = solid.groups[group.0].rect;
     assert!(bx + bw <= gx + gw);
     assert!(!report.svg.contains("stroke-dasharray"));
+}
 
+#[test]
+fn enclosures_reject_bad_members_borders_pads_and_tones() {
     let mut validation = Diagram::new("Validation");
     let err = validation
         .enclosure("Account", &[], opts("dashed", 24.0, "outline", "default"))
@@ -1051,7 +1087,10 @@ fn nested_titles_fit_and_bad_members_are_rejected() {
             )
             .is_err()
     );
+}
 
+#[test]
+fn an_enclosure_names_the_node_it_overlaps() {
     let mut overlap = Diagram::new("Overlap");
     let a = overlap
         .add(resource("A"), 0.0, 0.0)
@@ -1234,7 +1273,10 @@ fn templates_match_the_standard_and_json_resources() {
             "{border}"
         );
     }
+}
 
+#[test]
+fn the_template_catalog_lists_the_files_on_disk() {
     let templates = crate::catalog::template_dir();
     let readme = templates.join("README.md");
     let rows = crate::catalog::table(Some(&readme)).unwrap_or_else(|err| panic!("{err}"));
@@ -1324,7 +1366,11 @@ fn templates_match_the_standard_and_json_resources() {
         err.contains("no template named 'nope'; templates: aws_etl"),
         "{err}"
     );
+}
 
+#[test]
+fn bundled_json_templates_render_inside_the_limits() {
+    let templates = crate::catalog::template_dir();
     for entry in std::fs::read_dir(&templates)
         .unwrap_or_else(|err| panic!("{err}"))
         .flatten()
@@ -1393,7 +1439,22 @@ fn json_resources_name_mistakes_and_refuse_paths_outside_icon_folders() {
     );
     assert_eq!(report.svg.matches("<image").count(), 2);
     assert!(diagram.describe().contains("Worker (AWS Lambda)"));
+}
 
+#[test]
+fn json_resources_name_the_mistake() {
+    let spec = json!({
+        "title": "Resources from JSON",
+        "resources": [
+            {"id": "fn", "label": "Worker", "sub": "AWS Lambda", "icon": "aws/lambda", "x": 0, "y": 0},
+            {"id": "db", "label": "Records", "sub": "Amazon RDS", "icon": "aws/rds", "x": 300, "y": 0}
+        ],
+        "enclosures": [
+            {"id": "data", "label": "Data subnet", "members": ["db"], "border": "dotted"},
+            {"id": "net", "label": "Network", "members": ["fn", "data"], "border": "solid", "pad": 32}
+        ],
+        "links": [{"from": "fn", "to": "db", "label": "SQL", "dash": "dashed"}]
+    });
     let cases: Vec<(Value, &str)> = vec![
         (
             json!({"title": "t", "resources": spec["resources"].clone(), "enclosures": [{"label": "Net", "members": ["fn", "data"]}, {"id": "data", "label": "D", "members": ["db"]}], "links": []}),
@@ -1437,7 +1498,10 @@ fn json_resources_name_mistakes_and_refuse_paths_outside_icon_folders() {
             assert!(err.contains("enclosures[0]"), "{err}");
         }
     }
+}
 
+#[test]
+fn json_resources_refuse_icons_outside_the_folder() {
     let dir = scratch("outside");
     let secret = dir.join("secret.svg");
     std::fs::write(&secret, "<svg xmlns=\"http://www.w3.org/2000/svg\"/>")
@@ -1494,8 +1558,8 @@ fn json_resources_name_mistakes_and_refuse_paths_outside_icon_folders() {
     let report = diagram.render().unwrap_or_else(|err| panic!("{err}"));
     assert!(report.problems.is_empty(), "{:?}", report.problems);
     assert_eq!(report.svg.matches("<image").count(), 2);
-    let _ = std::fs::remove_dir_all(dir);
-    let _ = std::fs::remove_dir_all(beside);
+    std::fs::remove_dir_all(dir).unwrap_or_else(|err| panic!("{err}"));
+    std::fs::remove_dir_all(beside).unwrap_or_else(|err| panic!("{err}"));
 }
 
 #[test]
@@ -1529,7 +1593,7 @@ fn missing_chrome_does_not_pretend_a_png_was_written() {
         std::fs::read(&png).unwrap_or_else(|err| panic!("{err}")),
         b"stale"
     );
-    let _ = std::fs::remove_dir_all(dir);
+    std::fs::remove_dir_all(dir).unwrap_or_else(|err| panic!("{err}"));
 }
 
 #[test]
@@ -1545,5 +1609,5 @@ fn chrome_screenshots_an_svg_when_a_browser_exists() {
         .unwrap_or_else(|err| panic!("chrome failed: {} ({err})", chrome.display()));
     let bytes = std::fs::read(&png).unwrap_or_else(|err| panic!("{err}"));
     assert!(bytes.starts_with(b"\x89PNG"), "not a png");
-    let _ = std::fs::remove_dir_all(dir);
+    std::fs::remove_dir_all(dir).unwrap_or_else(|err| panic!("{err}"));
 }

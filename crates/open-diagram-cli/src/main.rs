@@ -350,7 +350,7 @@ fn check_scale(scale: f64) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use parking_lot::Mutex;
 
     use super::{SOUNDTRACK, execute};
 
@@ -364,11 +364,9 @@ mod tests {
 
     #[test]
     fn new_writes_a_template_and_refuses_to_replace_it() {
-        let _guard = DIR_LOCK
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _guard = DIR_LOCK.lock();
         let dir = std::env::temp_dir().join(format!("open-diagram-rs-new-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
+        remove_tree(&dir);
         std::fs::create_dir_all(&dir).unwrap_or_else(|err| panic!("{err}"));
         let previous = std::env::current_dir().unwrap_or_else(|err| panic!("{err}"));
         std::env::set_current_dir(&dir).unwrap_or_else(|err| panic!("{err}"));
@@ -394,6 +392,14 @@ mod tests {
         assert_eq!(again.unwrap_or_else(|err| panic!("{err}")), 2);
         assert_eq!(checked.unwrap_or_else(|err| panic!("{err}")), 0);
         assert!(dir.join("azure_web_app.json").is_file());
-        let _ = std::fs::remove_dir_all(&dir);
+        remove_tree(&dir);
+    }
+
+    fn remove_tree(dir: &std::path::Path) {
+        match std::fs::remove_dir_all(dir) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => panic!("remove {}: {err}", dir.display()),
+        }
     }
 }

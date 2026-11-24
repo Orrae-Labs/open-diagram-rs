@@ -1,13 +1,18 @@
 //! Format guide copied from the Python MCP server.
 
-pub const INSTRUCTIONS: &str = "open-diagram-rs draws architecture diagrams from JSON or Mermaid text. \
+#![expect(
+    clippy::redundant_pub_crate,
+    reason = "sibling modules use these items; pub would fail unreachable_pub because they are not the external API"
+)]
+
+pub(crate) const INSTRUCTIONS: &str = "open-diagram-rs draws architecture diagrams from JSON or Mermaid text. \
 Call format_guide once, or template with no name for a starter. \
 check lists layout problems and writes nothing; fix every named part and call it again until it reports 0. \
 describe says what the picture contains. \
 draw writes the SVG and PNG into the output folder and returns the paths and the picture. \
 A layout problem is the result of check: change the named parts, and leave text at the size the theme asked for.";
 
-pub const GUIDE: &str = r#"# open-diagram-rs format guide
+pub(crate) const GUIDE: &str = r#"# open-diagram-rs format guide
 
 Write the diagram as JSON (below) or as a Mermaid flowchart. Call `check` until it reports 0 layout problems, then
 `draw`. Every problem names the parts involved; fix each one, never ignore it.
@@ -86,7 +91,7 @@ use accent for one kind of panel only and say what it means in a note.
 Keep panel titles to two to four words and tiles to four words or fewer. Never invent owners, numbers or states.
 "#;
 
-pub fn guide_text(names: &[String]) -> String {
+pub(crate) fn guide_text(names: &[String]) -> String {
     let listed = if names.is_empty() {
         "none".to_owned()
     } else {

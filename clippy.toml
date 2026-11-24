@@ -1,3 +1,39 @@
-# rustfmt counts physical lines. The longest formatted function is under 200.
-# The default of 100 fails the same functions once they are wrapped.
-too-many-lines-threshold = 200
+# doc-version: 2
+# doc-updated: 2026-11-24
+# rust-practices.md requires this file, at this version, as the workspace
+# clippy.toml. Stock Clippy reads it for thresholds and disallowed lists.
+# It does not turn lints on. Restriction lints are warn-by-name in the
+# crate or workspace lint table. `disallowed_*` are already warn, and they
+# stay silent until the lists below name something.
+
+allow-panic-in-tests = true
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-indexing-slicing-in-tests = true
+
+# ".." keeps Clippy's defaults (foo, baz, quux).
+# data, res, and out are left off. They are honest names often enough.
+# gen is left off. Edition 2024 rejects bare gen, and disallowed_names
+# does not flag the raw identifier r#gen.
+disallowed-names = ["..", "tmp", "obj", "val"]
+
+disallowed-types = [
+    { path = "std::sync::Mutex", reason = "parking_lot is the lock", replacement = "parking_lot::Mutex" },
+    { path = "std::sync::RwLock", reason = "parking_lot is the lock", replacement = "parking_lot::RwLock" },
+]
+
+disallowed-methods = [
+    { path = "std::boxed::Box::leak", reason = "a leaked box is not a lifetime" },
+    { path = "std::string::String::leak", reason = "a leaked box is not a lifetime" },
+    { path = "std::vec::Vec::leak", reason = "a leaked box is not a lifetime" },
+    { path = "f32::algebraic_add", reason = "algebraic float ops are not deterministic" },
+    { path = "f32::algebraic_sub", reason = "algebraic float ops are not deterministic" },
+    { path = "f32::algebraic_mul", reason = "algebraic float ops are not deterministic" },
+    { path = "f32::algebraic_div", reason = "algebraic float ops are not deterministic" },
+    { path = "f32::algebraic_rem", reason = "algebraic float ops are not deterministic" },
+    { path = "f64::algebraic_add", reason = "algebraic float ops are not deterministic" },
+    { path = "f64::algebraic_sub", reason = "algebraic float ops are not deterministic" },
+    { path = "f64::algebraic_mul", reason = "algebraic float ops are not deterministic" },
+    { path = "f64::algebraic_div", reason = "algebraic float ops are not deterministic" },
+    { path = "f64::algebraic_rem", reason = "algebraic float ops are not deterministic" },
+]

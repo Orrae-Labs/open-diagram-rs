@@ -1,15 +1,90 @@
-use std::fmt::Write;
+#![expect(
+    clippy::redundant_pub_crate,
+    reason = "sibling modules use these items; pub would fail unreachable_pub because they are not the external API"
+)]
+
+use std::fmt::Write as _;
 
 use crate::blocks::Block;
-use crate::diagram::Diagram;
+use crate::diagram::{Diagram, Node};
 use crate::num::py_round;
 
-pub fn describe(diagram: &Diagram) -> String {
-    let theme = &diagram.theme;
+pub(crate) fn describe(diagram: &Diagram) -> String {
     let mut out = vec![diagram.title.clone()];
     if let Some(subtitle) = &diagram.subtitle {
         out.push(subtitle.clone());
     }
+    if let Some(line) = legend_line(diagram) {
+        out.push(line);
+    }
+    if let Some(line) = steps_line(diagram) {
+        out.push(line);
+    }
+    out.push(String::new());
+    out.push("Blocks, left to right:".to_owned());
+    let mut order: Vec<_> = diagram.nodes.iter().collect();
+    order.sort_by(|left, right| {
+        (py_round(left.placed.x), py_round(left.placed.y))
+            .cmp(&(py_round(right.placed.x), py_round(right.placed.y)))
+    });
+    for node in order {
+        out.push(format!("- {}", placed(diagram, node)));
+    }
+    if !diagram.groups.is_empty() {
+        out.push("Groups:".to_owned());
+        for group in &diagram.groups {
+            let sub = group.sub.as_ref().map_or_default(|s| format!(" ({s})"));
+            let names = group
+                .members
+                .iter()
+                .map(|id| {
+                    diagram
+                        .nodes
+                        .get(*id)
+                        .map_or_else(String::new, visible_name)
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            out.push(format!("- {}{sub}: {names}", group.label));
+        }
+    }
+    if !diagram.links.is_empty() {
+        out.push("Lines:".to_owned());
+        for line in &diagram.links {
+            let from = diagram
+                .nodes
+                .get(line.a)
+                .map_or_else(String::new, visible_name);
+            let to = diagram
+                .nodes
+                .get(line.b)
+                .map_or_else(String::new, visible_name);
+            let mut text = format!("- {from} -> {to}");
+            if line.kind == "planned"
+                && let Some(label) = diagram.theme.link_labels.get("planned")
+            {
+                write!(text, " ({})", label.to_lowercase()).unwrap_or(());
+            }
+            if let Some(label) = &line.label {
+                write!(text, ", labeled \"{label}\"").unwrap_or(());
+            }
+            if let Some(dash) = &line.dash {
+                write!(text, " ({dash} line)").unwrap_or(());
+            }
+            out.push(text);
+        }
+    }
+    if let Some(note) = &diagram.note {
+        out.push(format!(
+            "Note: {}",
+            block_text(diagram, &Block::Note(note.clone()))
+        ));
+    }
+    out.join("\n")
+}
+
+fn legend_line(diagram: &Diagram) -> Option<String> {
+    let theme = &diagram.theme;
     let mut used = std::collections::BTreeSet::new();
     for node in &diagram.nodes {
         used.extend(node.block.statuses());
@@ -52,81 +127,34 @@ pub fn describe(diagram: &Diagram) -> String {
             label.to_lowercase()
         ));
     }
-    if !key.is_empty() {
-        out.push(key.join(" "));
+    if key.is_empty() {
+        None
+    } else {
+        Some(key.join(" "))
     }
-    if !diagram.steps.is_empty() {
-        let mut owners = std::collections::BTreeMap::new();
-        for node in &diagram.nodes {
-            if let Block::Panel(panel) = &node.block
-                && let Some(step) = panel.step
-            {
-                owners.entry(step).or_insert_with(|| visible_name(node));
-            }
-        }
-        let parts: Vec<_> = diagram
-            .steps
-            .iter()
-            .map(|(n, text)| {
-                let owned = owners.get(n).map_or_default(|name| format!(" ({name})"));
-                format!("{n}. {text}{owned}")
-            })
-            .collect();
-        out.push(format!("{}: {}.", diagram.steps_label, parts.join("; ")));
+}
+
+fn steps_line(diagram: &Diagram) -> Option<String> {
+    if diagram.steps.is_empty() {
+        return None;
     }
-    out.push(String::new());
-    out.push("Blocks, left to right:".to_owned());
-    let mut order: Vec<usize> = (0..diagram.nodes.len()).collect();
-    order.sort_by(|&i, &j| {
-        let a = &diagram.nodes[i].placed;
-        let b = &diagram.nodes[j].placed;
-        (py_round(a.x), py_round(a.y)).cmp(&(py_round(b.x), py_round(b.y)))
-    });
-    for i in order {
-        out.push(format!("- {}", placed(diagram, i)));
-    }
-    if !diagram.groups.is_empty() {
-        out.push("Groups:".to_owned());
-        for group in &diagram.groups {
-            let sub = group.sub.as_ref().map_or_default(|s| format!(" ({s})"));
-            let names = group
-                .members
-                .iter()
-                .map(|id| visible_name(&diagram.nodes[*id]))
-                .collect::<Vec<_>>()
-                .join(", ");
-            out.push(format!("- {}{sub}: {names}", group.label));
+    let mut owners = std::collections::BTreeMap::new();
+    for node in &diagram.nodes {
+        if let Block::Panel(panel) = &node.block
+            && let Some(step) = panel.step
+        {
+            owners.entry(step).or_insert_with(|| visible_name(node));
         }
     }
-    if !diagram.links.is_empty() {
-        out.push("Lines:".to_owned());
-        for line in &diagram.links {
-            let mut text = format!(
-                "- {} -> {}",
-                visible_name(&diagram.nodes[line.a]),
-                visible_name(&diagram.nodes[line.b])
-            );
-            if line.kind == "planned"
-                && let Some(label) = theme.link_labels.get("planned")
-            {
-                let _ = write!(text, " ({})", label.to_lowercase());
-            }
-            if let Some(label) = &line.label {
-                let _ = write!(text, ", labeled \"{label}\"");
-            }
-            if let Some(dash) = &line.dash {
-                let _ = write!(text, " ({dash} line)");
-            }
-            out.push(text);
-        }
-    }
-    if let Some(note) = &diagram.note {
-        out.push(format!(
-            "Note: {}",
-            block_text(diagram, &Block::Note(note.clone()))
-        ));
-    }
-    out.join("\n")
+    let parts: Vec<_> = diagram
+        .steps
+        .iter()
+        .map(|(n, text)| {
+            let owned = owners.get(n).map_or_default(|name| format!(" ({name})"));
+            format!("{n}. {text}{owned}")
+        })
+        .collect();
+    Some(format!("{}: {}.", diagram.steps_label, parts.join("; ")))
 }
 
 fn capitalize(text: &str) -> String {
@@ -188,7 +216,7 @@ fn block_text(diagram: &Diagram, block: &Block) -> String {
             let rows = v
                 .rows
                 .iter()
-                .map(|(k, val)| format!("{k} {val}"))
+                .map(|(key, value)| format!("{key} {value}"))
                 .collect::<Vec<_>>()
                 .join("; ");
             format!("example '{}': {rows}", v.title)
@@ -200,9 +228,9 @@ fn block_text(diagram: &Diagram, block: &Block) -> String {
                 .map(|(a, b, label)| {
                     format!(
                         "{} {} {}",
-                        v.nodes[a],
+                        v.nodes.get(a).map_or("", String::as_str),
                         label.as_deref().unwrap_or("to"),
-                        v.nodes[b]
+                        v.nodes.get(b).map_or("", String::as_str),
                     )
                 })
                 .collect::<Vec<_>>()
@@ -223,17 +251,21 @@ fn block_text(diagram: &Diagram, block: &Block) -> String {
     }
 }
 
-fn visible_name(node: &crate::diagram::Node) -> String {
+fn visible_name(node: &Node) -> String {
     match &node.block {
         Block::Panel(panel) => panel.title.clone(),
         Block::Tile(tile) => tile.label.clone(),
         Block::Resource(resource) => resource.label.clone(),
-        _ => node.placed.name.clone(),
+        Block::Card(_)
+        | Block::Graph(_)
+        | Block::Note(_)
+        | Block::Row(_)
+        | Block::Text(_)
+        | Block::Tiles(_) => node.placed.name.clone(),
     }
 }
 
-fn placed(diagram: &Diagram, index: usize) -> String {
-    let node = &diagram.nodes[index];
+fn placed(diagram: &Diagram, node: &Node) -> String {
     match &node.block {
         Block::Panel(panel) => {
             let mut tags = Vec::new();
@@ -245,10 +277,10 @@ fn placed(diagram: &Diagram, index: usize) -> String {
             }
             let mut head = visible_name(node);
             if !tags.is_empty() {
-                let _ = write!(head, " [{}]", tags.join(", "));
+                write!(head, " [{}]", tags.join(", ")).unwrap_or(());
             }
             if let Some(sub) = &panel.sub {
-                let _ = write!(head, " ({sub})");
+                write!(head, " ({sub})").unwrap_or(());
             }
             let body = panel
                 .body
@@ -263,13 +295,18 @@ fn placed(diagram: &Diagram, index: usize) -> String {
                 format!("{head}: {body}")
             };
             if let Some(footer) = &panel.footer {
-                let _ = write!(text, ". {}", footer.replace('\n', " "));
+                write!(text, ". {}", footer.replace('\n', " ")).unwrap_or(());
             }
             text
         }
         Block::Resource(_) => block_text(diagram, &node.block),
         Block::Tile(tile) => tile_text(diagram, tile),
-        _ => {
+        Block::Card(_)
+        | Block::Graph(_)
+        | Block::Note(_)
+        | Block::Row(_)
+        | Block::Text(_)
+        | Block::Tiles(_) => {
             let inner = block_text(diagram, &node.block);
             if inner.is_empty() {
                 node.placed.name.clone()

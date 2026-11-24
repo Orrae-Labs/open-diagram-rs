@@ -1,3 +1,8 @@
+#![expect(
+    clippy::redundant_pub_crate,
+    reason = "sibling modules use these items; pub would fail unreachable_pub because they are not the external API"
+)]
+
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -12,7 +17,9 @@ use crate::theme::{Theme, shade};
 
 const ICON: f64 = 16.0;
 
-pub type ReportFn<'a> = &'a mut dyn FnMut(&str);
+pub(crate) type ReportFn<'a> = &'a mut dyn FnMut(&str);
+type GraphRect = (f64, f64, f64, f64);
+type GraphLabel = (String, GraphRect);
 
 #[derive(Clone, Debug)]
 pub struct Resource {
@@ -360,8 +367,7 @@ impl Tile {
             centres.push(next);
         }
         let icon = if self.icon.is_some() { ICON + 6.0 } else { 0.0 };
-        for (i, line) in main.iter().enumerate() {
-            let cy = centres[i];
+        for (i, (line, &cy)) in main.iter().zip(&centres).enumerate() {
             let lw = text_width(line, theme.tile, "semibold") + if i == 0 { icon } else { 0.0 };
             let mut lx = x + w / 2.0 - lw / 2.0;
             if i == 0
@@ -789,16 +795,21 @@ impl Graph {
         })
     }
 
-    fn node_w(&self, t: &Theme, key: &str) -> f64 {
-        text_width(&self.nodes[key], t.body, "semibold") + 26.0
+    fn node_w(&self, t: &Theme, key: &str) -> Option<f64> {
+        let label = self.nodes.get(key)?;
+        Some(text_width(label, t.body, "semibold") + 26.0)
     }
 
     fn boxes(&self, t: &Theme) -> IndexMap<String, (f64, f64, f64, f64)> {
         let (sx, sy) = self.spacing;
         let mut boxes = IndexMap::new();
         for key in self.nodes.keys() {
-            let (col, row) = self.at[key];
-            let w = self.node_w(t, key);
+            let Some(&(col, row)) = self.at.get(key) else {
+                continue;
+            };
+            let Some(w) = self.node_w(t, key) else {
+                continue;
+            };
             boxes.insert(
                 key.clone(),
                 (mul(col, sx) - w / 2.0, mul(row, sy) - 13.0, w, 26.0),
@@ -893,12 +904,34 @@ impl Graph {
             .iter()
             .map(|(k, b)| (k.clone(), (b.0 + b.2 / 2.0, b.1 + b.3 / 2.0)))
             .collect();
+        let labels = self.draw_edges(canvas, theme, report, &boxes, &centres);
+        self.draw_nodes_and_labels(canvas, theme, report, &boxes, &labels);
+    }
+
+    fn draw_edges(
+        &self,
+        canvas: &mut Canvas,
+        theme: &Theme,
+        report: ReportFn<'_>,
+        boxes: &IndexMap<String, (f64, f64, f64, f64)>,
+        centres: &IndexMap<String, (f64, f64)>,
+    ) -> Vec<(String, (f64, f64, f64, f64))> {
         let mut labels = Vec::new();
         for (from_id, to_id, label) in &self.links {
-            let (ax, ay) = centres[from_id];
-            let (bx, by) = centres[to_id];
-            let from_pt = clip(boxes[from_id], (ax, ay), (bx, by));
-            let to_pt = clip(boxes[to_id], (bx, by), (ax, ay));
+            let Some(&(ax, ay)) = centres.get(from_id) else {
+                continue;
+            };
+            let Some(&(bx, by)) = centres.get(to_id) else {
+                continue;
+            };
+            let Some(from_box) = boxes.get(from_id).copied() else {
+                continue;
+            };
+            let Some(to_box) = boxes.get(to_id).copied() else {
+                continue;
+            };
+            let from_pt = clip(from_box, (ax, ay), (bx, by));
+            let to_pt = clip(to_box, (bx, by), (ax, ay));
             canvas.line(
                 (from_pt.0, from_pt.1),
                 (to_pt.0, to_pt.1),
@@ -906,13 +939,21 @@ impl Graph {
                 1.0,
                 None,
             );
-            for (key, box_) in &boxes {
-                if key != from_id && key != to_id && segment_hits(*box_, from_pt, to_pt) {
+            for (key, box_) in boxes {
+                if key != from_id
+                    && key != to_id
+                    && segment_hits(*box_, from_pt, to_pt)
+                    && let (Some(from_name), Some(to_name), Some(through)) = (
+                        self.nodes.get(from_id),
+                        self.nodes.get(to_id),
+                        self.nodes.get(key),
+                    )
+                {
                     report(&format!(
                         "graph: the line {} to {} runs through {}",
-                        py_repr(&self.nodes[from_id]),
-                        py_repr(&self.nodes[to_id]),
-                        py_repr(&self.nodes[key])
+                        py_repr(from_name),
+                        py_repr(to_name),
+                        py_repr(through)
                     ));
                 }
             }
@@ -925,7 +966,18 @@ impl Graph {
                 labels.push((label.clone(), (mx - lw / 2.0, my - 8.0, lw, 16.0)));
             }
         }
-        for (key, (bx, by, bw, bh)) in &boxes {
+        labels
+    }
+
+    fn draw_nodes_and_labels(
+        &self,
+        canvas: &mut Canvas,
+        theme: &Theme,
+        report: ReportFn<'_>,
+        boxes: &IndexMap<String, (f64, f64, f64, f64)>,
+        labels: &[GraphLabel],
+    ) {
+        for (key, (bx, by, bw, bh)) in boxes {
             canvas.rect(
                 *bx,
                 *by,
@@ -940,22 +992,26 @@ impl Graph {
                     None,
                 ),
             );
-            canvas.text_centered(
-                &self.nodes[key],
-                bx + bw / 2.0,
-                by + bh / 2.0,
-                theme.body,
-                "semibold",
-                &theme.ink,
-            );
+            if let Some(label) = self.nodes.get(key) {
+                canvas.text_centered(
+                    label,
+                    bx + bw / 2.0,
+                    by + bh / 2.0,
+                    theme.body,
+                    "semibold",
+                    &theme.ink,
+                );
+            }
         }
         for (index, (label, box_)) in labels.iter().enumerate() {
-            for (key, nb) in &boxes {
-                if overlap(*box_, *nb, 2.0) {
+            for (key, nb) in boxes {
+                if overlap(*box_, *nb, 2.0)
+                    && let Some(name) = self.nodes.get(key)
+                {
                     report(&format!(
                         "graph: the label {} touches the node {}",
                         py_repr(label),
-                        py_repr(&self.nodes[key])
+                        py_repr(name)
                     ));
                 }
             }
@@ -1233,50 +1289,28 @@ impl Panel {
         Ok((w, h))
     }
 
-    fn draw(
+    fn draw_heading(
         &self,
         canvas: &mut Canvas,
-        at: (f64, f64, f64, f64),
+        at: (f64, f64, f64),
         theme: &Theme,
-        report: ReportFn<'_>,
+        tone: &str,
+        hh: f64,
     ) -> Result<(), DiagramError> {
-        let (x, mut y, w, mut h) = at;
-        let st = theme.status(self.status.as_deref())?;
-        let hh = self.head_h(theme);
-        let tone = theme.tone(&self.tone)?;
-        let fill = st
-            .as_ref()
-            .map_or(theme.panel_fill.as_str(), |s| s.fill.as_str());
-        let stroke = st
-            .as_ref()
-            .map_or(theme.panel_stroke.as_str(), |s| s.stroke.as_str());
-        let width = if st.is_some() { 1.3 } else { 1.0 };
-        let dash = st.as_ref().and_then(|s| s.dash.as_deref());
-        (y, h) = panel_frame(
-            canvas,
-            (x, y, w, h),
-            PanelFace {
-                theme,
-                tone: &tone,
-                fill,
-                stroke,
-                width,
-                dash,
-            },
-        );
+        let (x, y, w) = at;
         if theme.lid == 0.0 {
             canvas.path(
                 &top_rounded((x, y, w, hh), theme.radius),
-                &tone,
+                tone,
                 None,
                 1.0,
                 None,
                 None,
             );
         } else {
-            canvas.rect(x, y, w, hh, Paint::new(&tone, None, 1.0, 0.0, None, None));
+            canvas.rect(x, y, w, hh, Paint::new(tone, None, 1.0, 0.0, None, None));
         }
-        let (title_color, sub_color) = theme.header_colors(&tone)?;
+        let (title_color, sub_color) = theme.header_colors(tone)?;
         let mut tx = x + theme.pad;
         let title_cy = y + if self.sub.is_some() { 18.0 } else { hh / 2.0 };
         if let Some(step) = self.step {
@@ -1294,7 +1328,7 @@ impl Panel {
                 title_cy,
                 11.5,
                 "bold",
-                theme.badge_text.as_deref().unwrap_or(&tone),
+                theme.badge_text.as_deref().unwrap_or(tone),
             );
             tx += self.badge_w();
         }
@@ -1331,6 +1365,41 @@ impl Panel {
                 &tag.stroke,
             );
         }
+        Ok(())
+    }
+
+    fn draw(
+        &self,
+        canvas: &mut Canvas,
+        at: (f64, f64, f64, f64),
+        theme: &Theme,
+        report: ReportFn<'_>,
+    ) -> Result<(), DiagramError> {
+        let (x, mut y, w, mut h) = at;
+        let st = theme.status(self.status.as_deref())?;
+        let hh = self.head_h(theme);
+        let tone = theme.tone(&self.tone)?;
+        let fill = st
+            .as_ref()
+            .map_or(theme.panel_fill.as_str(), |s| s.fill.as_str());
+        let stroke = st
+            .as_ref()
+            .map_or(theme.panel_stroke.as_str(), |s| s.stroke.as_str());
+        let width = if st.is_some() { 1.3 } else { 1.0 };
+        let dash = st.as_ref().and_then(|s| s.dash.as_deref());
+        (y, h) = panel_frame(
+            canvas,
+            (x, y, w, h),
+            PanelFace {
+                theme,
+                tone: &tone,
+                fill,
+                stroke,
+                width,
+                dash,
+            },
+        );
+        self.draw_heading(canvas, (x, y, w), theme, &tone, hh)?;
         let mut cy = y + hh + theme.pad;
         for block in &self.body {
             let (_, bh) = block.measure(theme)?;
@@ -1526,7 +1595,9 @@ impl Block {
                 }
                 found
             }
-            _ => BTreeSet::new(),
+            Self::Resource(_) | Self::Text(_) | Self::Card(_) | Self::Note(_) | Self::Graph(_) => {
+                BTreeSet::new()
+            }
         }
     }
 
@@ -1535,7 +1606,13 @@ impl Block {
         match self {
             Self::Resource(v) => v.ports(side, w, h, t),
             Self::Panel(v) => v.ports(side, w, h, t),
-            _ => default_ports(side, w, h),
+            Self::Tile(_)
+            | Self::Tiles(_)
+            | Self::Text(_)
+            | Self::Card(_)
+            | Self::Note(_)
+            | Self::Graph(_)
+            | Self::Row(_) => default_ports(side, w, h),
         }
     }
 
@@ -1543,7 +1620,14 @@ impl Block {
     pub fn anchor(&self, side: &str, offset: f64, w: f64, h: f64, t: &Theme) -> (f64, f64) {
         match self {
             Self::Resource(v) => v.anchor(side, offset, w, h, t),
-            _ => default_anchor(side, offset, w, h),
+            Self::Tile(_)
+            | Self::Tiles(_)
+            | Self::Text(_)
+            | Self::Card(_)
+            | Self::Note(_)
+            | Self::Graph(_)
+            | Self::Row(_)
+            | Self::Panel(_) => default_anchor(side, offset, w, h),
         }
     }
 
@@ -1553,7 +1637,12 @@ impl Block {
             Self::Resource(v) => Some(&v.name),
             Self::Panel(v) => Some(&v.name),
             Self::Tile(v) => v.name.as_deref(),
-            _ => None,
+            Self::Tiles(_)
+            | Self::Text(_)
+            | Self::Card(_)
+            | Self::Note(_)
+            | Self::Graph(_)
+            | Self::Row(_) => None,
         }
     }
 
@@ -1561,22 +1650,29 @@ impl Block {
     pub fn title(&self) -> Option<&str> {
         match self {
             Self::Panel(v) => Some(&v.title),
-            _ => None,
+            Self::Resource(_)
+            | Self::Tile(_)
+            | Self::Tiles(_)
+            | Self::Text(_)
+            | Self::Card(_)
+            | Self::Note(_)
+            | Self::Graph(_)
+            | Self::Row(_) => None,
         }
     }
 }
 
 #[derive(Clone, Copy)]
-pub struct PanelFace<'a> {
-    pub theme: &'a Theme,
-    pub tone: &'a str,
-    pub fill: &'a str,
-    pub stroke: &'a str,
-    pub width: f64,
-    pub dash: Option<&'a str>,
+pub(crate) struct PanelFace<'a> {
+    pub(crate) theme: &'a Theme,
+    pub(crate) tone: &'a str,
+    pub(crate) fill: &'a str,
+    pub(crate) stroke: &'a str,
+    pub(crate) width: f64,
+    pub(crate) dash: Option<&'a str>,
 }
 
-pub fn panel_frame(
+pub(crate) fn panel_frame(
     canvas: &mut Canvas,
     at: (f64, f64, f64, f64),
     face: PanelFace<'_>,
@@ -1691,7 +1787,7 @@ fn data_uri(path: &str) -> Result<String, DiagramError> {
     ))
 }
 
-pub fn apply_statuses(
+pub(crate) fn apply_statuses(
     block: &mut Block,
     statuses: &IndexMap<String, String>,
     found: &mut BTreeSet<String>,
@@ -1731,7 +1827,8 @@ pub fn apply_statuses(
                 found,
             );
         }
-        _ => {}
+        Block::Resource(_) | Block::Text(_) | Block::Card(_) | Block::Note(_) | Block::Graph(_) => {
+        }
     }
 }
 

@@ -1,23 +1,28 @@
+#![expect(
+    clippy::redundant_pub_crate,
+    reason = "sibling modules use these items; pub would fail unreachable_pub because they are not the external API"
+)]
+
 /// Product of two measured lengths. Split from the surrounding add so the rounding stays the same.
 #[inline]
-pub fn mul(left: f64, right: f64) -> f64 {
+pub(crate) fn mul(left: f64, right: f64) -> f64 {
     left * right
 }
 
 /// A count that fits in `u32`, as a length. Diagram sizes are far below that bound.
 #[inline]
-pub fn count(n: usize) -> f64 {
-    f64::from(u32::try_from(n).expect("diagram count fits in u32"))
+pub(crate) fn count(n: usize) -> f64 {
+    f64::from(fits::<u32>(n, "diagram count fits in u32"))
 }
 
 /// An integer that fits in `i32`, as a length. Every `i32` is an exact `f64`.
 #[inline]
-pub fn whole(n: i64) -> f64 {
-    f64::from(i32::try_from(n).expect("diagram integer fits in i32"))
+pub(crate) fn whole(n: i64) -> f64 {
+    f64::from(fits::<i32>(n, "diagram integer fits in i32"))
 }
 
 /// Truncate toward zero. `floor` then formatting keeps an exact integer.
-pub fn trunc(value: f64) -> i64 {
+pub(crate) fn trunc(value: f64) -> i64 {
     let integral = if value >= 0.0 {
         value.floor()
     } else {
@@ -46,7 +51,7 @@ pub fn py_round(v: f64) -> i64 {
     text.parse().unwrap_or(0)
 }
 
-pub fn py_fixed0(v: f64) -> String {
+pub(crate) fn py_fixed0(v: f64) -> String {
     format!("{v:.0}")
 }
 
@@ -58,9 +63,9 @@ pub fn py_g(v: f64) -> String {
         return "0".to_owned();
     }
     let exp = v.abs().log10().floor();
-    let exp_i = i32::try_from(py_round(exp)).expect("exponent fits in i32");
+    let exp_i = fits::<i32>(py_round(exp), "exponent fits in i32");
     if (-4..6).contains(&exp_i) {
-        let digits = usize::try_from((5 - exp_i).max(0)).expect("digit count fits in usize");
+        let digits = fits::<usize>((5 - exp_i).max(0), "digit count fits in usize");
         let mut text = format!("{v:.digits$}");
         if text.contains('.') {
             while text.ends_with('0') {
@@ -80,7 +85,7 @@ pub fn py_g(v: f64) -> String {
     }
 }
 
-pub fn py_repr(text: &str) -> String {
+pub(crate) fn py_repr(text: &str) -> String {
     let single = text.contains('\'');
     let double = text.contains('"');
     if single && !double {
@@ -90,7 +95,16 @@ pub fn py_repr(text: &str) -> String {
     }
 }
 
-pub fn py_channel(v: f64) -> u8 {
+pub(crate) fn py_channel(v: f64) -> u8 {
     let n = py_round(v).clamp(0, 255);
     u8::try_from(n).unwrap_or(0)
+}
+
+#[inline]
+#[expect(
+    clippy::expect_used,
+    reason = "a layout count above the integer bound is not a diagram this crate can place"
+)]
+fn fits<T>(value: impl TryInto<T, Error: std::fmt::Debug>, reason: &str) -> T {
+    value.try_into().expect(reason)
 }

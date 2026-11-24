@@ -1,3 +1,8 @@
+#![expect(
+    clippy::redundant_pub_crate,
+    reason = "sibling modules use these items; pub would fail unreachable_pub because they are not the external API"
+)]
+
 use std::path::{Path, PathBuf};
 
 use open_diagram_rs::{Diagram, catalog, from_mermaid, from_spec_with, py_g, svg_to_png};
@@ -6,12 +11,16 @@ use crate::guide::guide_text;
 
 const MAX_SOURCE: usize = 200_000;
 
-pub struct Drawn {
-    pub text: String,
-    pub png: Option<Vec<u8>>,
+pub(crate) struct Drawn {
+    pub(crate) text: String,
+    pub(crate) png: Option<Vec<u8>>,
 }
 
-pub fn build_diagram(source: &str, format: &str, icons: &[PathBuf]) -> Result<Diagram, String> {
+pub(crate) fn build_diagram(
+    source: &str,
+    format: &str,
+    icons: &[PathBuf],
+) -> Result<Diagram, String> {
     let chars = source.chars().count();
     if chars > MAX_SOURCE {
         return Err(format!(
@@ -39,7 +48,7 @@ pub fn build_diagram(source: &str, format: &str, icons: &[PathBuf]) -> Result<Di
     }
 }
 
-pub fn problems_text(problems: &[String]) -> String {
+pub(crate) fn problems_text(problems: &[String]) -> String {
     let mut lines = vec![format!("{} layout problem(s)", problems.len())];
     lines.extend(problems.iter().map(|problem| format!("- {problem}")));
     if !problems.is_empty() {
@@ -48,17 +57,21 @@ pub fn problems_text(problems: &[String]) -> String {
     lines.join("\n")
 }
 
-pub fn check_text(source: &str, format: &str, icons: &[PathBuf]) -> Result<String, String> {
+pub(crate) fn check_text(source: &str, format: &str, icons: &[PathBuf]) -> Result<String, String> {
     let mut diagram = build_diagram(source, format, icons)?;
     let report = diagram.render().map_err(|err| err.to_string())?;
     Ok(problems_text(&report.problems))
 }
 
-pub fn describe_text(source: &str, format: &str, icons: &[PathBuf]) -> Result<String, String> {
+pub(crate) fn describe_text(
+    source: &str,
+    format: &str,
+    icons: &[PathBuf],
+) -> Result<String, String> {
     Ok(build_diagram(source, format, icons)?.describe())
 }
 
-pub fn template_text(name: &str) -> Result<String, String> {
+pub(crate) fn template_text(name: &str) -> Result<String, String> {
     if name.is_empty() {
         let mut lines =
             vec!["Templates (call template with a name to get one as JSON):".to_owned()];
@@ -74,7 +87,7 @@ pub fn template_text(name: &str) -> Result<String, String> {
     catalog::read(name)
 }
 
-pub fn icons_guide(icons: &[PathBuf]) -> String {
+pub(crate) fn icons_guide(icons: &[PathBuf]) -> String {
     let mut names = Vec::new();
     for folder in icons {
         names.extend(catalog::icon_names(folder));
@@ -82,7 +95,7 @@ pub fn icons_guide(icons: &[PathBuf]) -> String {
     guide_text(&names)
 }
 
-pub fn draw_files(
+pub(crate) fn draw_files(
     source: &str,
     format: &str,
     name: &str,
@@ -141,7 +154,7 @@ pub fn draw_files(
 }
 
 /// A file name with no folders in it, so every file lands inside the output folder.
-pub fn safe_name(name: &str) -> String {
+pub(crate) fn safe_name(name: &str) -> String {
     let mut out = String::new();
     let mut dash = false;
     for ch in name.chars() {
@@ -163,7 +176,7 @@ pub fn safe_name(name: &str) -> String {
     }
 }
 
-pub fn absolute_user(path: PathBuf) -> PathBuf {
+pub(crate) fn absolute_user(path: PathBuf) -> PathBuf {
     let path = expand_user(path);
     std::path::absolute(&path).unwrap_or(path)
 }
@@ -188,7 +201,7 @@ fn home_dir() -> PathBuf {
         .map_or_else(|| PathBuf::from("."), PathBuf::from)
 }
 
-pub fn default_out() -> PathBuf {
+pub(crate) fn default_out() -> PathBuf {
     if let Some(value) = std::env::var_os("OPEN_DIAGRAM_RS_OUT") {
         return absolute_user(PathBuf::from(value));
     }
@@ -216,12 +229,15 @@ fn is_writable(dir: &Path) -> bool {
         .open(&probe)
         .is_ok_and(|file| {
             drop(file);
-            let _ = std::fs::remove_file(probe);
+            // The new file already showed the directory is writable.
+            match std::fs::remove_file(probe) {
+                Ok(()) | Err(_) => {}
+            }
             true
         })
 }
 
-pub fn icon_folders(cli: &[PathBuf]) -> Vec<PathBuf> {
+pub(crate) fn icon_folders(cli: &[PathBuf]) -> Vec<PathBuf> {
     let mut folders: Vec<PathBuf> = if cli.is_empty() {
         std::env::var_os("OPEN_DIAGRAM_RS_ICONS").map_or_default(|value| {
             std::env::split_paths(&value)
@@ -332,7 +348,7 @@ mod tests {
         assert!(drawn.png.is_none());
         let parent = out.parent().expect("parent");
         assert!(!parent.join("escape.svg").exists());
-        let _ = std::fs::remove_dir_all(out);
+        remove_tree(&out);
     }
 
     fn scratch() -> PathBuf {
@@ -344,5 +360,13 @@ mod tests {
         ));
         std::fs::create_dir_all(&path).expect("scratch");
         path
+    }
+
+    fn remove_tree(dir: &std::path::Path) {
+        match std::fs::remove_dir_all(dir) {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => panic!("remove {}: {err}", dir.display()),
+        }
     }
 }

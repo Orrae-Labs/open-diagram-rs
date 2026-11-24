@@ -181,7 +181,7 @@ impl DiagramServer {
         title = "open-diagram-rs template",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
-    #[allow(
+    #[expect(
         clippy::unused_self,
         reason = "the tool macro only accepts methods, and listing templates does not use the server"
     )]
@@ -266,7 +266,7 @@ impl DiagramServer {
 }
 
 #[tool_handler]
-#[allow(
+#[expect(
     clippy::unused_async_trait_impl,
     reason = "ServerHandler and the tool_handler macro are async even when a method does not await"
 )]

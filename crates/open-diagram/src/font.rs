@@ -1,3 +1,8 @@
+#![expect(
+    clippy::redundant_pub_crate,
+    reason = "sibling modules use these items; pub would fail unreachable_pub because they are not the external API"
+)]
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -9,7 +14,7 @@ use crate::num::{fmt, mul};
 
 const WEIGHTS: [&str; 4] = ["regular", "medium", "semibold", "bold"];
 
-pub struct Typeface {
+pub(crate) struct Typeface {
     bytes: Vec<u8>,
     upm: f64,
     cap: f64,
@@ -17,7 +22,7 @@ pub struct Typeface {
 }
 
 impl Typeface {
-    pub fn load(weight: &str) -> Result<Self, String> {
+    pub(crate) fn load(weight: &str) -> Result<Self, String> {
         let (name, bytes) = match weight {
             "regular" => (
                 "Inter-Regular.ttf",
@@ -54,21 +59,23 @@ impl Typeface {
     }
 
     fn ttf(&self) -> TtfFace<'_> {
-        TtfFace::parse(&self.bytes, 0)
-            .unwrap_or_else(|err| panic!("bundled Inter font failed to parse: {err}"))
+        match TtfFace::parse(&self.bytes, 0) {
+            Ok(face) => face,
+            Err(err) => font_bytes_failed(err),
+        }
     }
 
-    pub fn cap_height(&self, size: f64) -> f64 {
+    pub(crate) fn cap_height(&self, size: f64) -> f64 {
         self.cap * size / self.upm
     }
 
-    pub fn width(&self, text: &str, size: f64) -> f64 {
+    pub(crate) fn width(&self, text: &str, size: f64) -> f64 {
         let face = self.ttf();
         let ids = Self::glyphs(&face, text);
         f64::from(self.positions(&face, &ids).1) * size / self.upm
     }
 
-    pub fn outline(&self, text: &str, size: f64, x: f64, baseline: f64) -> String {
+    pub(crate) fn outline(&self, text: &str, size: f64, x: f64, baseline: f64) -> String {
         let face = self.ttf();
         let ids = Self::glyphs(&face, text);
         let (xs, _) = self.positions(&face, &ids);
@@ -96,12 +103,14 @@ impl Typeface {
     fn positions(&self, face: &TtfFace<'_>, ids: &[GlyphId]) -> (Vec<i32>, i32) {
         let mut xs = Vec::with_capacity(ids.len());
         let mut x = 0_i32;
-        for (i, id) in ids.iter().enumerate() {
-            if i > 0 {
-                x += self.kern(face, ids[i - 1], *id);
+        let mut previous = None;
+        for id in ids {
+            if let Some(prev) = previous {
+                x += self.kern(face, prev, *id);
             }
             xs.push(x);
             x += i32::from(face.glyph_hor_advance(*id).unwrap_or(0));
+            previous = Some(*id);
         }
         (xs, x)
     }
@@ -193,7 +202,7 @@ impl Pen {
         self.last_was_line = false;
     }
 
-    #[allow(
+    #[expect(
         clippy::float_cmp,
         reason = "SVG path H and V commands use exact coordinate equality before the numbers are formatted"
     )]
@@ -366,9 +375,40 @@ fn with_face<T>(weight: &str, body: impl FnOnce(&Typeface) -> T) -> T {
     FACES.with(|faces| {
         let mut faces = faces.borrow_mut();
         if !faces.contains_key(weight) {
-            let loaded = Typeface::load(weight).unwrap_or_else(|err| panic!("{err}"));
-            faces.insert(weight.to_owned(), loaded);
+            match Typeface::load(weight) {
+                Ok(loaded) => {
+                    faces.insert(weight.to_owned(), loaded);
+                }
+                Err(err) => font_weight_failed(&err),
+            }
         }
-        body(faces.get(weight).unwrap_or_else(|| unreachable!()))
+        let Some(face) = faces.get(weight) else {
+            font_weight_missing(weight);
+        };
+        body(face)
     })
+}
+
+#[expect(
+    clippy::panic,
+    reason = "load() parsed these same bytes before they were stored"
+)]
+fn font_bytes_failed(err: ttf_parser::FaceParsingError) -> ! {
+    panic!("bundled Inter font failed to parse: {err}");
+}
+
+#[expect(
+    clippy::panic,
+    reason = "text measurement does not return Result; a theme weight is checked before drawing, and a bundled font that does not parse fails at load"
+)]
+fn font_weight_failed(err: &str) -> ! {
+    panic!("{err}");
+}
+
+#[expect(
+    clippy::unreachable,
+    reason = "the weight was inserted in this function or was already in the map"
+)]
+fn font_weight_missing(weight: &str) -> ! {
+    unreachable!("font {weight} was not stored");
 }

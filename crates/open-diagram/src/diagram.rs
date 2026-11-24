@@ -1,3 +1,8 @@
+#![expect(
+    clippy::redundant_pub_crate,
+    reason = "sibling modules use these items; pub would fail unreachable_pub because they are not the external API"
+)]
+
 use std::collections::BTreeSet;
 
 use indexmap::IndexMap;
@@ -14,14 +19,25 @@ const ARROW: f64 = 7.0;
 const STUB: f64 = 16.0;
 const CORNER: f64 = 10.0;
 
-pub type Point = (f64, f64);
+pub(crate) type Point = (f64, f64);
+
+#[derive(Clone, Copy)]
+struct LinkShape<'a> {
+    index: usize,
+    a_id: usize,
+    b_id: usize,
+    start: &'a str,
+    end: &'a str,
+    p0: Point,
+    p3: Point,
+}
 
 fn strip_picture_suffix(path: &str) -> &str {
     let Some(tail) = path.get(path.len().saturating_sub(4)..) else {
         return path;
     };
     if tail.eq_ignore_ascii_case(".svg") || tail.eq_ignore_ascii_case(".png") {
-        &path[..path.len() - 4]
+        path.get(..path.len() - 4).unwrap_or(path)
     } else {
         path
     }
@@ -153,47 +169,47 @@ pub struct EnclosureOpts<'a> {
     pub tone: &'a str,
 }
 
-pub struct Node {
-    pub placed: Placed,
-    pub block: Block,
+pub(crate) struct Node {
+    pub(crate) placed: Placed,
+    pub(crate) block: Block,
 }
 
-pub struct Link {
-    pub a: usize,
-    pub b: usize,
-    pub kind: String,
-    pub label: Option<String>,
-    pub start: String,
-    pub end: String,
-    pub via_x: Option<f64>,
-    pub via_y: Option<f64>,
-    pub cross_ok: bool,
-    pub offsets: [f64; 2],
-    pub d: String,
-    pub tip: Point,
-    pub direction: Point,
-    pub samples: Vec<Point>,
-    pub label_spots: Vec<Point>,
-    pub label_at: Point,
-    pub want_start: String,
-    pub want_end: String,
-    pub start_pt: Point,
-    pub dash: Option<String>,
+pub(crate) struct Link {
+    pub(crate) a: usize,
+    pub(crate) b: usize,
+    pub(crate) kind: String,
+    pub(crate) label: Option<String>,
+    pub(crate) start: String,
+    pub(crate) end: String,
+    pub(crate) via_x: Option<f64>,
+    pub(crate) via_y: Option<f64>,
+    pub(crate) cross_ok: bool,
+    pub(crate) offsets: [f64; 2],
+    pub(crate) d: String,
+    pub(crate) tip: Point,
+    pub(crate) direction: Point,
+    pub(crate) samples: Vec<Point>,
+    pub(crate) label_spots: Vec<Point>,
+    pub(crate) label_at: Point,
+    pub(crate) want_start: String,
+    pub(crate) want_end: String,
+    pub(crate) start_pt: Point,
+    pub(crate) dash: Option<String>,
 }
 
-pub struct Group {
-    pub label: String,
-    pub members: Vec<usize>,
-    pub sub: Option<String>,
-    pub pad: f64,
-    pub rect: (f64, f64, f64, f64),
-    pub border: String,
-    pub fill: Option<String>,
-    pub stroke: Option<String>,
-    pub children: Vec<usize>,
-    pub enclosure: bool,
-    pub style: String,
-    pub tone: String,
+pub(crate) struct Group {
+    pub(crate) label: String,
+    pub(crate) members: Vec<usize>,
+    pub(crate) sub: Option<String>,
+    pub(crate) pad: f64,
+    pub(crate) rect: (f64, f64, f64, f64),
+    pub(crate) border: String,
+    pub(crate) fill: Option<String>,
+    pub(crate) stroke: Option<String>,
+    pub(crate) children: Vec<usize>,
+    pub(crate) enclosure: bool,
+    pub(crate) style: String,
+    pub(crate) tone: String,
 }
 
 #[derive(Clone, Debug)]
@@ -306,13 +322,17 @@ impl Diagram {
     pub fn lines(&self) -> Vec<LineView> {
         self.links
             .iter()
-            .map(|line| LineView {
-                a: self.nodes[line.a].placed.name.clone(),
-                b: self.nodes[line.b].placed.name.clone(),
-                kind: line.kind.clone(),
-                label: line.label.clone(),
-                start: line.start.clone(),
-                end: line.end.clone(),
+            .filter_map(|line| {
+                let a = self.nodes.get(line.a)?.placed.name.clone();
+                let b = self.nodes.get(line.b)?.placed.name.clone();
+                Some(LineView {
+                    a,
+                    b,
+                    kind: line.kind.clone(),
+                    label: line.label.clone(),
+                    start: line.start.clone(),
+                    end: line.end.clone(),
+                })
             })
             .collect()
     }
@@ -482,12 +502,15 @@ impl Diagram {
         let tallest = heights.iter().copied().fold(0.0, f64::max);
         let mut out = Vec::new();
         let mut cx = origin_x;
-        for (index, col) in measured.into_iter().enumerate() {
+        for (col, (column_width, column_height)) in measured
+            .into_iter()
+            .zip(widths.iter().copied().zip(heights.iter().copied()))
+        {
             let mut cy = origin_y
                 + match valign {
                     "top" => 0.0,
-                    "center" => (tallest - heights[index]) / 2.0,
-                    "bottom" => tallest - heights[index],
+                    "center" => (tallest - column_height) / 2.0,
+                    "bottom" => tallest - column_height,
                     other => return Err(DiagramError::new(format!("unknown valign {other}"))),
                 };
             let mut placed = Vec::new();
@@ -495,18 +518,14 @@ impl Diagram {
                 let px = if same_width {
                     cx
                 } else {
-                    cx + (widths[index] - width) / 2.0
+                    cx + (column_width - width) / 2.0
                 };
-                let column_width = if same_width {
-                    Some(widths[index])
-                } else {
-                    None
-                };
-                placed.push(self.add_width(block, px, cy, column_width, None)?);
+                let given_width = if same_width { Some(column_width) } else { None };
+                placed.push(self.add_width(block, px, cy, given_width, None)?);
                 cy += height + row_gap;
             }
             out.push(placed);
-            cx += widths[index] + gap;
+            cx += column_width + gap;
         }
         Ok(out)
     }
@@ -562,7 +581,11 @@ impl Diagram {
         let mut r = 40.0;
         let rs = loop {
             let rs = rects(r);
-            let mut ok = (0..n).all(|i| (i + 1..n).all(|j| separation(rs[i], rs[j]) >= gap));
+            let mut ok = rs.iter().enumerate().all(|(i, left)| {
+                rs.iter()
+                    .skip(i + 1)
+                    .all(|right| separation(*left, *right) >= gap)
+            });
             if ok && let Some(mid) = mid_rect {
                 ok = rs.iter().all(|box_| separation(*box_, mid) >= gap);
             }
@@ -669,26 +692,25 @@ impl Diagram {
         self.theme.tone(tone)?;
         let mut nodes = Vec::new();
         let mut children = Vec::new();
+        let reject = || {
+            DiagramError::new(format!(
+                "enclosure {}: members must belong to this diagram",
+                py_repr(&label)
+            ))
+        };
         for member in members {
             let found = match member {
-                Enclosed::Placed(p)
-                    if self
-                        .nodes
-                        .get(p.id)
-                        .is_some_and(|n| n.placed.name == p.name) =>
-                {
-                    vec![p.id]
-                }
-                Enclosed::Group(GroupId(id)) if self.groups.get(*id).is_some() => {
-                    children.push(*id);
-                    self.groups[*id].members.clone()
-                }
-                _ => {
-                    return Err(DiagramError::new(format!(
-                        "enclosure {}: members must belong to this diagram",
-                        py_repr(&label)
-                    )));
-                }
+                Enclosed::Placed(p) => match self.nodes.get(p.id) {
+                    Some(node) if node.placed.name == p.name => vec![p.id],
+                    Some(_) | None => return Err(reject()),
+                },
+                Enclosed::Group(GroupId(id)) => match self.groups.get(*id) {
+                    Some(group) => {
+                        children.push(*id);
+                        group.members.clone()
+                    }
+                    None => return Err(reject()),
+                },
             };
             for node in found {
                 if !nodes.contains(&node) {
@@ -855,10 +877,10 @@ impl Diagram {
         std::fs::write(&svg_path, report.svg.as_bytes())
             .map_err(|err| SaveError::Io(format!("{svg_path}: {err}")))?;
         report.files.push(svg_path);
-        if png {
+        if png && let Some(svg_file) = report.files.first() {
             let png_path = format!("{base}.png");
             if let Err(err) = crate::render::svg_to_png(
-                std::path::Path::new(&report.files[0]),
+                std::path::Path::new(svg_file),
                 std::path::Path::new(&png_path),
                 report.width,
                 report.height,
@@ -995,76 +1017,7 @@ impl Diagram {
         } else {
             margin - left
         };
-        canvas.open_group(dx, top - north);
-        let order = self.group_draw_order();
-        for id in &order {
-            self.draw_group_body(&mut canvas, *id)?;
-        }
-        for i in 0..self.links.len() {
-            let dotted = self.links[i].kind == "planned";
-            let dash = link_dash(&self.links[i]);
-            let d = self.links[i].d.clone();
-            let tip = self.links[i].tip;
-            let direction = self.links[i].direction;
-            canvas.path(
-                &d,
-                "none",
-                Some(&self.theme.line),
-                if dotted { 1.6 } else { 1.3 },
-                dash.as_deref(),
-                None,
-            );
-            canvas.path(
-                &arrowhead(tip, direction),
-                &self.theme.line,
-                None,
-                1.0,
-                None,
-                None,
-            );
-        }
-        for g in 0..self.groups.len() {
-            self.draw_group_title(&mut canvas, g)?;
-        }
-        for i in 0..self.nodes.len() {
-            let placed = self.nodes[i].placed.clone();
-            let mut sink = |msg: &str| problems.push(msg.to_owned());
-            self.nodes[i].block.draw(
-                &mut canvas,
-                (placed.x, placed.y, placed.w, placed.h),
-                &self.theme.clone(),
-                &mut sink,
-            )?;
-        }
-        for i in 0..self.links.len() {
-            if self.links[i].label.is_some() {
-                let (x, y, w, h) = self.label_box(i, None);
-                let label = self.links[i].label.clone().unwrap_or_default();
-                canvas.rect(
-                    x,
-                    y,
-                    w,
-                    h,
-                    Paint::new(
-                        &self.theme.paper,
-                        Some(&self.theme.line),
-                        0.8,
-                        h / 2.0,
-                        None,
-                        None,
-                    ),
-                );
-                canvas.text_centered(
-                    &label,
-                    x + w / 2.0,
-                    y + h / 2.0,
-                    self.theme.small,
-                    "medium",
-                    &self.theme.ink,
-                );
-            }
-        }
-        canvas.close_group();
+        self.draw_body(&mut canvas, &mut problems, dx, top - north)?;
         if let Some(min_text) = canvas.min_text
             && min_text < self.theme.min_text
         {
@@ -1089,22 +1042,147 @@ impl Diagram {
         })
     }
 
+    fn draw_body(
+        &self,
+        canvas: &mut Canvas,
+        problems: &mut Vec<String>,
+        dx: f64,
+        dy: f64,
+    ) -> Result<(), DiagramError> {
+        canvas.open_group(dx, dy);
+        let order = self.group_draw_order();
+        for id in &order {
+            self.draw_group_body(canvas, *id)?;
+        }
+        self.draw_routed_links(canvas);
+        for id in 0..self.groups.len() {
+            self.draw_group_title(canvas, id)?;
+        }
+        self.draw_nodes(canvas, problems)?;
+        self.draw_link_labels(canvas);
+        canvas.close_group();
+        Ok(())
+    }
+
+    fn draw_routed_links(&self, canvas: &mut Canvas) {
+        let strokes: Vec<_> = self
+            .links
+            .iter()
+            .map(|link| {
+                (
+                    link.kind == "planned",
+                    link_dash(link),
+                    link.d.clone(),
+                    link.tip,
+                    link.direction,
+                )
+            })
+            .collect();
+        for (dotted, dash, d, tip, direction) in strokes {
+            canvas.path(
+                &d,
+                "none",
+                Some(&self.theme.line),
+                if dotted { 1.6 } else { 1.3 },
+                dash.as_deref(),
+                None,
+            );
+            canvas.path(
+                &arrowhead(tip, direction),
+                &self.theme.line,
+                None,
+                1.0,
+                None,
+                None,
+            );
+        }
+    }
+
+    fn draw_nodes(
+        &self,
+        canvas: &mut Canvas,
+        problems: &mut Vec<String>,
+    ) -> Result<(), DiagramError> {
+        for index in 0..self.nodes.len() {
+            let theme = self.theme.clone();
+            let Some(node) = self.nodes.get(index) else {
+                continue;
+            };
+            let placed = node.placed.clone();
+            let mut sink = |msg: &str| problems.push(msg.to_owned());
+            node.block.draw(
+                canvas,
+                (placed.x, placed.y, placed.w, placed.h),
+                &theme,
+                &mut sink,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn draw_link_labels(&self, canvas: &mut Canvas) {
+        for index in 0..self.links.len() {
+            let Some(label) = self.links.get(index).and_then(|link| link.label.clone()) else {
+                continue;
+            };
+            let (x, y, w, h) = self.label_box(index, None);
+            canvas.rect(
+                x,
+                y,
+                w,
+                h,
+                Paint::new(
+                    &self.theme.paper,
+                    Some(&self.theme.line),
+                    0.8,
+                    h / 2.0,
+                    None,
+                    None,
+                ),
+            );
+            canvas.text_centered(
+                &label,
+                x + w / 2.0,
+                y + h / 2.0,
+                self.theme.small,
+                "medium",
+                &self.theme.ink,
+            );
+        }
+    }
+
     fn measure_groups(&mut self) -> Result<(), DiagramError> {
         for i in 0..self.groups.len() {
-            let pad = self.groups[i].pad;
-            let sub = self.groups[i].sub.clone();
-            let style = self.groups[i].style.clone();
-            let label = self.groups[i].label.clone();
-            let tone = self.groups[i].tone.clone();
-            let enclosure = self.groups[i].enclosure;
-            let members = self.groups[i].members.clone();
-            let children = self.groups[i].children.clone();
-            let mut bounds: Vec<(f64, f64, f64, f64)> = members
-                .iter()
-                .map(|id| self.nodes[*id].placed.rect())
-                .collect();
+            let (pad, sub, style, label, tone, enclosure, members, children) = {
+                let group = self
+                    .groups
+                    .get(i)
+                    .ok_or_else(|| DiagramError::new(format!("missing group {i}")))?;
+                (
+                    group.pad,
+                    group.sub.clone(),
+                    group.style.clone(),
+                    group.label.clone(),
+                    group.tone.clone(),
+                    group.enclosure,
+                    group.members.clone(),
+                    group.children.clone(),
+                )
+            };
+            let mut bounds = Vec::new();
+            for id in &members {
+                let node = self
+                    .nodes
+                    .get(*id)
+                    .ok_or_else(|| DiagramError::new(format!("missing node {id}")))?;
+                bounds.push(node.placed.rect());
+            }
             for child in &children {
-                bounds.push(self.groups[*child].rect);
+                let child_group = self
+                    .groups
+                    .get(*child)
+                    .ok_or_else(|| DiagramError::new(format!("missing group {child}")))?;
+                bounds.push(child_group.rect);
             }
             let x0 = bounds.iter().map(|b| b.0).fold(f64::INFINITY, f64::min) - pad;
             let head_h = if style == "panel" {
@@ -1142,28 +1220,54 @@ impl Diagram {
                 ));
                 x1 = x1.max(x0 + title_w + 28.0);
             }
-            self.groups[i].rect = (x0, y0, x1 - x0, y1 - y0);
+            let group = self
+                .groups
+                .get_mut(i)
+                .ok_or_else(|| DiagramError::new(format!("missing group {i}")))?;
+            group.rect = (x0, y0, x1 - x0, y1 - y0);
         }
         Ok(())
     }
 
     fn route(&mut self) {
         for i in 0..self.links.len() {
-            if !self.links[i].want_start.is_empty() {
-                let a = self.links[i].a;
-                let b = self.links[i].b;
-                let want_start = self.links[i].want_start.clone();
-                let want_end = self.links[i].want_end.clone();
-                self.links[i].start = if want_start == "auto" {
-                    facing(&self.nodes[a].placed, &self.nodes[b].placed)
-                } else {
-                    want_start
+            let (a_id, b_id, want_start, want_end) = {
+                let Some(link) = self.links.get(i) else {
+                    continue;
                 };
-                self.links[i].end = if want_end == "auto" {
-                    facing(&self.nodes[b].placed, &self.nodes[a].placed)
-                } else {
-                    want_end
+                if link.want_start.is_empty() {
+                    continue;
+                }
+                (
+                    link.a,
+                    link.b,
+                    link.want_start.clone(),
+                    link.want_end.clone(),
+                )
+            };
+            let start = if want_start == "auto" {
+                let (Some(start_node), Some(end_node)) =
+                    (self.nodes.get(a_id), self.nodes.get(b_id))
+                else {
+                    continue;
                 };
+                facing(&start_node.placed, &end_node.placed)
+            } else {
+                want_start
+            };
+            let end = if want_end == "auto" {
+                let (Some(end_node), Some(start_node)) =
+                    (self.nodes.get(b_id), self.nodes.get(a_id))
+                else {
+                    continue;
+                };
+                facing(&end_node.placed, &start_node.placed)
+            } else {
+                want_end
+            };
+            if let Some(link) = self.links.get_mut(i) {
+                link.start = start;
+                link.end = end;
             }
         }
         let mut ends: IndexMap<(usize, String), Vec<(usize, usize)>> = IndexMap::new();
@@ -1177,12 +1281,13 @@ impl Diagram {
         }
         for ((owner, side), mut items) in ends {
             items.sort_by(|a, b| self.heading(*a, &side).total_cmp(&self.heading(*b, &side)));
-            let (lo, hi) = self.nodes[owner].block.ports(
-                &side,
-                self.nodes[owner].placed.w,
-                self.nodes[owner].placed.h,
-                &self.theme,
-            );
+            let (lo, hi) = {
+                let Some(node) = self.nodes.get(owner) else {
+                    continue;
+                };
+                node.block
+                    .ports(&side, node.placed.w, node.placed.h, &self.theme)
+            };
             let n = items.len();
             let step = if n > 1 {
                 ((hi - lo) / count(n)).min(14.0)
@@ -1193,7 +1298,14 @@ impl Diagram {
             let mid = span / 2.0;
             for (i, (line, end)) in items.into_iter().enumerate() {
                 let slot = count(i) - (count(n) - 1.0) / 2.0;
-                self.links[line].offsets[end] = mid + mul(slot, step);
+                let at = mid + mul(slot, step);
+                if let Some(offset) = self
+                    .links
+                    .get_mut(line)
+                    .and_then(|link| link.offsets.get_mut(end))
+                {
+                    *offset = at;
+                }
             }
         }
         for i in 0..self.links.len() {
@@ -1203,53 +1315,125 @@ impl Diagram {
     }
 
     fn heading(&self, item: (usize, usize), side: &str) -> f64 {
-        let line = &self.links[item.0];
-        let other = if item.1 == 0 { line.b } else { line.a };
+        let (other, via_x, via_y) = {
+            let Some(line) = self.links.get(item.0) else {
+                return 0.0;
+            };
+            let other = if item.1 == 0 { line.b } else { line.a };
+            (other, line.via_x, line.via_y)
+        };
         if matches!(side, "left" | "right") {
-            line.via_y.unwrap_or_else(|| self.nodes[other].placed.cy())
+            via_y.unwrap_or_else(|| self.nodes.get(other).map_or(0.0, |node| node.placed.cy()))
         } else {
-            line.via_x.unwrap_or_else(|| self.nodes[other].placed.cx())
+            via_x.unwrap_or_else(|| self.nodes.get(other).map_or(0.0, |node| node.placed.cx()))
         }
     }
 
     fn shape(&mut self, index: usize) {
-        let a = self.links[index].a;
-        let b = self.links[index].b;
-        let start = self.links[index].start.clone();
-        let end = self.links[index].end.clone();
-        let off0 = self.links[index].offsets[0];
-        let off1 = self.links[index].offsets[1];
-        let via_x = self.links[index].via_x;
-        let via_y = self.links[index].via_y;
-        let p0 = self.anchor_at(a, &start, off0);
-        let tip = self.anchor_at(b, &end, off1);
+        let Some((a_id, b_id, start, end, off0, off1, via_x, via_y)) =
+            self.links.get(index).map(|link| {
+                (
+                    link.a,
+                    link.b,
+                    link.start.clone(),
+                    link.end.clone(),
+                    link.offsets.first().copied().unwrap_or(0.0),
+                    link.offsets.get(1).copied().unwrap_or(0.0),
+                    link.via_x,
+                    link.via_y,
+                )
+            })
+        else {
+            return;
+        };
+        let p0 = self.anchor_at(a_id, &start, off0);
+        let tip = self.anchor_at(b_id, &end, off1);
         let d3 = side_vector(&end).unwrap_or((1.0, 0.0));
         let p3 = (tip.0 + mul(d3.0, ARROW), tip.1 + mul(d3.1, ARROW));
-        self.links[index].start_pt = p0;
-        self.links[index].tip = tip;
-        self.links[index].direction = (-d3.0, -d3.1);
+        if let Some(link) = self.links.get_mut(index) {
+            link.start_pt = p0;
+            link.tip = tip;
+            link.direction = (-d3.0, -d3.1);
+        }
+        let shape = LinkShape {
+            index,
+            a_id,
+            b_id,
+            start: &start,
+            end: &end,
+            p0,
+            p3,
+        };
         if via_x.is_none() && via_y.is_none() {
-            let along = if matches!(start.as_str(), "left" | "right") {
-                (p3.0 - p0.0).abs()
-            } else {
-                (p3.1 - p0.1).abs()
-            };
-            let k = 28.0_f64.max(along * 0.5);
-            let c1 = outside(&self.nodes[a].placed, p0, &start, k);
-            let c2 = outside(&self.nodes[b].placed, p3, &end, k);
-            self.links[index].d = format!("M{}C{} {} {}", pt(p0), pt(c1), pt(c2), pt(p3));
-            self.links[index].samples = (0..=80)
-                .map(|i| bezier(p0, c1, c2, p3, f64::from(i) / 80.0))
-                .collect();
-            self.links[index].label_spots = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74]
-                .into_iter()
-                .map(|s| bezier(p0, c1, c2, p3, s))
-                .collect();
-            self.links[index].label_at = self.links[index].label_spots[0];
+            self.shape_curve(&shape);
             return;
         }
-        let s0 = outside(&self.nodes[a].placed, p0, &start, STUB);
-        let s3 = outside(&self.nodes[b].placed, p3, &end, STUB);
+        self.shape_lane(&shape);
+    }
+
+    fn shape_curve(&mut self, shape: &LinkShape<'_>) {
+        let LinkShape {
+            index,
+            a_id,
+            b_id,
+            start,
+            end,
+            p0,
+            p3,
+        } = *shape;
+        let along = if matches!(start, "left" | "right") {
+            (p3.0 - p0.0).abs()
+        } else {
+            (p3.1 - p0.1).abs()
+        };
+        let k = 28.0_f64.max(along * 0.5);
+        let (c1, c2) = {
+            let (Some(start_node), Some(end_node)) = (self.nodes.get(a_id), self.nodes.get(b_id))
+            else {
+                return;
+            };
+            (
+                outside(&start_node.placed, p0, start, k),
+                outside(&end_node.placed, p3, end, k),
+            )
+        };
+        let samples: Vec<Point> = (0..=80)
+            .map(|i| bezier(p0, c1, c2, p3, f64::from(i) / 80.0))
+            .collect();
+        let label_spots: Vec<Point> = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74]
+            .into_iter()
+            .map(|s| bezier(p0, c1, c2, p3, s))
+            .collect();
+        let d = format!("M{}C{} {} {}", pt(p0), pt(c1), pt(c2), pt(p3));
+        self.store_link_path(index, d, samples, label_spots);
+    }
+
+    fn shape_lane(&mut self, shape: &LinkShape<'_>) {
+        let LinkShape {
+            index,
+            a_id,
+            b_id,
+            start,
+            end,
+            p0,
+            p3,
+        } = *shape;
+        let (via_x, via_y) = {
+            let Some(link) = self.links.get(index) else {
+                return;
+            };
+            (link.via_x, link.via_y)
+        };
+        let (s0, s3) = {
+            let (Some(start_node), Some(end_node)) = (self.nodes.get(a_id), self.nodes.get(b_id))
+            else {
+                return;
+            };
+            (
+                outside(&start_node.placed, p0, start, STUB),
+                outside(&end_node.placed, p3, end, STUB),
+            )
+        };
         let middle = via_y.map_or_else(
             || {
                 let via_x = via_x.unwrap_or(0.0);
@@ -1262,24 +1446,38 @@ impl Diagram {
         pts.push(s3);
         pts.push(p3);
         let pts = simplify(&pts);
-        self.links[index].d = rounded(&pts);
-        self.links[index].samples = sample(&pts, 5.0);
-        let mut order: Vec<usize> = (0..pts.len() - 1).collect();
-        order.sort_by(|&i, &j| dist(pts[j], pts[j + 1]).total_cmp(&dist(pts[i], pts[i + 1])));
+        let d = rounded(&pts);
+        let samples = sample(&pts, 5.0);
+        let mut order: Vec<usize> = (0..pts.len().saturating_sub(1)).collect();
+        order.sort_by(|&i, &j| segment_len(&pts, j).total_cmp(&segment_len(&pts, i)));
         let mut spots = Vec::new();
         for i in order.into_iter().take(2) {
-            let a = pts[i];
-            let b = pts[i + 1];
+            let Some((&a, &b)) = pts.get(i).zip(pts.get(i.saturating_add(1))) else {
+                continue;
+            };
             for f in [0.5, 0.35, 0.65, 0.2, 0.8] {
                 spots.push((a.0 + mul(b.0 - a.0, f), a.1 + mul(b.1 - a.1, f)));
             }
         }
-        self.links[index].label_spots = spots;
-        self.links[index].label_at = self.links[index].label_spots[0];
+        self.store_link_path(index, d, samples, spots);
+    }
+
+    fn store_link_path(&mut self, index: usize, d: String, samples: Vec<Point>, spots: Vec<Point>) {
+        let Some(link) = self.links.get_mut(index) else {
+            return;
+        };
+        link.d = d;
+        link.samples = samples;
+        link.label_spots = spots;
+        if let Some(&at) = link.label_spots.first() {
+            link.label_at = at;
+        }
     }
 
     fn anchor_at(&self, id: usize, side: &str, offset: f64) -> Point {
-        let node = &self.nodes[id];
+        let Some(node) = self.nodes.get(id) else {
+            return (0.0, 0.0);
+        };
         let (x, y) = node
             .block
             .anchor(side, offset, node.placed.w, node.placed.h, &self.theme);
@@ -1294,11 +1492,19 @@ impl Diagram {
         let samples: Vec<Vec<Point>> = self.links.iter().map(|l| l.samples.clone()).collect();
         let mut taken = Vec::new();
         for i in 0..self.links.len() {
-            if self.links[i].label.is_none() {
-                continue;
-            }
-            let spots = self.links[i].label_spots.clone();
-            let mut chosen = spots[0];
+            let spots = {
+                let Some(link) = self.links.get(i) else {
+                    continue;
+                };
+                if link.label.is_none() {
+                    continue;
+                }
+                link.label_spots.clone()
+            };
+            let mut chosen = match spots.as_slice() {
+                [first, ..] => *first,
+                [] => continue,
+            };
             for spot in &spots {
                 if label_clear(
                     self.label_box(i, Some(*spot)),
@@ -1312,23 +1518,27 @@ impl Diagram {
                     break;
                 }
             }
-            self.links[i].label_at = chosen;
+            if let Some(link) = self.links.get_mut(i) {
+                link.label_at = chosen;
+            }
             taken.push(self.label_box(i, Some(chosen)));
         }
     }
 
     fn label_box(&self, index: usize, at: Option<Point>) -> (f64, f64, f64, f64) {
-        let (x, y) = at.unwrap_or(self.links[index].label_at);
-        let w = text_width(
-            self.links[index].label.as_deref().unwrap_or(""),
-            self.theme.small,
-            "medium",
-        ) + 14.0;
+        let small = self.theme.small;
+        let Some(link) = self.links.get(index) else {
+            return (0.0, 0.0, 0.0, 0.0);
+        };
+        let (x, y) = at.unwrap_or(link.label_at);
+        let w = text_width(link.label.as_deref().unwrap_or(""), small, "medium") + 14.0;
         (x - w / 2.0, y - 9.0, w, 18.0)
     }
 
     fn group_title_box(&self, index: usize) -> (f64, f64, f64, f64) {
-        let group = &self.groups[index];
+        let Some(group) = self.groups.get(index) else {
+            return (0.0, 0.0, 0.0, 0.0);
+        };
         let (x, y, w, _) = group.rect;
         if group.style == "panel" {
             let h = self.theme.lid
@@ -1356,23 +1566,28 @@ impl Diagram {
 
     fn check(&self) -> Vec<String> {
         let mut problems = self.early.clone();
-        for i in 0..self.nodes.len() {
-            for j in i + 1..self.nodes.len() {
-                let a = &self.nodes[i].placed;
-                let b = &self.nodes[j].placed;
+        let min_gap = self.theme.min_gap;
+        let nodes = &self.nodes;
+        for i in 0..nodes.len() {
+            for j in (i + 1)..nodes.len() {
+                let (Some(node_a), Some(node_b)) = (nodes.get(i), nodes.get(j)) else {
+                    continue;
+                };
+                let a = &node_a.placed;
+                let b = &node_b.placed;
                 let gap = separation(a.rect(), b.rect());
                 if gap < 0.0 {
                     problems.push(format!(
                         "'{}' and '{}' overlap; move one (right_of() and below() keep a gap)",
                         a.name, b.name
                     ));
-                } else if gap < self.theme.min_gap {
+                } else if gap < min_gap {
                     problems.push(format!(
                         "'{}' and '{}' are only {} px apart (minimum {})",
                         a.name,
                         b.name,
                         py_fixed0(gap),
-                        py_fixed0(self.theme.min_gap)
+                        py_fixed0(min_gap)
                     ));
                 }
             }
@@ -1389,24 +1604,36 @@ impl Diagram {
                 }
             }
         }
-        for i in 0..self.groups.len() {
-            for h in i + 1..self.groups.len() {
-                if separation(self.groups[i].rect, self.groups[h].rect) < 0.0
-                    && !contains(self.groups[i].rect, self.groups[h].rect)
-                    && !contains(self.groups[h].rect, self.groups[i].rect)
+        let groups = &self.groups;
+        for i in 0..groups.len() {
+            for h in (i + 1)..groups.len() {
+                let (Some(left), Some(right)) = (groups.get(i), groups.get(h)) else {
+                    continue;
+                };
+                if separation(left.rect, right.rect) < 0.0
+                    && !contains(left.rect, right.rect)
+                    && !contains(right.rect, left.rect)
                 {
                     problems.push(format!(
                         "groups '{}' and '{}' overlap",
-                        self.groups[i].label, self.groups[h].label
+                        left.label, right.label
                     ));
                 }
             }
         }
+        self.check_lines(&mut problems);
+        problems
+    }
+
+    fn check_lines(&self, problems: &mut Vec<String>) {
         for line in &self.links {
-            let name = format!(
-                "line '{}' -> '{}'",
-                self.nodes[line.a].placed.name, self.nodes[line.b].placed.name
-            );
+            let (Some(from_name), Some(to_name)) = (
+                self.nodes.get(line.a).map(|node| node.placed.name.clone()),
+                self.nodes.get(line.b).map(|node| node.placed.name.clone()),
+            ) else {
+                continue;
+            };
+            let name = format!("line '{from_name}' -> '{to_name}'");
             if line.via_x.is_none() && line.via_y.is_none() {
                 let d0 = side_vector(&line.start).unwrap_or((0.0, 0.0));
                 let d3 = side_vector(&line.end).unwrap_or((0.0, 0.0));
@@ -1415,13 +1642,13 @@ impl Diagram {
                 let fix = "use start='auto' and end='auto', other sides, or a lane (via_x/via_y)";
                 if mul(d0.0, vx) + mul(d0.1, vy) < 1.0 {
                     problems.push(format!(
-                        "{name} leaves '{}' from its {} side, facing away from '{}'; {fix}",
-                        self.nodes[line.a].placed.name, line.start, self.nodes[line.b].placed.name
+                        "{name} leaves '{from_name}' from its {} side, facing away from '{to_name}'; {fix}",
+                        line.start
                     ));
                 } else if mul(d3.0, -vx) + mul(d3.1, -vy) < 1.0 {
                     problems.push(format!(
-                        "{name} enters '{}' from its {} side, facing away from '{}'; {fix}",
-                        self.nodes[line.b].placed.name, line.end, self.nodes[line.a].placed.name
+                        "{name} enters '{to_name}' from its {} side, facing away from '{from_name}'; {fix}",
+                        line.end
                     ));
                 }
             }
@@ -1460,7 +1687,6 @@ impl Diagram {
                 }
             }
         }
-        problems
     }
 
     fn label_box_of(&self, line: &Link) -> (f64, f64, f64, f64) {
@@ -1476,17 +1702,21 @@ impl Diagram {
     fn group_draw_order(&self) -> Vec<usize> {
         let mut order: Vec<usize> = (0..self.groups.len()).collect();
         if self.groups.iter().any(|g| g.enclosure) {
+            let areas: Vec<f64> = self.groups.iter().map(|g| g.rect.2 * g.rect.3).collect();
             order.sort_by(|&a, &b| {
-                let aa = self.groups[a].rect.2 * self.groups[a].rect.3;
-                let bb = self.groups[b].rect.2 * self.groups[b].rect.3;
-                bb.total_cmp(&aa)
+                let right = areas.get(b).copied().unwrap_or(0.0);
+                let left = areas.get(a).copied().unwrap_or(0.0);
+                right.total_cmp(&left)
             });
         }
         order
     }
 
     fn draw_group_body(&self, canvas: &mut Canvas, id: usize) -> Result<(), DiagramError> {
-        let group = &self.groups[id];
+        let group = self
+            .groups
+            .get(id)
+            .ok_or_else(|| DiagramError::new(format!("missing group {id}")))?;
         let (x, y, w, h) = group.rect;
         if group.style == "panel" {
             let tone = self.theme.tone(&group.tone)?;
@@ -1521,12 +1751,22 @@ impl Diagram {
     }
 
     fn draw_group_title(&self, canvas: &mut Canvas, id: usize) -> Result<(), DiagramError> {
-        let g_label = self.groups[id].label.clone();
-        let g_sub = self.groups[id].sub.clone();
-        let g_style = self.groups[id].style.clone();
-        let g_tone = self.groups[id].tone.clone();
-        let g_fill = self.groups[id].fill.clone();
-        let (x, y, w, _) = self.groups[id].rect;
+        let (g_label, g_sub, g_style, g_tone, g_fill, x, y, w) = {
+            let group = self
+                .groups
+                .get(id)
+                .ok_or_else(|| DiagramError::new(format!("missing group {id}")))?;
+            (
+                group.label.clone(),
+                group.sub.clone(),
+                group.style.clone(),
+                group.tone.clone(),
+                group.fill.clone(),
+                group.rect.0,
+                group.rect.1,
+                group.rect.2,
+            )
+        };
         if g_style == "panel" {
             let tone = self.theme.tone(&g_tone)?;
             let (title_color, sub_color) = self.theme.header_colors(&tone)?;
@@ -1659,12 +1899,12 @@ impl Diagram {
             used.insert("live".to_owned());
         }
         let mut items = Vec::new();
-        for key in self.theme.statuses.keys() {
+        for (key, status) in &self.theme.statuses {
             if used.contains(key) {
                 items.push(LegendItem {
                     kind: "status".to_owned(),
                     key: key.clone(),
-                    label: self.theme.statuses[key].label.clone(),
+                    label: status.label.clone(),
                 });
             }
         }
@@ -1711,6 +1951,76 @@ impl Diagram {
             + 22.0
     }
 
+    fn draw_legend_rows(&self, canvas: &mut Canvas, rows: &[Vec<LegendItem>], mut y: f64) -> f64 {
+        let t = &self.theme;
+        let m = t.margin;
+        for row in rows {
+            let mut lx = m;
+            let ly = y + 10.0;
+            for item in row {
+                if item.kind == "status" {
+                    let Some(st) = t.statuses.get(&item.key) else {
+                        continue;
+                    };
+                    canvas.rect(
+                        lx,
+                        ly - 7.0,
+                        22.0,
+                        14.0,
+                        Paint::new(
+                            &st.fill,
+                            Some(&st.stroke),
+                            1.2,
+                            3.0,
+                            st.dash.as_deref(),
+                            None,
+                        ),
+                    );
+                    lx += 30.0;
+                } else {
+                    let dotted = item.key == "planned";
+                    let dash = if item.kind == "line" {
+                        if dotted {
+                            Some("dotted".to_owned())
+                        } else {
+                            None
+                        }
+                    } else {
+                        let Some(style) = item.kind.strip_prefix("line-") else {
+                            continue;
+                        };
+                        Some(style.to_owned())
+                    };
+                    let dash = dash.filter(|d| d != "solid");
+                    canvas.line(
+                        (lx, ly),
+                        (lx + 22.0, ly),
+                        &t.line,
+                        if dotted { 1.6 } else { 1.3 },
+                        dash.as_deref(),
+                    );
+                    canvas.path(
+                        &arrowhead((lx + 28.0, ly), (1.0, 0.0)),
+                        &t.line,
+                        None,
+                        1.0,
+                        None,
+                        None,
+                    );
+                    lx += 34.0;
+                }
+                lx += canvas.text(
+                    &item.label,
+                    lx,
+                    ly + cap_height(t.legend, "regular") / 2.0,
+                    Letter::new(t.legend, "regular", &t.ink, "start"),
+                ) + 22.0;
+            }
+            y += 24.0;
+        }
+        y
+    }
+
     fn draw_header(&self, canvas: &mut Canvas, plan: &HeaderPlan) -> Result<(), DiagramError> {
         let t = &self.theme;
         let m = t.margin;
@@ -1747,65 +2057,7 @@ impl Diagram {
         if !plan.rows.is_empty() || plan.steps {
             y += 14.0;
         }
-        for row in &plan.rows {
-            let mut lx = m;
-            let ly = y + 10.0;
-            for item in row {
-                if item.kind == "status" {
-                    let st = &t.statuses[&item.key];
-                    canvas.rect(
-                        lx,
-                        ly - 7.0,
-                        22.0,
-                        14.0,
-                        Paint::new(
-                            &st.fill,
-                            Some(&st.stroke),
-                            1.2,
-                            3.0,
-                            st.dash.as_deref(),
-                            None,
-                        ),
-                    );
-                    lx += 30.0;
-                } else {
-                    let dotted = item.key == "planned";
-                    let dash = if item.kind == "line" {
-                        if dotted {
-                            Some("dotted".to_owned())
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(item.kind["line-".len()..].to_owned())
-                    };
-                    let dash = dash.filter(|d| d != "solid");
-                    canvas.line(
-                        (lx, ly),
-                        (lx + 22.0, ly),
-                        &t.line,
-                        if dotted { 1.6 } else { 1.3 },
-                        dash.as_deref(),
-                    );
-                    canvas.path(
-                        &arrowhead((lx + 28.0, ly), (1.0, 0.0)),
-                        &t.line,
-                        None,
-                        1.0,
-                        None,
-                        None,
-                    );
-                    lx += 34.0;
-                }
-                lx += canvas.text(
-                    &item.label,
-                    lx,
-                    ly + cap_height(t.legend, "regular") / 2.0,
-                    Letter::new(t.legend, "regular", &t.ink, "start"),
-                ) + 22.0;
-            }
-            y += 24.0;
-        }
+        y = self.draw_legend_rows(canvas, &plan.rows, y);
         if plan.steps {
             let mut lx = m;
             let ly = y + 10.0;
@@ -1939,6 +2191,16 @@ fn dist(a: Point, b: Point) -> f64 {
     (a.0 - b.0).hypot(a.1 - b.1)
 }
 
+fn segment_len(pts: &[Point], index: usize) -> f64 {
+    let Some(next) = index.checked_add(1) else {
+        return 0.0;
+    };
+    let (Some(start), Some(end)) = (pts.get(index), pts.get(next)) else {
+        return 0.0;
+    };
+    dist(*start, *end)
+}
+
 fn simplify(pts: &[Point]) -> Vec<Point> {
     let mut out = Vec::new();
     for pt in pts {
@@ -1948,12 +2210,21 @@ fn simplify(pts: &[Point]) -> Vec<Point> {
             continue;
         }
         if out.len() >= 2 {
-            let a = out[out.len() - 2];
-            let b = out[out.len() - 1];
+            let (a, b) = {
+                let Some((&b, earlier)) = out.split_last() else {
+                    continue;
+                };
+                let Some(&a) = earlier.last() else {
+                    continue;
+                };
+                (a, b)
+            };
             let cross = mul(b.0 - a.0, pt.1 - b.1) - mul(b.1 - a.1, pt.0 - b.0);
             let dot = mul(b.0 - a.0, pt.0 - b.0) + mul(b.1 - a.1, pt.1 - b.1);
             if cross.abs() < 0.01 && dot >= 0.0 {
-                *out.last_mut().unwrap_or(&mut (0.0, 0.0)) = *pt;
+                if let Some(last) = out.last_mut() {
+                    *last = *pt;
+                }
                 continue;
             }
         }
@@ -1963,11 +2234,15 @@ fn simplify(pts: &[Point]) -> Vec<Point> {
 }
 
 fn rounded(pts: &[Point]) -> String {
-    let mut path = vec![format!("M{}", pt(pts[0]))];
-    for index in 1..pts.len() - 1 {
-        let prev = pts[index - 1];
-        let corner = pts[index];
-        let next = pts[index + 1];
+    let Some(&start) = pts.first() else {
+        return String::new();
+    };
+    let mut path = vec![format!("M{}", pt(start))];
+    for window in pts.windows(3) {
+        let (prev, corner, next) = match window {
+            [prev, corner, next] => (*prev, *corner, *next),
+            [_, ..] | [] => continue,
+        };
         let radius = CORNER
             .min(dist(prev, corner) / 2.0)
             .min(dist(corner, next) / 2.0);
@@ -1992,14 +2267,19 @@ fn rounded(pts: &[Point]) -> String {
             ))
         ));
     }
-    path.push(format!("L{}", pt(*pts.last().unwrap_or(&pts[0]))));
+    if let Some(last) = pts.last() {
+        path.push(format!("L{}", pt(*last)));
+    }
     path.join("")
 }
 
 fn sample(pts: &[Point], step: f64) -> Vec<Point> {
     let mut out = Vec::new();
     for pair in pts.windows(2) {
-        let (a, b) = (pair[0], pair[1]);
+        let (a, b) = match pair {
+            [a, b] => (*a, *b),
+            [_, ..] | [] => continue,
+        };
         let n = trunc(dist(a, b) / step).max(1);
         for i in 0..n {
             let t = whole(i) / whole(n);
