@@ -44,6 +44,7 @@ Optional keys:
 | `links` | Lines between panels or resources |
 | `statuses` | States by name, as in the [statuses file](cli.md#track-state-in-one-file) |
 | `theme` | Colors and sizes |
+| `routing` | `curved` (the default) or `orthogonal`, which draws every line as straight runs that meet at right angles |
 
 ## Panel
 
@@ -92,6 +93,7 @@ An icon is a name inside an icon folder, such as `aws/s3`. The name is looked up
 | `via_x`, `via_y` | A position the line must pass through |
 | `cross_ok` | Allows this line to cross other panels without a problem being reported |
 | `dash` | `solid`, `dashed` or `dotted`, set independently of `kind` |
+| `routing` | `curved` or `orthogonal` for this link only, overriding the top-level `routing` |
 
 ## Group
 

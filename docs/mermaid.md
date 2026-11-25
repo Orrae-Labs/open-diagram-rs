@@ -20,6 +20,7 @@ The source is [examples/signup_flow.mmd](../examples/signup_flow.mmd). From Rust
 - Each top-level `subgraph` ... `end`, which becomes a shaded group. Each group gets its own band, so it never covers nodes outside it.
 - A class named after a state, which sets that state: `A:::building` or `class A,B planned`. The states are `live`, `building`, `trial`, `planned` and `retiring`.
 - A `title:` in the front matter. Without one the title is "Flowchart". `--title` on the command line overrides both.
+- Mermaid's `curve` setting. `step`, `stepBefore` and `stepAfter` draw right-angle lines, and any other curve draws smooth ones. It is read from the front matter (`config:`, then `flowchart:`, then `curve: step`) or from a `%%{init: {"flowchart": {"curve": "step"}}}%%` directive, which may span several lines. From Rust, `from_mermaid_with(text, None, None, Some("orthogonal"))` sets the routing directly.
 - `%%` comments, and `;` between statements.
 
 ## What changes

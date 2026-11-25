@@ -24,7 +24,7 @@ pub use blocks::{Block, Card, Graph, Note, Panel, Resource, Row, Text, Tile, Til
 pub use diagram::{Diagram, Enclosed, EnclosureOpts, GroupId, LineView, LinkSpec, Placed, Report};
 pub use error::{DiagramError, LayoutError, MermaidError, SaveError, SpecError};
 pub use font::{cap_height, lines_width, outline, text_width, wrap};
-pub use mermaid::{from_mermaid, load_mermaid, parse};
+pub use mermaid::{from_mermaid, from_mermaid_with, load_mermaid, parse};
 pub use num::{fmt, py_g, py_round};
 pub use render::{PngError, find_chrome, svg_to_png};
 pub use spec::{

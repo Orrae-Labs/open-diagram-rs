@@ -18,6 +18,7 @@ use crate::theme::Theme;
 const ARROW: f64 = 7.0;
 const STUB: f64 = 16.0;
 const CORNER: f64 = 10.0;
+const TRACK: f64 = 12.0;
 
 pub(crate) type Point = (f64, f64);
 
@@ -90,6 +91,7 @@ pub struct LinkSpec {
     pub via_y: Option<f64>,
     pub cross_ok: bool,
     pub dash: Option<String>,
+    pub routing: Option<String>,
 }
 
 impl Default for LinkSpec {
@@ -103,6 +105,7 @@ impl Default for LinkSpec {
             via_y: None,
             cross_ok: false,
             dash: None,
+            routing: None,
         }
     }
 }
@@ -146,6 +149,12 @@ impl LinkSpec {
     #[must_use]
     pub fn dash(mut self, dash: impl Into<String>) -> Self {
         self.dash = Some(dash.into());
+        self
+    }
+    /// `curved` or `orthogonal` for this line. `None` uses the diagram setting.
+    #[must_use]
+    pub fn routing(mut self, routing: impl Into<String>) -> Self {
+        self.routing = Some(routing.into());
         self
     }
 }
@@ -195,6 +204,10 @@ pub(crate) struct Link {
     pub(crate) want_end: String,
     pub(crate) start_pt: Point,
     pub(crate) dash: Option<String>,
+    pub(crate) routing: Option<String>,
+    pub(crate) points: Vec<Point>,
+    pub(crate) track: Option<(usize, f64, f64)>,
+    pub(crate) alone: [bool; 2],
 }
 
 pub(crate) struct Group {
@@ -257,6 +270,7 @@ pub struct Diagram {
     pub legend: bool,
     pub steps: Vec<(i64, String)>,
     pub steps_label: String,
+    pub(crate) routing: String,
     pub(crate) nodes: Vec<Node>,
     pub(crate) links: Vec<Link>,
     pub(crate) groups: Vec<Group>,
@@ -275,6 +289,7 @@ impl Diagram {
             legend: true,
             steps: Vec::new(),
             steps_label: "Steps".to_owned(),
+            routing: "curved".to_owned(),
             nodes: Vec::new(),
             links: Vec::new(),
             groups: Vec::new(),
@@ -312,6 +327,28 @@ impl Diagram {
         self.steps = steps;
         self.steps_label = label.into();
         self
+    }
+
+    /// Draw every self-routed line as horizontal and vertical runs when `routing` is `orthogonal`.
+    ///
+    /// # Errors
+    /// Returns an error when `routing` is not `curved` or `orthogonal`.
+    pub fn routing(mut self, routing: impl Into<String>) -> Result<Self, DiagramError> {
+        let routing = routing.into();
+        if !matches!(routing.as_str(), "curved" | "orthogonal") {
+            return Err(DiagramError::new(format!(
+                "unknown routing {}; use curved or orthogonal",
+                py_repr(&routing)
+            )));
+        }
+        self.routing = routing;
+        Ok(self)
+    }
+
+    /// The routing set with [`Diagram::routing`]: `curved` or `orthogonal`.
+    #[must_use]
+    pub fn routing_style(&self) -> &str {
+        &self.routing
     }
 
     pub fn placed(&self) -> impl Iterator<Item = &Placed> {
@@ -777,6 +814,14 @@ impl Diagram {
         if spec.via_x.is_some() && spec.via_y.is_some() {
             return Err(DiagramError::new("give via_x or via_y, not both"));
         }
+        if let Some(routing) = &spec.routing
+            && !matches!(routing.as_str(), "curved" | "orthogonal")
+        {
+            return Err(DiagramError::new(format!(
+                "unknown routing {}; use curved or orthogonal",
+                py_repr(routing)
+            )));
+        }
         self.links.push(Link {
             a: a.id,
             b: b.id,
@@ -798,6 +843,10 @@ impl Diagram {
             want_end: spec.end,
             start_pt: (0.0, 0.0),
             dash: spec.dash,
+            routing: spec.routing,
+            points: Vec::new(),
+            track: None,
+            alone: [false, false],
         });
         Ok(())
     }
@@ -1299,18 +1348,25 @@ impl Diagram {
             for (i, (line, end)) in items.into_iter().enumerate() {
                 let slot = count(i) - (count(n) - 1.0) / 2.0;
                 let at = mid + mul(slot, step);
-                if let Some(offset) = self
-                    .links
-                    .get_mut(line)
-                    .and_then(|link| link.offsets.get_mut(end))
-                {
-                    *offset = at;
+                if let Some(link) = self.links.get_mut(line) {
+                    if let Some(offset) = link.offsets.get_mut(end) {
+                        *offset = at;
+                    }
+                    if let Some(flag) = link.alone.get_mut(end) {
+                        *flag = n == 1;
+                    }
                 }
+            }
+        }
+        for i in 0..self.links.len() {
+            if self.square(i) {
+                self.straighten(i);
             }
         }
         for i in 0..self.links.len() {
             self.shape(i);
         }
+        self.spread();
         self.place_labels();
     }
 
@@ -1364,6 +1420,10 @@ impl Diagram {
             p0,
             p3,
         };
+        if self.square(index) {
+            self.shape_elbow(&shape);
+            return;
+        }
         if via_x.is_none() && via_y.is_none() {
             self.shape_curve(&shape);
             return;
@@ -1445,21 +1505,7 @@ impl Diagram {
         pts.extend(middle);
         pts.push(s3);
         pts.push(p3);
-        let pts = simplify(&pts);
-        let d = rounded(&pts);
-        let samples = sample(&pts, 5.0);
-        let mut order: Vec<usize> = (0..pts.len().saturating_sub(1)).collect();
-        order.sort_by(|&i, &j| segment_len(&pts, j).total_cmp(&segment_len(&pts, i)));
-        let mut spots = Vec::new();
-        for i in order.into_iter().take(2) {
-            let Some((&a, &b)) = pts.get(i).zip(pts.get(i.saturating_add(1))) else {
-                continue;
-            };
-            for f in [0.5, 0.35, 0.65, 0.2, 0.8] {
-                spots.push((a.0 + mul(b.0 - a.0, f), a.1 + mul(b.1 - a.1, f)));
-            }
-        }
-        self.store_link_path(index, d, samples, spots);
+        self.set_points(index, simplify(&pts), None);
     }
 
     fn store_link_path(&mut self, index: usize, d: String, samples: Vec<Point>, spots: Vec<Point>) {
@@ -1469,8 +1515,21 @@ impl Diagram {
         link.d = d;
         link.samples = samples;
         link.label_spots = spots;
+        link.points.clear();
+        link.track = None;
         if let Some(&at) = link.label_spots.first() {
             link.label_at = at;
+        }
+    }
+
+    fn set_points(&mut self, index: usize, pts: Vec<Point>, track: Option<(usize, f64, f64)>) {
+        let d = rounded(&pts);
+        let samples = sample(&pts, 5.0);
+        let spots = line_label_spots(&pts);
+        self.store_link_path(index, d, samples, spots);
+        if let Some(link) = self.links.get_mut(index) {
+            link.points = pts;
+            link.track = track;
         }
     }
 
@@ -2104,6 +2163,243 @@ impl Diagram {
         }
         Ok(())
     }
+
+    fn square(&self, index: usize) -> bool {
+        let Some(line) = self.links.get(index) else {
+            return false;
+        };
+        let chosen = line.routing.as_deref().unwrap_or(self.routing.as_str());
+        line.via_x.is_none() && line.via_y.is_none() && chosen == "orthogonal"
+    }
+
+    fn straighten(&mut self, index: usize) {
+        let Some(line) = self.links.get(index) else {
+            return;
+        };
+        let free_a = line.alone.first().copied().unwrap_or(false);
+        let free_b = line.alone.get(1).copied().unwrap_or(false);
+        if !free_a && !free_b {
+            return;
+        }
+        let start = line.start.clone();
+        let end = line.end.clone();
+        let facing = matches!(
+            (start.as_str(), end.as_str()),
+            ("left", "right") | ("right", "left") | ("top", "bottom") | ("bottom", "top")
+        );
+        if !facing {
+            return;
+        }
+        let horizontal = matches!(start.as_str(), "left" | "right");
+        let forward = match start.as_str() {
+            "right" | "bottom" => 1.0,
+            _ => -1.0,
+        };
+        let a_id = line.a;
+        let b_id = line.b;
+        let off0 = line.offsets.first().copied().unwrap_or(0.0);
+        let off1 = line.offsets.get(1).copied().unwrap_or(0.0);
+        let Some(node_a) = self.nodes.get(a_id) else {
+            return;
+        };
+        let Some(node_b) = self.nodes.get(b_id) else {
+            return;
+        };
+        let gap = side_edge(&node_b.placed, &end) - side_edge(&node_a.placed, &start);
+        if mul(gap, forward) <= 0.0 {
+            return;
+        }
+        let (base_a, base_b) = if horizontal {
+            (node_a.placed.y, node_b.placed.y)
+        } else {
+            (node_a.placed.x, node_b.placed.x)
+        };
+        let (lo_a, hi_a) = if free_a {
+            node_a
+                .block
+                .ports(&start, node_a.placed.w, node_a.placed.h, &self.theme)
+        } else {
+            (off0, off0)
+        };
+        let (lo_b, hi_b) = if free_b {
+            node_b
+                .block
+                .ports(&end, node_b.placed.w, node_b.placed.h, &self.theme)
+        } else {
+            (off1, off1)
+        };
+        let lo = (base_a + lo_a).max(base_b + lo_b);
+        let hi = (base_a + hi_a).min(base_b + hi_b);
+        if lo > hi {
+            return;
+        }
+        let at_sum = (base_a + off0) + (base_b + off1);
+        let level = (at_sum / 2.0).max(lo).min(hi);
+        let Some(routed) = self.links.get_mut(index) else {
+            return;
+        };
+        if let Some(slot) = routed.offsets.first_mut() {
+            *slot = level - base_a;
+        }
+        if let Some(slot) = routed.offsets.get_mut(1) {
+            *slot = level - base_b;
+        }
+    }
+
+    fn shape_elbow(&mut self, shape: &LinkShape<'_>) {
+        let (pts, track) = {
+            let (Some(from), Some(to)) = (self.nodes.get(shape.a_id), self.nodes.get(shape.b_id))
+            else {
+                return;
+            };
+            elbow(
+                shape.start,
+                shape.end,
+                &from.placed,
+                &to.placed,
+                shape.p0,
+                shape.p3,
+            )
+        };
+        self.set_points(shape.index, pts, track);
+    }
+
+    fn spread(&mut self) {
+        for axis in [0_usize, 1] {
+            let mut runs: Vec<usize> = (0..self.links.len())
+                .filter(|&index| self.tracked(index, axis))
+                .collect();
+            runs.sort_by(|&left, &right| {
+                self.middle(left, axis).total_cmp(&self.middle(right, axis))
+            });
+            let mut clusters: Vec<Vec<usize>> = Vec::new();
+            for index in runs {
+                let near = clusters
+                    .last()
+                    .and_then(|cluster| cluster.last())
+                    .is_some_and(|&prev| {
+                        self.middle(index, axis) - self.middle(prev, axis) < TRACK
+                    });
+                if near {
+                    if let Some(cluster) = clusters.last_mut() {
+                        cluster.push(index);
+                    }
+                } else {
+                    clusters.push(vec![index]);
+                }
+            }
+            for cluster in clusters {
+                self.separate_spans(&cluster, axis);
+            }
+        }
+    }
+
+    fn tracked(&self, index: usize, axis: usize) -> bool {
+        self.links.get(index).is_some_and(|line| {
+            line.track.is_some_and(|track| track.0 == axis) && line.points.len() >= 3
+        })
+    }
+
+    fn middle(&self, index: usize, axis: usize) -> f64 {
+        self.links
+            .get(index)
+            .and_then(|line| line.points.get(1))
+            .map_or(0.0, |point| component(*point, axis))
+    }
+
+    fn separate_spans(&mut self, cluster: &[usize], axis: usize) {
+        let across = 1 - axis;
+        let mut spans = cluster.to_vec();
+        spans.sort_by(|&left, &right| {
+            self.span_low(left, across)
+                .total_cmp(&self.span_low(right, across))
+        });
+        let mut parts: Vec<Vec<usize>> = Vec::new();
+        let mut reach = f64::NEG_INFINITY;
+        for index in spans {
+            let (lo, hi) = self.span_ends(index, across);
+            let overlaps = parts.last().is_some() && lo < reach + 2.0;
+            if overlaps {
+                if let Some(part) = parts.last_mut() {
+                    part.push(index);
+                }
+                reach = reach.max(hi);
+            } else {
+                parts.push(vec![index]);
+                reach = hi;
+            }
+        }
+        for part in parts {
+            if part.len() > 1 {
+                self.assign_tracks(&part, axis);
+            }
+        }
+    }
+
+    fn span_low(&self, index: usize, axis: usize) -> f64 {
+        self.span_ends(index, axis).0
+    }
+
+    fn span_ends(&self, index: usize, axis: usize) -> (f64, f64) {
+        let Some(line) = self.links.get(index) else {
+            return (0.0, 0.0);
+        };
+        let Some(first) = line.points.get(1).copied() else {
+            return (0.0, 0.0);
+        };
+        let Some(second) = line.points.get(2).copied() else {
+            return (0.0, 0.0);
+        };
+        sorted_pair(component(first, axis), component(second, axis))
+    }
+
+    fn assign_tracks(&mut self, part: &[usize], axis: usize) {
+        let across = 1 - axis;
+        let mut rows = Vec::new();
+        for &index in part {
+            let Some(row) = self.track_row(index, axis, across) else {
+                continue;
+            };
+            rows.push(row);
+        }
+        let n = rows.len();
+        if n < 2 {
+            return;
+        }
+        let travel = rows.first().map_or(1.0, |row| row.travel);
+        let spots = track_spots(&rows, travel);
+        rows.sort_by(fan_order);
+        let Some(best) = least_crossings(&rows, &spots, axis) else {
+            return;
+        };
+        for (local, pts) in best {
+            let Some(row) = rows.get(local) else {
+                continue;
+            };
+            let index = row.index;
+            let track = row.track;
+            self.set_points(index, simplify(&pts), Some(track));
+        }
+    }
+
+    fn track_row(&self, index: usize, axis: usize, across: usize) -> Option<TrackRow> {
+        let line = self.links.get(index)?;
+        let track = line.track?;
+        let mid = line.points.get(1).copied()?;
+        let next = line.points.get(2).copied()?;
+        let start_pt = line.points.first().copied()?;
+        Some(TrackRow {
+            index,
+            points: line.points.clone(),
+            low: track.1,
+            high: track.2,
+            middle: component(mid, axis),
+            across_delta: component(next, across) - component(mid, across),
+            start_across: component(start_pt, across),
+            travel: travel_component(&line.start, axis),
+            track,
+        })
+    }
 }
 
 impl Panel {
@@ -2346,6 +2642,407 @@ fn label_clear(
                 && box_.1 - 2.0 < s.1
                 && s.1 < box_.1 + box_.3 + 2.0)
         })
+}
+
+struct TrackRow {
+    index: usize,
+    points: Vec<Point>,
+    low: f64,
+    high: f64,
+    middle: f64,
+    across_delta: f64,
+    start_across: f64,
+    travel: f64,
+    track: (usize, f64, f64),
+}
+
+const fn component(point: Point, axis: usize) -> f64 {
+    if axis == 0 { point.0 } else { point.1 }
+}
+
+const fn placed_on(axis: usize, along: f64, across: f64) -> Point {
+    if axis == 0 {
+        (along, across)
+    } else {
+        (across, along)
+    }
+}
+
+fn travel_component(side: &str, axis: usize) -> f64 {
+    if matches!((side, axis), ("left", 0) | ("top", 1)) {
+        -1.0
+    } else {
+        1.0
+    }
+}
+
+fn side_edge(placed: &Placed, side: &str) -> f64 {
+    match side {
+        "left" => placed.x,
+        "right" => placed.right(),
+        "top" => placed.y,
+        _ => placed.bottom(),
+    }
+}
+
+const fn sorted_pair(left: f64, right: f64) -> (f64, f64) {
+    if left <= right {
+        (left, right)
+    } else {
+        (right, left)
+    }
+}
+
+fn line_label_spots(pts: &[Point]) -> Vec<Point> {
+    let mut order: Vec<usize> = (0..pts.len().saturating_sub(1)).collect();
+    order.sort_by(|&left, &right| segment_len(pts, right).total_cmp(&segment_len(pts, left)));
+    let mut spots = Vec::new();
+    for index in order.into_iter().take(2) {
+        let Some(next) = index.checked_add(1) else {
+            continue;
+        };
+        let Some((&start, &end)) = pts.get(index).zip(pts.get(next)) else {
+            continue;
+        };
+        for factor in [0.5, 0.35, 0.65, 0.2, 0.8] {
+            spots.push((
+                start.0 + mul(end.0 - start.0, factor),
+                start.1 + mul(end.1 - start.1, factor),
+            ));
+        }
+    }
+    spots
+}
+
+// Upstream bd276519b62301fcf76d91aacab95c30eff4a925. Orthogonal routing is opt-in;
+// a via lane already turns on its own path. The track is the only run that may slide,
+// and only between the two stubs, so lines that share a gap can separate without moving an end another line uses.
+fn elbow(
+    start: &str,
+    end: &str,
+    from: &Placed,
+    to: &Placed,
+    p0: Point,
+    p3: Point,
+) -> (Vec<Point>, Option<(usize, f64, f64)>) {
+    let axis = usize::from(!matches!(start, "left" | "right"));
+    let s0 = outside(from, p0, start, STUB);
+    let s3 = outside(to, p3, end, STUB);
+    let same_axis = matches!(start, "left" | "right") == matches!(end, "left" | "right");
+    if same_axis {
+        return elbow_parallel(start, end, axis, p0, p3, s0, s3);
+    }
+    elbow_corner(start, end, axis, p0, p3, s0, s3)
+}
+
+fn elbow_parallel(
+    start: &str,
+    end: &str,
+    axis: usize,
+    p0: Point,
+    p3: Point,
+    s0: Point,
+    s3: Point,
+) -> (Vec<Point>, Option<(usize, f64, f64)>) {
+    let across = 1 - axis;
+    let dir = travel_component(start, axis);
+    if start == end {
+        let far_key = mul(component(s0, axis), dir).max(mul(component(s3, axis), dir));
+        let far = mul(far_key, dir);
+        let pts = simplify(&[
+            p0,
+            placed_on(axis, far, component(p0, across)),
+            placed_on(axis, far, component(p3, across)),
+            p3,
+        ]);
+        return (pts, None);
+    }
+    let ahead = mul(component(p3, axis) - component(p0, axis), dir);
+    if ahead > 0.0 {
+        return elbow_between(axis, across, dir, p0, p3, s0, s3);
+    }
+    let sum = component(p0, across) + component(p3, across);
+    let mid = sum / 2.0;
+    let pts = simplify(&[
+        p0,
+        s0,
+        placed_on(axis, component(s0, axis), mid),
+        placed_on(axis, component(s3, axis), mid),
+        s3,
+        p3,
+    ]);
+    (pts, None)
+}
+
+fn elbow_between(
+    axis: usize,
+    across: usize,
+    dir: f64,
+    p0: Point,
+    p3: Point,
+    s0: Point,
+    s3: Point,
+) -> (Vec<Point>, Option<(usize, f64, f64)>) {
+    if (component(p0, across) - component(p3, across)).abs() < 0.5 {
+        return (vec![p0, p3], None);
+    }
+    let (lo, hi) = if mul(component(s3, axis) - component(s0, axis), dir) >= 0.0 {
+        sorted_pair(component(s0, axis), component(s3, axis))
+    } else {
+        let sum = component(p0, axis) + component(p3, axis);
+        let mid = sum / 2.0;
+        (mid, mid)
+    };
+    let sum = lo + hi;
+    let mid = sum / 2.0;
+    let pts = simplify(&[
+        p0,
+        placed_on(axis, mid, component(p0, across)),
+        placed_on(axis, mid, component(p3, across)),
+        p3,
+    ]);
+    let track = (pts.len() == 4).then_some((axis, lo, hi));
+    (pts, track)
+}
+
+fn elbow_corner(
+    start: &str,
+    end: &str,
+    axis: usize,
+    p0: Point,
+    p3: Point,
+    s0: Point,
+    s3: Point,
+) -> (Vec<Point>, Option<(usize, f64, f64)>) {
+    let across = 1 - axis;
+    let corner = placed_on(axis, component(p3, axis), component(p0, across));
+    let leaves = mul(
+        component(corner, axis) - component(s0, axis),
+        travel_component(start, axis),
+    ) >= 0.0;
+    let arrives = mul(
+        component(corner, across) - component(s3, across),
+        travel_component(end, across),
+    ) >= 0.0;
+    if leaves && arrives {
+        return (vec![p0, corner, p3], None);
+    }
+    let pts = simplify(&[
+        p0,
+        s0,
+        placed_on(axis, component(s0, axis), component(s3, across)),
+        s3,
+        p3,
+    ]);
+    (pts, None)
+}
+
+fn track_spots(rows: &[TrackRow], travel: f64) -> Vec<f64> {
+    let n = rows.len();
+    let mut low = rows
+        .iter()
+        .map(|row| row.low)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let mut high = rows
+        .iter()
+        .map(|row| row.high)
+        .fold(f64::INFINITY, f64::min);
+    let sum: f64 = rows.iter().map(|row| row.middle).sum();
+    let mut centre = sum / count(n);
+    if low > high {
+        low = centre;
+        high = centre;
+    }
+    let gaps = n.saturating_sub(1).max(1);
+    let step_fit = (high - low) / count(gaps);
+    let step = TRACK.min(step_fit).max(4.0);
+    let half = mul(step, count(n.saturating_sub(1))) / 2.0;
+    let room = high - low;
+    centre = if room >= mul(2.0, half) {
+        (centre.max(low + half)).min(high - half)
+    } else {
+        let span = low + high;
+        span / 2.0
+    };
+    let mut spots: Vec<f64> = (0..n)
+        .map(|i| {
+            let slot = count(i) - (count(n) - 1.0) / 2.0;
+            centre + mul(slot, step)
+        })
+        .collect();
+    spots.sort_by(|left, right| mul(*left, travel).total_cmp(&mul(*right, travel)));
+    spots
+}
+
+fn fan_order(left: &TrackRow, right: &TrackRow) -> std::cmp::Ordering {
+    let left_key = track_order(left.across_delta, left.start_across);
+    let right_key = track_order(right.across_delta, right.start_across);
+    left_key
+        .0
+        .cmp(&right_key.0)
+        .then_with(|| left_key.1.total_cmp(&right_key.1))
+}
+
+const fn track_order(delta: f64, start_across: f64) -> (u8, f64) {
+    if delta < 0.0 {
+        (0, start_across)
+    } else {
+        (1, -start_across)
+    }
+}
+
+type TrackPaths = Vec<(usize, Vec<Point>)>;
+
+fn least_crossings(rows: &[TrackRow], spots: &[f64], axis: usize) -> Option<TrackPaths> {
+    let n = rows.len();
+    if n > 6 {
+        return fewer_crossings(rows, spots, axis);
+    }
+    let mut best: Option<(i64, TrackPaths)> = None;
+    for order in lex_orders(n) {
+        let Some((cost, paths)) = order_cost(rows, spots, axis, &order) else {
+            continue;
+        };
+        if best.as_ref().is_none_or(|(low, _)| cost < *low) {
+            best = Some((cost, order.into_iter().zip(paths).collect()));
+        }
+    }
+    best.map(|(_, placed)| placed)
+}
+
+// Too many lines to try every order: start from the order that suits a fan of lines,
+// then swap any two lines while that removes crossings.
+fn fewer_crossings(rows: &[TrackRow], spots: &[f64], axis: usize) -> Option<TrackPaths> {
+    let mut order: Vec<usize> = (0..rows.len()).collect();
+    order.sort_by(|&left, &right| match (rows.get(left), rows.get(right)) {
+        (Some(left), Some(right)) => fan_order(left, right),
+        _ => std::cmp::Ordering::Equal,
+    });
+    let (mut cost, mut paths) = order_cost(rows, spots, axis, &order)?;
+    let mut improved = true;
+    while improved && cost > 0 {
+        improved = false;
+        for left in 0..order.len() {
+            for right in (left + 1)..order.len() {
+                order.swap(left, right);
+                match order_cost(rows, spots, axis, &order) {
+                    Some((next, next_paths)) if next < cost => {
+                        cost = next;
+                        paths = next_paths;
+                        improved = true;
+                    }
+                    _ => order.swap(left, right),
+                }
+            }
+        }
+    }
+    Some(order.into_iter().zip(paths).collect())
+}
+
+fn order_cost(
+    rows: &[TrackRow],
+    spots: &[f64],
+    axis: usize,
+    order: &[usize],
+) -> Option<(i64, Vec<Vec<Point>>)> {
+    let mut paths = Vec::new();
+    for (place, local) in order.iter().enumerate() {
+        let row = rows.get(*local)?;
+        let spot = spots.get(place).copied()?;
+        // A track slides only between its own two stubs.
+        paths.push(with_track(&row.points, axis, spot.clamp(row.low, row.high)));
+    }
+    let mut cost = 0_i64;
+    for (left, path_left) in paths.iter().enumerate() {
+        for path_right in paths.iter().skip(left + 1) {
+            cost += crossings(path_left, path_right);
+        }
+    }
+    Some((cost, paths))
+}
+
+fn lex_orders(n: usize) -> Vec<Vec<usize>> {
+    fn walk(prefix: &[usize], rest: &[usize], out: &mut Vec<Vec<usize>>) {
+        if rest.is_empty() {
+            out.push(prefix.to_vec());
+            return;
+        }
+        for (index, &head) in rest.iter().enumerate() {
+            let mut next = prefix.to_vec();
+            next.push(head);
+            let mut remain = Vec::new();
+            remain.extend(rest.iter().take(index).copied());
+            remain.extend(rest.iter().skip(index.saturating_add(1)).copied());
+            walk(&next, &remain, out);
+        }
+    }
+    let mut out = Vec::new();
+    walk(&[], &(0..n).collect::<Vec<_>>(), &mut out);
+    out
+}
+
+fn with_track(pts: &[Point], axis: usize, spot: f64) -> Vec<Point> {
+    pts.iter()
+        .enumerate()
+        .map(|(index, point)| {
+            if index == 1 || index == 2 {
+                if axis == 0 {
+                    (spot, point.1)
+                } else {
+                    (point.0, spot)
+                }
+            } else {
+                *point
+            }
+        })
+        .collect()
+}
+
+fn crossings(left: &[Point], right: &[Point]) -> i64 {
+    let mut total = 0_i64;
+    for left_pair in left.windows(2) {
+        for right_pair in right.windows(2) {
+            let (Some(&a), Some(&b)) = (left_pair.first(), left_pair.get(1)) else {
+                continue;
+            };
+            let (Some(&c), Some(&d)) = (right_pair.first(), right_pair.get(1)) else {
+                continue;
+            };
+            total += meets(a, b, c, d);
+        }
+    }
+    total
+}
+
+fn meets(from_left: Point, to_left: Point, from_right: Point, to_right: Point) -> i64 {
+    let flat_left = (from_left.1 - to_left.1).abs() < 0.01;
+    let flat_right = (from_right.1 - to_right.1).abs() < 0.01;
+    if flat_left == flat_right {
+        let axis = usize::from(!flat_left);
+        let other = 1 - axis;
+        if (component(from_left, other) - component(from_right, other)).abs() > 0.5 {
+            return 0;
+        }
+        let lo = component(from_left, axis)
+            .min(component(to_left, axis))
+            .max(component(from_right, axis).min(component(to_right, axis)));
+        let hi = component(from_left, axis)
+            .max(component(to_left, axis))
+            .min(component(from_right, axis).max(component(to_right, axis)));
+        return if hi - lo > 1.0 { 2 } else { 0 };
+    }
+    let (from_left, to_left, from_right, to_right) = if flat_left {
+        (from_left, to_left, from_right, to_right)
+    } else {
+        (from_right, to_right, from_left, to_left)
+    };
+    let cross_x = from_right.0;
+    let cross_y = from_left.1;
+    let inside_x =
+        from_left.0.min(to_left.0) + 0.5 < cross_x && cross_x < from_left.0.max(to_left.0) - 0.5;
+    let inside_y = from_right.1.min(to_right.1) + 0.5 < cross_y
+        && cross_y < from_right.1.max(to_right.1) - 0.5;
+    i64::from(inside_x && inside_y)
 }
 
 #[cfg(test)]

@@ -7,7 +7,10 @@ use super::{Diagram, Enclosed, EnclosureOpts, LinkSpec};
 use crate::blocks::{Block, Graph, Panel, Resource, Tile, Tiles};
 use crate::error::SaveError;
 use crate::theme::{Theme, shade};
-use crate::{LayoutError, from_mermaid, from_spec, from_spec_with, load_spec, text_width, wrap};
+use crate::{
+    LayoutError, from_mermaid, from_mermaid_with, from_spec, from_spec_with, load_spec, text_width,
+    wrap,
+};
 
 fn bundled(path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(path)
@@ -1661,4 +1664,375 @@ fn chrome_screenshots_an_svg_when_a_browser_exists() {
     let bytes = std::fs::read(&png).unwrap_or_else(|err| panic!("{err}"));
     assert!(bytes.starts_with(b"\x89PNG"), "not a png");
     std::fs::remove_dir_all(dir).unwrap_or_else(|err| panic!("{err}"));
+}
+
+fn assert_right_angles(line: &super::Link) {
+    assert!(!line.d.contains('C'), "{}", line.d);
+    for pair in line.points.windows(2) {
+        let (Some(a), Some(b)) = (pair.first(), pair.get(1)) else {
+            continue;
+        };
+        assert!(
+            (a.0 - b.0).abs() < 0.01 || (a.1 - b.1).abs() < 0.01,
+            "{:?}",
+            line.points
+        );
+    }
+}
+
+fn tiles(title: &str, labels: &[&str]) -> Block {
+    let items = labels.iter().copied().map(Tile::new).collect::<Vec<_>>();
+    let body = Tiles::new(items, None, None).unwrap_or_else(|err| panic!("{err}"));
+    Panel::new(title).section(body.into()).into()
+}
+
+fn orthogonal(title: &str) -> Diagram {
+    Diagram::new(title)
+        .routing("orthogonal")
+        .unwrap_or_else(|err| panic!("{err}"))
+}
+
+fn fan() -> Diagram {
+    fan_of(5)
+}
+
+fn fan_of(spokes: usize) -> Diagram {
+    let mut diagram = orthogonal("t");
+    let hub = diagram
+        .add(
+            tiles("Hub", &["One", "Two", "Three", "Four", "Five"]),
+            0.0,
+            520.0,
+        )
+        .unwrap_or_else(|err| panic!("{err}"));
+    let mut targets = Vec::new();
+    for index in 0..spokes {
+        let y = crate::num::mul(crate::num::count(index), 130.0);
+        targets.push(
+            diagram
+                .add(panel(&format!("Target {index}")), 380.0, y)
+                .unwrap_or_else(|err| panic!("{err}")),
+        );
+    }
+    let sink = diagram
+        .add(panel("Sink"), 760.0, 120.0)
+        .unwrap_or_else(|err| panic!("{err}"));
+    for target in &targets {
+        diagram
+            .link(&hub, target, LinkSpec::default())
+            .unwrap_or_else(|err| panic!("{err}"));
+        diagram
+            .link(target, &sink, LinkSpec::default())
+            .unwrap_or_else(|err| panic!("{err}"));
+    }
+    diagram
+}
+
+#[test]
+fn orthogonal_lines_meet_at_right_angles() {
+    let mut diagram = fan();
+    let hub = diagram
+        .placed()
+        .find(|placed| placed.name == "Hub")
+        .cloned()
+        .unwrap_or_else(|| panic!("hub"));
+    let last = diagram
+        .placed()
+        .find(|placed| placed.name == "Target 4")
+        .cloned()
+        .unwrap_or_else(|| panic!("target"));
+    let top = diagram
+        .add(panel("Top"), 1100.0, 0.0)
+        .unwrap_or_else(|err| panic!("{err}"));
+    diagram
+        .link(
+            &last,
+            &top,
+            LinkSpec::default().start("right").end("bottom"),
+        )
+        .unwrap_or_else(|err| panic!("{err}"));
+    diagram
+        .link(
+            &hub,
+            &top,
+            LinkSpec::default().start("bottom").end("bottom"),
+        )
+        .unwrap_or_else(|err| panic!("{err}"));
+    diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    for line in &diagram.links {
+        assert_right_angles(line);
+    }
+}
+
+#[test]
+fn facing_blocks_get_a_straight_orthogonal_line() {
+    let mut diagram = orthogonal("t");
+    let alpha = diagram
+        .add(tiles("Alpha", &["x", "y", "z"]), 0.0, 0.0)
+        .unwrap_or_else(|err| panic!("{err}"));
+    let beta = diagram
+        .right_of(&alpha, panel("Beta"), None, "center", None, None)
+        .unwrap_or_else(|err| panic!("{err}"));
+    diagram
+        .link(&alpha, &beta, LinkSpec::default())
+        .unwrap_or_else(|err| panic!("{err}"));
+    let report = diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    assert_clean(&report.problems);
+    let line = diagram.links.first().unwrap_or_else(|| panic!("line"));
+    assert_eq!(line.points.len(), 2, "{:?}", line.points);
+    let (Some(start), Some(end)) = (line.points.first(), line.points.get(1)) else {
+        panic!("{:?}", line.points);
+    };
+    assert!((start.1 - end.1).abs() < 1e-9);
+}
+
+#[test]
+fn lines_sharing_a_gap_get_separate_tracks_and_do_not_cross() {
+    let mut diagram = fan();
+    let report = diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    assert_clean(&report.problems);
+    let hub = diagram
+        .nodes
+        .iter()
+        .find(|node| node.placed.name == "Hub")
+        .map_or_else(|| panic!("hub"), |node| node.placed.id);
+    let out: Vec<_> = diagram
+        .links
+        .iter()
+        .filter(|line| line.a == hub && line.points.len() == 4)
+        .collect();
+    assert!(out.len() >= 3, "{}", out.len());
+    let mut xs: Vec<i64> = out
+        .iter()
+        .filter_map(|line| {
+            line.points
+                .get(1)
+                .map(|point| crate::py_round(point.0 * 1000.0))
+        })
+        .collect();
+    xs.sort_unstable();
+    xs.dedup();
+    assert_eq!(xs.len(), out.len());
+    let mut total = 0_i64;
+    for left in 0..diagram.links.len() {
+        for right in (left + 1)..diagram.links.len() {
+            let (Some(path_left), Some(path_right)) =
+                (diagram.links.get(left), diagram.links.get(right))
+            else {
+                continue;
+            };
+            total += super::crossings(&path_left.points, &path_right.points);
+        }
+    }
+    assert_eq!(total, 0);
+    assert_tracks_between_stubs(&diagram);
+}
+
+fn assert_tracks_between_stubs(diagram: &Diagram) {
+    for line in diagram.links.iter().filter(|line| line.track.is_some()) {
+        let (Some(first), Some(turn), Some(last)) =
+            (line.points.first(), line.points.get(1), line.points.last())
+        else {
+            continue;
+        };
+        let (low, high) = (first.0.min(last.0), first.0.max(last.0));
+        assert!(
+            turn.0 >= low + 16.0 - 1e-9 && turn.0 <= high - 16.0 + 1e-9,
+            "{:?}",
+            line.points
+        );
+    }
+}
+
+#[test]
+fn seven_lines_sharing_a_gap_do_not_cross() {
+    let mut diagram = fan_of(7);
+    let report = diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    assert_clean(&report.problems);
+    let mut total = 0_i64;
+    for (left, path_left) in diagram.links.iter().enumerate() {
+        for path_right in diagram.links.iter().skip(left + 1) {
+            total += super::crossings(&path_left.points, &path_right.points);
+        }
+    }
+    assert_eq!(total, 0);
+    assert_tracks_between_stubs(&diagram);
+}
+
+#[test]
+fn more_than_six_lines_in_a_gap_are_reordered_to_avoid_crossings() {
+    let mut diagram = fan_of(7);
+    diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    let hub = diagram
+        .nodes
+        .iter()
+        .find(|node| node.placed.name == "Hub")
+        .map_or_else(|| panic!("hub"), |node| node.placed.id);
+    let mut rows: Vec<_> = (0..diagram.links.len())
+        .filter(|&index| {
+            diagram
+                .links
+                .get(index)
+                .is_some_and(|line| line.a == hub && line.track.is_some_and(|track| track.0 == 0))
+        })
+        .filter_map(|index| diagram.track_row(index, 0, 1))
+        .collect();
+    assert_eq!(rows.len(), 7);
+    rows.reverse();
+    let spots = super::track_spots(&rows, rows.first().map_or(1.0, |row| row.travel));
+    let order: Vec<usize> = (0..rows.len()).collect();
+    let (start, _) = super::order_cost(&rows, &spots, 0, &order).unwrap_or_else(|| panic!("cost"));
+    assert!(start > 0, "the reversed order should cross");
+    let best = super::least_crossings(&rows, &spots, 0).unwrap_or_else(|| panic!("order"));
+    let mut total = 0_i64;
+    for (left, (_, path_left)) in best.iter().enumerate() {
+        for (_, path_right) in best.iter().skip(left + 1) {
+            total += super::crossings(path_left, path_right);
+        }
+    }
+    assert_eq!(total, 0);
+}
+
+#[test]
+fn an_orthogonal_picture_is_the_same_every_time() {
+    let mut first = fan();
+    let mut second = fan();
+    let left = first.render().unwrap_or_else(|err| panic!("{err}"));
+    let right = second.render().unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(left.svg, right.svg);
+}
+
+#[test]
+fn one_link_can_use_a_different_routing() {
+    let mut diagram = Diagram::new("t");
+    let alpha = diagram
+        .add(panel("Alpha"), 0.0, 0.0)
+        .unwrap_or_else(|err| panic!("{err}"));
+    let beta = diagram
+        .add(panel("Beta"), 300.0, 120.0)
+        .unwrap_or_else(|err| panic!("{err}"));
+    diagram
+        .link(&alpha, &beta, LinkSpec::default())
+        .unwrap_or_else(|err| panic!("{err}"));
+    diagram
+        .link(&alpha, &beta, LinkSpec::default().routing("orthogonal"))
+        .unwrap_or_else(|err| panic!("{err}"));
+    diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    assert!(diagram.links[0].d.contains('C'), "{}", diagram.links[0].d);
+    assert_right_angles(&diagram.links[1]);
+}
+
+#[test]
+fn orthogonal_crossings_are_still_reported() {
+    let mut diagram = orthogonal("t");
+    let alpha = diagram
+        .add(panel("Alpha"), 0.0, 0.0)
+        .unwrap_or_else(|err| panic!("{err}"));
+    let beta = diagram
+        .right_of(&alpha, panel("Beta"), None, "center", None, None)
+        .unwrap_or_else(|err| panic!("{err}"));
+    let gamma = diagram
+        .right_of(&beta, panel("Gamma"), None, "center", None, None)
+        .unwrap_or_else(|err| panic!("{err}"));
+    diagram
+        .link(&alpha, &gamma, LinkSpec::default())
+        .unwrap_or_else(|err| panic!("{err}"));
+    let problems = diagram
+        .render()
+        .unwrap_or_else(|err| panic!("{err}"))
+        .problems;
+    assert!(
+        problems
+            .iter()
+            .any(|problem| problem.contains("crosses 'Beta'")),
+        "{problems:?}"
+    );
+}
+
+#[test]
+fn unknown_routing_is_refused() {
+    let err = match Diagram::new("t").routing("zigzag") {
+        Ok(_) => panic!("zigzag routing was accepted"),
+        Err(err) => err.to_string(),
+    };
+    assert_eq!(err, "unknown routing 'zigzag'; use curved or orthogonal");
+    let mut diagram = Diagram::new("t");
+    let alpha = diagram
+        .add(panel("A"), 0.0, 0.0)
+        .unwrap_or_else(|err| panic!("{err}"));
+    let beta = diagram
+        .add(panel("B"), 300.0, 0.0)
+        .unwrap_or_else(|err| panic!("{err}"));
+    let err = diagram
+        .link(&alpha, &beta, LinkSpec::default().routing("zigzag"))
+        .expect_err("link")
+        .to_string();
+    assert_eq!(err, "unknown routing 'zigzag'; use curved or orthogonal");
+}
+
+#[test]
+fn json_routing_is_orthogonal_unless_a_link_overrides_it() {
+    let spec = json!({
+        "title": "t",
+        "routing": "orthogonal",
+        "columns": [
+            [{"id": "a", "title": "A", "tiles": ["x"]}],
+            [{"id": "b", "title": "B", "tiles": ["y"]}, {"id": "c", "title": "C", "tiles": ["z"]}]
+        ],
+        "links": [
+            {"from": "a", "to": "b"},
+            {"from": "a", "to": "c", "routing": "curved"}
+        ]
+    });
+    let mut diagram = from_spec(&spec).unwrap_or_else(|err| panic!("{err}"));
+    diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    assert_right_angles(&diagram.links[0]);
+    assert!(diagram.links[1].d.contains('C'), "{}", diagram.links[1].d);
+    let mut bad = spec.clone();
+    bad["routing"] = json!("zigzag");
+    let err = match from_spec(&bad) {
+        Ok(_) => panic!("zigzag routing was accepted"),
+        Err(err) => err.to_string(),
+    };
+    assert!(err.starts_with("routing:"), "{err}");
+    let mut link = spec;
+    link["routing"] = json!("curved");
+    link["links"] = json!([{"from": "a", "to": "b", "routing": "zigzag"}]);
+    let err = match from_spec(&link) {
+        Ok(_) => panic!("zigzag link routing was accepted"),
+        Err(err) => err.to_string(),
+    };
+    assert!(err.starts_with("links[0]:"), "{err}");
+}
+
+#[test]
+fn mermaid_step_curve_means_right_angles() {
+    let chart = "flowchart TD\n  A --> B & C\n";
+    let curved = from_mermaid(chart, None, None).unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(curved.routing, "curved");
+    let init = format!("%%{{init: {{\"flowchart\": {{\"curve\": \"stepBefore\"}}}}}}%%\n{chart}");
+    let stepped = from_mermaid(&init, None, None).unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(stepped.routing, "orthogonal");
+    let front = format!("---\nconfig:\n  flowchart:\n    curve: step\n---\n{chart}");
+    let matter = from_mermaid(&front, None, None).unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(matter.routing, "orthogonal");
+    let forced = from_mermaid_with(chart, None, None, Some("orthogonal"))
+        .unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(forced.routing_style(), "orthogonal");
+    let spread = format!("%%{{init: {{\n  \"flowchart\": {{\"curve\": \"step\"}}\n}}}}%%\n{chart}");
+    let mut spread = from_mermaid(&spread, None, None).unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(spread.routing_style(), "orthogonal");
+    assert_eq!(spread.placed().count(), 3);
+    assert_clean(
+        &spread
+            .render()
+            .unwrap_or_else(|err| panic!("{err}"))
+            .problems,
+    );
+    let mut drawn = from_mermaid(&init, None, None).unwrap_or_else(|err| panic!("{err}"));
+    let report = drawn.render().unwrap_or_else(|err| panic!("{err}"));
+    assert_clean(&report.problems);
+    for line in &drawn.links {
+        assert_right_angles(line);
+    }
 }

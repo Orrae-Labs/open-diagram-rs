@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-To read the other formats instead, use `from_spec` or `load_spec` for JSON and `from_mermaid` or `load_mermaid` for Mermaid. Their errors, `SpecError` and `MermaidError`, name the place of the mistake.
+To read the other formats instead, use `from_spec` or `load_spec` for JSON and `from_mermaid` or `load_mermaid` for Mermaid. `from_mermaid_with` also takes a routing. Their errors, `SpecError` and `MermaidError`, name the place of the mistake.
 
 ## Blocks
 
@@ -72,7 +72,7 @@ Each of these converts into `Block` with `.into()`. `Panel::section` takes a `Bl
 
 | Method | What it does |
 | --- | --- |
-| `Diagram::new(title)`, then `.subtitle`, `.tag`, `.note`, `.theme`, `.steps` | Starts a picture |
+| `Diagram::new(title)`, then `.subtitle`, `.tag`, `.note`, `.theme`, `.steps`, `.routing` | Starts a picture. `.routing("orthogonal")` draws right-angle lines, described below |
 | `add(block, x, y)` | Places a block at a position |
 | `right_of(other, block, gap, align, width, name)` and `below(...)` | Places a block next to another one. `gap` and `width` are `Option<f64>`. `align` is `center`, `left`, `right`, `top` or `bottom` |
 | `columns(cols, origin, gap, row_gap, valign, same_width)` | Places columns of blocks left to right. `valign` is `top`, `center` or `bottom` |
@@ -80,11 +80,17 @@ Each of these converts into `Block` with `.into()`. `Panel::section` takes a `Bl
 | `ring(blocks, x, y, gap, start_angle, center)` | Places blocks around a circle and returns `(ring, center)` |
 | `group(label, members, sub, pad)` | Draws a shaded area around some blocks |
 | `enclosure(label, members, opts)` | Draws a boundary around resources or other enclosures. `EnclosureOpts` sets the border, style, padding, fill, stroke and tone. `style = "panel"` adds a sloped lid and a filled header |
-| `link(a, b, spec)` | Draws an arrow. For example: `LinkSpec::default().kind("planned").label("new").start("auto").end("auto").via_y(y).dash("dashed")` |
+| `link(a, b, spec)` | Draws an arrow. For example: `LinkSpec::default().kind("planned").label("new").start("auto").end("auto").via_y(y).dash("dashed").routing("orthogonal")`. `.routing` sets curved or right-angle for this line only |
 | `set_statuses(map)` | Sets states by panel title, panel id or tile label |
 | `render()` | Returns a `Report` with the SVG text and the list of problems |
 | `save(path, png, scale, strict)` | Writes `<path>.svg`, and `<path>.png` when `png` is true. With `strict`, it returns `SaveError::Layout` if problems remain, after writing the files |
 | `describe()` | Returns what the picture says in plain words. The SVG carries the same text in its `<desc>` element |
+
+## Right-angle lines
+
+`Diagram::new(title).routing("orthogonal")` draws every line the diagram routes itself as straight runs that meet at right angles, with slightly rounded corners. The default, `curved`, draws smooth curves. `routing_style()` returns the current setting.
+
+When two blocks face each other and their sides overlap, the line runs straight across. Lines that would share a gap each get their own track, 12 px apart where there is room, ordered so they cross as little as possible. A track stays between the stubs at its two ends. A line with `via_x` or `via_y` already turns at right angles, and graph blocks inside panels keep their own straight lines. The layout checks work the same way for both kinds of line.
 
 ## States, colors and sizes
 

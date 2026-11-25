@@ -146,6 +146,7 @@ struct Graph {
     group_of: BTreeMap<String, usize>,
     direction: String,
     title: Option<String>,
+    curve: Option<String>,
 }
 
 impl Graph {
@@ -205,6 +206,8 @@ fn read_front(lines: &[&str], graph: &mut Graph) -> usize {
             let (key, value) = meta.split_once(':').unwrap_or((*meta, ""));
             if key.trim().eq_ignore_ascii_case("title") {
                 graph.title = Some(clean(value));
+            } else if key.trim().eq_ignore_ascii_case("curve") {
+                graph.curve = Some(value.trim().trim_matches(['\'', '"']).to_owned());
             }
         }
         end + 2
@@ -347,13 +350,30 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
         group_of: BTreeMap::new(),
         direction: "LR".to_owned(),
         title: None,
+        curve: None,
     };
     let lines: Vec<&str> = source.lines().collect();
     let index = read_front(&lines, &mut graph);
     let header = pattern(r"(?i)^(?:flowchart|graph)\s*(LR|RL|TD|TB|BT)?\s*;?\s*$");
+    let curve = pattern(r#"curve['"]?\s*:\s*['"]?([A-Za-z]+)"#);
     let mut header_seen = false;
     let mut stack: Vec<usize> = Vec::new();
+    let mut directive: Option<String> = None;
     for (line_no, line) in lines.iter().enumerate().skip(index) {
+        if directive.is_some() || line.trim_start().starts_with("%%{") {
+            let text = directive.get_or_insert_with(String::new);
+            text.push_str(line);
+            text.push('\n');
+            if line.contains("}%%") {
+                if let Some(found) = curve.captures(text)
+                    && let Some(name) = found.get(1)
+                {
+                    graph.curve = Some(name.as_str().to_owned());
+                }
+                directive = None;
+            }
+            continue;
+        }
         let raw = line.split("%%").next().unwrap_or("").trim();
         for stmt in raw
             .split(';')
@@ -385,6 +405,9 @@ pub struct Parsed {
 
 /// Lay a Mermaid flowchart out as a diagram.
 ///
+/// Lines follow the flowchart `curve`: `step`, `stepBefore` and `stepAfter` are orthogonal,
+/// and anything else stays curved. [`from_mermaid_with`] sets the routing directly.
+///
 /// # Errors
 /// Returns an error naming a line that could not be read, or a layout that cannot be measured.
 pub fn from_mermaid(
@@ -392,10 +415,27 @@ pub fn from_mermaid(
     title: Option<&str>,
     theme: Option<Theme>,
 ) -> Result<Diagram, MermaidError> {
+    from_mermaid_with(source, title, theme, None)
+}
+
+/// Lay a Mermaid flowchart out as a diagram with the given routing.
+///
+/// `routing` is `curved` or `orthogonal`. `None` follows the flowchart `curve`, as in [`from_mermaid`].
+///
+/// # Errors
+/// Returns an error naming a line that could not be read, a layout that cannot be measured, or an unknown routing.
+pub fn from_mermaid_with(
+    source: &str,
+    title: Option<&str>,
+    theme: Option<Theme>,
+    routing: Option<&str>,
+) -> Result<Diagram, MermaidError> {
     let Parsed { graph } = parse(source)?;
     let theme = theme.unwrap_or_default();
-    let mut diagram =
-        Diagram::new(title.or(graph.title.as_deref()).unwrap_or("Flowchart")).theme(theme.clone());
+    let mut diagram = Diagram::new(title.or(graph.title.as_deref()).unwrap_or("Flowchart"))
+        .theme(theme.clone())
+        .routing(chosen_routing(routing, graph.curve.as_deref()))
+        .map_err(|err| MermaidError::new(err.to_string()))?;
     if graph.order.is_empty() {
         return Err(MermaidError::new("the flowchart has no nodes"));
     }
@@ -1083,4 +1123,15 @@ pub fn load_mermaid(path: impl AsRef<Path>, title: Option<&str>) -> Result<Diagr
     let text = std::fs::read_to_string(path)
         .map_err(|err| MermaidError::new(format!("{}: {err}", path.display())))?;
     from_mermaid(&text, title, None)
+}
+
+fn chosen_routing(requested: Option<&str>, curve: Option<&str>) -> String {
+    if let Some(requested) = requested {
+        return requested.to_owned();
+    }
+    if curve.unwrap_or("").to_ascii_lowercase().starts_with("step") {
+        "orthogonal".to_owned()
+    } else {
+        "curved".to_owned()
+    }
 }
