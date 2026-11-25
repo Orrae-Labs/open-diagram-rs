@@ -358,12 +358,21 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
     let curve = pattern(r#"curve['"]?\s*:\s*['"]?([A-Za-z]+)"#);
     let mut header_seen = false;
     let mut stack: Vec<usize> = Vec::new();
+    let mut directive: Option<String> = None;
     for (line_no, line) in lines.iter().enumerate().skip(index) {
-        if line.trim_start().starts_with("%%{")
-            && let Some(found) = curve.captures(line)
-            && let Some(name) = found.get(1)
-        {
-            graph.curve = Some(name.as_str().to_owned());
+        if directive.is_some() || line.trim_start().starts_with("%%{") {
+            let text = directive.get_or_insert_with(String::new);
+            text.push_str(line);
+            text.push('\n');
+            if line.contains("}%%") {
+                if let Some(found) = curve.captures(text)
+                    && let Some(name) = found.get(1)
+                {
+                    graph.curve = Some(name.as_str().to_owned());
+                }
+                directive = None;
+            }
+            continue;
         }
         let raw = line.split("%%").next().unwrap_or("").trim();
         for stmt in raw
@@ -396,12 +405,26 @@ pub struct Parsed {
 
 /// Lay a Mermaid flowchart out as a diagram.
 ///
-/// `routing` is `curved` or `orthogonal`. `None` follows the flowchart `curve`: `step`, `stepBefore`
-/// and `stepAfter` are orthogonal, and anything else stays curved.
+/// Lines follow the flowchart `curve`: `step`, `stepBefore` and `stepAfter` are orthogonal,
+/// and anything else stays curved. [`from_mermaid_with`] sets the routing directly.
+///
+/// # Errors
+/// Returns an error naming a line that could not be read, or a layout that cannot be measured.
+pub fn from_mermaid(
+    source: &str,
+    title: Option<&str>,
+    theme: Option<Theme>,
+) -> Result<Diagram, MermaidError> {
+    from_mermaid_with(source, title, theme, None)
+}
+
+/// Lay a Mermaid flowchart out as a diagram with the given routing.
+///
+/// `routing` is `curved` or `orthogonal`. `None` follows the flowchart `curve`, as in [`from_mermaid`].
 ///
 /// # Errors
 /// Returns an error naming a line that could not be read, a layout that cannot be measured, or an unknown routing.
-pub fn from_mermaid(
+pub fn from_mermaid_with(
     source: &str,
     title: Option<&str>,
     theme: Option<Theme>,
@@ -1099,7 +1122,7 @@ pub fn load_mermaid(path: impl AsRef<Path>, title: Option<&str>) -> Result<Diagr
     let path = path.as_ref();
     let text = std::fs::read_to_string(path)
         .map_err(|err| MermaidError::new(format!("{}: {err}", path.display())))?;
-    from_mermaid(&text, title, None, None)
+    from_mermaid(&text, title, None)
 }
 
 fn chosen_routing(requested: Option<&str>, curve: Option<&str>) -> String {

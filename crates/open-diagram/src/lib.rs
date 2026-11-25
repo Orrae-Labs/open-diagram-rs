@@ -24,7 +24,7 @@ pub use blocks::{Block, Card, Graph, Note, Panel, Resource, Row, Text, Tile, Til
 pub use diagram::{Diagram, Enclosed, EnclosureOpts, GroupId, LineView, LinkSpec, Placed, Report};
 pub use error::{DiagramError, LayoutError, MermaidError, SaveError, SpecError};
 pub use font::{cap_height, lines_width, outline, text_width, wrap};
-pub use mermaid::{from_mermaid, load_mermaid, parse};
+pub use mermaid::{from_mermaid, from_mermaid_with, load_mermaid, parse};
 pub use num::{fmt, py_g, py_round};
 pub use render::{PngError, find_chrome, svg_to_png};
 pub use spec::{
@@ -130,8 +130,8 @@ mod tests {
     fn lf_and_crlf_sources_render_the_same_svg() {
         let lf = "flowchart LR\n  A[Start] --> B[End]\n";
         let crlf = lf.replace('\n', "\r\n");
-        let mut left = super::from_mermaid(lf, Some("Flow"), None, None).expect("lf");
-        let mut right = super::from_mermaid(&crlf, Some("Flow"), None, None).expect("crlf");
+        let mut left = super::from_mermaid(lf, Some("Flow"), None).expect("lf");
+        let mut right = super::from_mermaid(&crlf, Some("Flow"), None).expect("crlf");
         let left_svg = left.render().expect("lf svg").svg;
         let right_svg = right.render().expect("crlf svg").svg;
         assert_eq!(left_svg, right_svg);

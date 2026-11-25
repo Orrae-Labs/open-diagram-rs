@@ -1285,13 +1285,8 @@ pub fn release_cycle() -> Result<Diagram, DiagramError> {
 /// # Errors
 /// Returns an error when the Mermaid flowchart cannot be read.
 pub fn signup_flow() -> Result<Diagram, DiagramError> {
-    crate::from_mermaid(
-        include_str!("../examples/signup_flow.mmd"),
-        None,
-        None,
-        None,
-    )
-    .map_err(|err| DiagramError::new(err.to_string()))
+    crate::from_mermaid(include_str!("../examples/signup_flow.mmd"), None, None)
+        .map_err(|err| DiagramError::new(err.to_string()))
 }
 
 /// A named picture builder.

@@ -7,7 +7,10 @@ use super::{Diagram, Enclosed, EnclosureOpts, LinkSpec};
 use crate::blocks::{Block, Graph, Panel, Resource, Tile, Tiles};
 use crate::error::SaveError;
 use crate::theme::{Theme, shade};
-use crate::{LayoutError, from_mermaid, from_spec, from_spec_with, load_spec, text_width, wrap};
+use crate::{
+    LayoutError, from_mermaid, from_mermaid_with, from_spec, from_spec_with, load_spec, text_width,
+    wrap,
+};
 
 fn bundled(path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(path)
@@ -405,7 +408,7 @@ fn spec_and_mermaid_errors_name_the_place() {
     assert_clean(&email.render_owned().problems);
 
     let text = "flowchart LR\n  a[Start] --> b{Decide}\n  b -->|yes| c[Do it]:::building\n  b -- no --> a\n  c -.-> d([Done])\n  a --> d\n  subgraph work [The work]\n    c\n  end\n";
-    let flow = from_mermaid(text, Some("Flow"), None, None).unwrap_or_else(|err| panic!("{err}"));
+    let flow = from_mermaid(text, Some("Flow"), None).unwrap_or_else(|err| panic!("{err}"));
     assert_eq!(flow.title, "Flow");
     assert_eq!(flow.lines().len(), 5);
     assert!(
@@ -428,7 +431,7 @@ fn spec_and_mermaid_errors_name_the_place() {
     );
     assert!(flow.describe().contains("Do it (being built)"));
     for direction in ["LR", "RL", "TD", "BT"] {
-        let mut turned = from_mermaid(&text.replace("LR", direction), None, None, None)
+        let mut turned = from_mermaid(&text.replace("LR", direction), None, None)
             .unwrap_or_else(|err| panic!("{err}"));
         assert!(
             turned
@@ -441,7 +444,7 @@ fn spec_and_mermaid_errors_name_the_place() {
     }
     let signup = load_spec_mermaid();
     assert_clean(&signup.problems);
-    let words = from_mermaid("flowchart LR\n  click[Click it] --> style[Style it]:::building\n  style -.-> class[Done]\n", None, None, None).unwrap_or_else(|err| panic!("{err}"));
+    let words = from_mermaid("flowchart LR\n  click[Click it] --> style[Style it]:::building\n  style -.-> class[Done]\n", None, None).unwrap_or_else(|err| panic!("{err}"));
     let pairs: Vec<_> = words
         .lines()
         .into_iter()
@@ -465,12 +468,12 @@ fn spec_and_mermaid_errors_name_the_place() {
     assert!(words.describe().contains("Style it (being built)"));
     let mail = "flowchart TD\n a[Ask] --> b{Found?}\n b -->|yes| c[Send link]\n b -->|no| d[Same message]\n c --> e[Click]\n e -.->|expired| a\n subgraph mail [Email service]\n  c\n end\n";
     for direction in ["TD", "BT"] {
-        let mut mail = from_mermaid(&mail.replace("TD", direction), None, None, None)
+        let mut mail = from_mermaid(&mail.replace("TD", direction), None, None)
             .unwrap_or_else(|err| panic!("{err}"));
         assert_clean(&mail.render().unwrap_or_else(|err| panic!("{err}")).problems);
     }
     let err = failure(
-        from_mermaid("flowchart LR\n  a[ok] --> ???", None, None, None),
+        from_mermaid("flowchart LR\n  a[ok] --> ???", None, None),
         "line",
     );
     assert!(err.contains("line 2"), "{err}");
@@ -670,8 +673,8 @@ fn reversed_mermaid_directions_put_the_source_on_the_far_side() {
     let mut pictures = Vec::new();
     for direction in [Flow::Lr, Flow::Rl, Flow::Td, Flow::Bt] {
         let label = direction.label();
-        let mut diagram = from_mermaid(&source(label), None, None, None)
-            .unwrap_or_else(|err| panic!("{label}: {err}"));
+        let mut diagram =
+            from_mermaid(&source(label), None, None).unwrap_or_else(|err| panic!("{label}: {err}"));
         let report = diagram
             .render()
             .unwrap_or_else(|err| panic!("{label}: {err}"));
@@ -721,8 +724,8 @@ fn reversed_group_keeps_the_head_gap_on_the_leading_side() {
         )
     };
     let ends = |direction| {
-        let mut diagram = from_mermaid(&source(direction), None, None, None)
-            .unwrap_or_else(|err| panic!("{err}"));
+        let mut diagram =
+            from_mermaid(&source(direction), None, None).unwrap_or_else(|err| panic!("{err}"));
         let report = diagram
             .render()
             .unwrap_or_else(|err| panic!("{direction}: {err}"));
@@ -1690,6 +1693,10 @@ fn orthogonal(title: &str) -> Diagram {
 }
 
 fn fan() -> Diagram {
+    fan_of(5)
+}
+
+fn fan_of(spokes: usize) -> Diagram {
     let mut diagram = orthogonal("t");
     let hub = diagram
         .add(
@@ -1699,7 +1706,7 @@ fn fan() -> Diagram {
         )
         .unwrap_or_else(|err| panic!("{err}"));
     let mut targets = Vec::new();
-    for index in 0..5 {
+    for index in 0..spokes {
         let y = crate::num::mul(crate::num::count(index), 130.0);
         targets.push(
             diagram
@@ -1815,6 +1822,72 @@ fn lines_sharing_a_gap_get_separate_tracks_and_do_not_cross() {
                 continue;
             };
             total += super::crossings(&path_left.points, &path_right.points);
+        }
+    }
+    assert_eq!(total, 0);
+    assert_tracks_between_stubs(&diagram);
+}
+
+fn assert_tracks_between_stubs(diagram: &Diagram) {
+    for line in diagram.links.iter().filter(|line| line.track.is_some()) {
+        let (Some(first), Some(turn), Some(last)) =
+            (line.points.first(), line.points.get(1), line.points.last())
+        else {
+            continue;
+        };
+        let (low, high) = (first.0.min(last.0), first.0.max(last.0));
+        assert!(
+            turn.0 >= low + 16.0 - 1e-9 && turn.0 <= high - 16.0 + 1e-9,
+            "{:?}",
+            line.points
+        );
+    }
+}
+
+#[test]
+fn seven_lines_sharing_a_gap_do_not_cross() {
+    let mut diagram = fan_of(7);
+    let report = diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    assert_clean(&report.problems);
+    let mut total = 0_i64;
+    for (left, path_left) in diagram.links.iter().enumerate() {
+        for path_right in diagram.links.iter().skip(left + 1) {
+            total += super::crossings(&path_left.points, &path_right.points);
+        }
+    }
+    assert_eq!(total, 0);
+    assert_tracks_between_stubs(&diagram);
+}
+
+#[test]
+fn more_than_six_lines_in_a_gap_are_reordered_to_avoid_crossings() {
+    let mut diagram = fan_of(7);
+    diagram.render().unwrap_or_else(|err| panic!("{err}"));
+    let hub = diagram
+        .nodes
+        .iter()
+        .find(|node| node.placed.name == "Hub")
+        .map_or_else(|| panic!("hub"), |node| node.placed.id);
+    let mut rows: Vec<_> = (0..diagram.links.len())
+        .filter(|&index| {
+            diagram
+                .links
+                .get(index)
+                .is_some_and(|line| line.a == hub && line.track.is_some_and(|track| track.0 == 0))
+        })
+        .filter_map(|index| diagram.track_row(index, 0, 1))
+        .collect();
+    assert_eq!(rows.len(), 7);
+    rows.reverse();
+    let spots = super::track_spots(&rows, rows.first().map_or(1.0, |row| row.travel));
+    let order: Vec<usize> = (0..rows.len()).collect();
+    let (start, _) = super::order_cost(&rows, &spots, 0, &order).unwrap_or_else(|| panic!("cost"));
+    assert!(start > 0, "the reversed order should cross");
+    let best = super::least_crossings(&rows, &spots, 0).unwrap_or_else(|| panic!("order"));
+    let mut total = 0_i64;
+    for (left, (_, path_left)) in best.iter().enumerate() {
+        for (_, path_right) in best.iter().skip(left + 1) {
+            total += super::crossings(path_left, path_right);
         }
     }
     assert_eq!(total, 0);
@@ -1935,18 +2008,28 @@ fn json_routing_is_orthogonal_unless_a_link_overrides_it() {
 #[test]
 fn mermaid_step_curve_means_right_angles() {
     let chart = "flowchart TD\n  A --> B & C\n";
-    let curved = from_mermaid(chart, None, None, None).unwrap_or_else(|err| panic!("{err}"));
+    let curved = from_mermaid(chart, None, None).unwrap_or_else(|err| panic!("{err}"));
     assert_eq!(curved.routing, "curved");
     let init = format!("%%{{init: {{\"flowchart\": {{\"curve\": \"stepBefore\"}}}}}}%%\n{chart}");
-    let stepped = from_mermaid(&init, None, None, None).unwrap_or_else(|err| panic!("{err}"));
+    let stepped = from_mermaid(&init, None, None).unwrap_or_else(|err| panic!("{err}"));
     assert_eq!(stepped.routing, "orthogonal");
     let front = format!("---\nconfig:\n  flowchart:\n    curve: step\n---\n{chart}");
-    let matter = from_mermaid(&front, None, None, None).unwrap_or_else(|err| panic!("{err}"));
+    let matter = from_mermaid(&front, None, None).unwrap_or_else(|err| panic!("{err}"));
     assert_eq!(matter.routing, "orthogonal");
-    let forced =
-        from_mermaid(chart, None, None, Some("orthogonal")).unwrap_or_else(|err| panic!("{err}"));
-    assert_eq!(forced.routing, "orthogonal");
-    let mut drawn = from_mermaid(&init, None, None, None).unwrap_or_else(|err| panic!("{err}"));
+    let forced = from_mermaid_with(chart, None, None, Some("orthogonal"))
+        .unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(forced.routing_style(), "orthogonal");
+    let spread = format!("%%{{init: {{\n  \"flowchart\": {{\"curve\": \"step\"}}\n}}}}%%\n{chart}");
+    let mut spread = from_mermaid(&spread, None, None).unwrap_or_else(|err| panic!("{err}"));
+    assert_eq!(spread.routing_style(), "orthogonal");
+    assert_eq!(spread.placed().count(), 3);
+    assert_clean(
+        &spread
+            .render()
+            .unwrap_or_else(|err| panic!("{err}"))
+            .problems,
+    );
+    let mut drawn = from_mermaid(&init, None, None).unwrap_or_else(|err| panic!("{err}"));
     let report = drawn.render().unwrap_or_else(|err| panic!("{err}"));
     assert_clean(&report.problems);
     for line in &drawn.links {

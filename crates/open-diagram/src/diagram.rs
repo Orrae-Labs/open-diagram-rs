@@ -270,7 +270,7 @@ pub struct Diagram {
     pub legend: bool,
     pub steps: Vec<(i64, String)>,
     pub steps_label: String,
-    pub routing: String,
+    pub(crate) routing: String,
     pub(crate) nodes: Vec<Node>,
     pub(crate) links: Vec<Link>,
     pub(crate) groups: Vec<Group>,
@@ -343,6 +343,12 @@ impl Diagram {
         }
         self.routing = routing;
         Ok(self)
+    }
+
+    /// The routing set with [`Diagram::routing`]: `curved` or `orthogonal`.
+    #[must_use]
+    pub fn routing_style(&self) -> &str {
+        &self.routing
     }
 
     pub fn placed(&self) -> impl Iterator<Item = &Placed> {
@@ -2362,14 +2368,7 @@ impl Diagram {
         }
         let travel = rows.first().map_or(1.0, |row| row.travel);
         let spots = track_spots(&rows, travel);
-        rows.sort_by(|left, right| {
-            let left_key = track_order(left.across_delta, left.start_across);
-            let right_key = track_order(right.across_delta, right.start_across);
-            left_key
-                .0
-                .cmp(&right_key.0)
-                .then_with(|| left_key.1.total_cmp(&right_key.1))
-        });
+        rows.sort_by(fan_order);
         let Some(best) = least_crossings(&rows, &spots, axis) else {
             return;
         };
@@ -2875,6 +2874,15 @@ fn track_spots(rows: &[TrackRow], travel: f64) -> Vec<f64> {
     spots
 }
 
+fn fan_order(left: &TrackRow, right: &TrackRow) -> std::cmp::Ordering {
+    let left_key = track_order(left.across_delta, left.start_across);
+    let right_key = track_order(right.across_delta, right.start_across);
+    left_key
+        .0
+        .cmp(&right_key.0)
+        .then_with(|| left_key.1.total_cmp(&right_key.1))
+}
+
 const fn track_order(delta: f64, start_across: f64) -> (u8, f64) {
     if delta < 0.0 {
         (0, start_across)
@@ -2883,44 +2891,74 @@ const fn track_order(delta: f64, start_across: f64) -> (u8, f64) {
     }
 }
 
-fn least_crossings(
+type TrackPaths = Vec<(usize, Vec<Point>)>;
+
+fn least_crossings(rows: &[TrackRow], spots: &[f64], axis: usize) -> Option<TrackPaths> {
+    let n = rows.len();
+    if n > 6 {
+        return fewer_crossings(rows, spots, axis);
+    }
+    let mut best: Option<(i64, TrackPaths)> = None;
+    for order in lex_orders(n) {
+        let Some((cost, paths)) = order_cost(rows, spots, axis, &order) else {
+            continue;
+        };
+        if best.as_ref().is_none_or(|(low, _)| cost < *low) {
+            best = Some((cost, order.into_iter().zip(paths).collect()));
+        }
+    }
+    best.map(|(_, placed)| placed)
+}
+
+// Too many lines to try every order: start from the order that suits a fan of lines,
+// then swap any two lines while that removes crossings.
+fn fewer_crossings(rows: &[TrackRow], spots: &[f64], axis: usize) -> Option<TrackPaths> {
+    let mut order: Vec<usize> = (0..rows.len()).collect();
+    order.sort_by(|&left, &right| match (rows.get(left), rows.get(right)) {
+        (Some(left), Some(right)) => fan_order(left, right),
+        _ => std::cmp::Ordering::Equal,
+    });
+    let (mut cost, mut paths) = order_cost(rows, spots, axis, &order)?;
+    let mut improved = true;
+    while improved && cost > 0 {
+        improved = false;
+        for left in 0..order.len() {
+            for right in (left + 1)..order.len() {
+                order.swap(left, right);
+                match order_cost(rows, spots, axis, &order) {
+                    Some((next, next_paths)) if next < cost => {
+                        cost = next;
+                        paths = next_paths;
+                        improved = true;
+                    }
+                    _ => order.swap(left, right),
+                }
+            }
+        }
+    }
+    Some(order.into_iter().zip(paths).collect())
+}
+
+fn order_cost(
     rows: &[TrackRow],
     spots: &[f64],
     axis: usize,
-) -> Option<Vec<(usize, Vec<Point>)>> {
-    let n = rows.len();
-    let mut best_cost = i64::MAX;
-    let mut best = None;
-    for order in lex_orders(n) {
-        let mut paths = Vec::new();
-        for (place, local) in order.iter().enumerate() {
-            let Some(row) = rows.get(*local) else {
-                continue;
-            };
-            let Some(spot) = spots.get(place).copied() else {
-                continue;
-            };
-            paths.push(with_track(&row.points, axis, spot));
-        }
-        if paths.len() != n {
-            continue;
-        }
-        let mut cost = 0_i64;
-        for left in 0..n {
-            for right in (left + 1)..n {
-                let (Some(path_left), Some(path_right)) = (paths.get(left), paths.get(right))
-                else {
-                    continue;
-                };
-                cost += crossings(path_left, path_right);
-            }
-        }
-        if cost < best_cost {
-            best_cost = cost;
-            best = Some(order.into_iter().zip(paths).collect());
+    order: &[usize],
+) -> Option<(i64, Vec<Vec<Point>>)> {
+    let mut paths = Vec::new();
+    for (place, local) in order.iter().enumerate() {
+        let row = rows.get(*local)?;
+        let spot = spots.get(place).copied()?;
+        // A track slides only between its own two stubs.
+        paths.push(with_track(&row.points, axis, spot.clamp(row.low, row.high)));
+    }
+    let mut cost = 0_i64;
+    for (left, path_left) in paths.iter().enumerate() {
+        for path_right in paths.iter().skip(left + 1) {
+            cost += crossings(path_left, path_right);
         }
     }
-    best
+    Some((cost, paths))
 }
 
 fn lex_orders(n: usize) -> Vec<Vec<usize>> {
@@ -2937,9 +2975,6 @@ fn lex_orders(n: usize) -> Vec<Vec<usize>> {
             remain.extend(rest.iter().skip(index.saturating_add(1)).copied());
             walk(&next, &remain, out);
         }
-    }
-    if n > 6 {
-        return vec![(0..n).collect()];
     }
     let mut out = Vec::new();
     walk(&[], &(0..n).collect::<Vec<_>>(), &mut out);
