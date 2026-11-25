@@ -745,7 +745,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "open-diagram-rs"
-version = "0.1.0"
+version = "0.6.2"
 dependencies = [
  "base64",
  "image",
@@ -758,7 +758,7 @@ dependencies = [
 
 [[package]]
 name = "open-diagram-rs-cli"
-version = "0.1.0"
+version = "0.6.2"
 dependencies = [
  "clap",
  "indexmap",
@@ -769,7 +769,7 @@ dependencies = [
 
 [[package]]
 name = "open-diagram-rs-mcp"
-version = "0.1.0"
+version = "0.6.2"
 dependencies = [
  "base64",
  "clap",
@@ -865,7 +865,7 @@ checksum = "d55d956fa96f5ec02be2e13af0e20391a5aa83d6a074e3ad368959d0fab299ea"
 
 [[package]]
 name = "quickstart-consumer"
-version = "0.1.0"
+version = "0.6.2"
 dependencies = [
  "open-diagram-rs",
 ]

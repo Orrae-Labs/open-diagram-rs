@@ -1,6 +1,6 @@
 [package]
 name = "open-diagram-rs-cli"
-version = "0.1.0"
+version = "0.6.2"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -21,7 +21,7 @@ path = "src/main.rs"
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 indexmap.workspace = true
-open-diagram-rs = { path = "../open-diagram", version = "0.1.0" }
+open-diagram-rs = { path = "../open-diagram", version = "0.6.2" }
 serde_json.workspace = true
 
 [dev-dependencies]

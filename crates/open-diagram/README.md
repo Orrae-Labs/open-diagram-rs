@@ -4,14 +4,14 @@ A Rust library that draws architecture diagrams and checks their layout. You bui
 
 ```toml
 [dependencies]
-open-diagram-rs = "0.1.0"
+open-diagram-rs = "0.6.2"
 ```
 
 `from_spec` reads JSON and `from_mermaid` reads Mermaid, and each returns a `Diagram`. `Diagram::render` returns the SVG and the list of problems. `Diagram::save` writes the SVG, plus a PNG when Chrome, Chromium or Edge is installed.
 
 The same inputs always produce the same SVG, byte for byte. Text is drawn as outlines rather than `<text>` elements, so the picture looks the same on machines without the font.
 
-Version 0.1.0 draws the same pictures as open-diagram 0.6.0, the Python project it is ported from. For the command-line tool, install the `open-diagram-rs-cli` crate.
+It is a port of open-diagram, a Python project. It started from open-diagram 0.6.0 and ports later changes from it. For the command-line tool, install the `open-diagram-rs-cli` crate.
 
 Documentation and examples: <https://github.com/Orrae-Labs/open-diagram-rs>
 
