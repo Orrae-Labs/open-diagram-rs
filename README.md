@@ -111,7 +111,7 @@ open-diagram-rs draw examples/release_cycle.json
 
 ## Background
 
-open-diagram-rs is a Rust port of [open-diagram](https://github.com/lukendeasy/open-diagram), which is written in Python. Version 0.1.0 draws the same pictures as open-diagram 0.6.0.
+open-diagram-rs is a Rust port of [open-diagram](https://github.com/lukendeasy/open-diagram), which is written in Python. It started from open-diagram 0.6.0 and ports later changes from it. The [changelog](CHANGELOG.md) lists each release.
 
 ## Contributing
 

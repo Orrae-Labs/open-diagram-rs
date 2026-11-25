@@ -1,7 +1,7 @@
 {
   "name": "open-diagram-rs",
   "displayName": "open-diagram-rs",
-  "version": "0.1.0",
+  "version": "0.6.2",
   "description": "Draw architecture diagrams from JSON or Mermaid and check the layout by name.",
   "author": {
     "name": "Orrae Labs",

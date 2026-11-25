@@ -1,6 +1,6 @@
 [package]
 name = "open-diagram-rs-mcp"
-version = "0.1.0"
+version = "0.6.2"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -25,7 +25,7 @@ path = "src/main.rs"
 [dependencies]
 base64.workspace = true
 clap = { workspace = true, features = ["derive"] }
-open-diagram-rs = { path = "../open-diagram", version = "0.1.0" }
+open-diagram-rs = { path = "../open-diagram", version = "0.6.2" }
 rmcp = { workspace = true, features = ["transport-io", "skills-fs"] }
 schemars.workspace = true
 serde = { workspace = true, features = ["derive"] }

@@ -35,5 +35,5 @@ Every later version goes through the workflow.
 ## Verify a downloaded crate
 
 ```bash
-gh attestation verify open-diagram-rs-0.1.0.crate --repo Orrae-Labs/open-diagram-rs --signer-workflow Orrae-Labs/open-diagram-rs/.github/workflows/crate-provenance.yml --source-ref refs/tags/v0.1.0
+gh attestation verify open-diagram-rs-0.6.2.crate --repo Orrae-Labs/open-diagram-rs --signer-workflow Orrae-Labs/open-diagram-rs/.github/workflows/crate-provenance.yml --source-ref refs/tags/v0.6.2
 ```
