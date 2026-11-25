@@ -1,54 +1,107 @@
 # Rust
 
-Build a diagram from blocks, place them, and set its colors and sizes with a theme. The crate is `open-diagram-rs`.
+```bash
+cargo add open-diagram-rs
+```
 
-## Building blocks
+The library crate is `open-diagram-rs`, imported as `open_diagram_rs`. It needs Rust 1.100 or later.
+
+You build a picture by creating blocks, placing each one on a `Diagram`, and linking them. `render` lays everything out and returns the SVG along with any layout problems:
+
+```rust
+use open_diagram_rs::{Diagram, DiagramError, LinkSpec, Panel, Tile, Tiles};
+
+fn search() -> Result<Diagram, DiagramError> {
+    let mut diagram = Diagram::new("How a search request is answered");
+    let app = diagram.add(
+        Panel::new("Web app")
+            .section(Tiles::new(vec![Tile::new("Search box"), Tile::new("Results page")], None, None)?.into())
+            .footer("Owner: Web team"),
+        0.0,
+        0.0,
+    )?;
+    let api = diagram.right_of(
+        &app,
+        Panel::new("Search API").section(
+            Tiles::new(
+                vec![Tile::new("Checks access"), Tile::new("Caches results").status("building")],
+                None,
+                None,
+            )?
+            .into(),
+        ),
+        None,
+        "center",
+        None,
+        None,
+    )?;
+    diagram.link(&app, &api, LinkSpec::default())?;
+    Ok(diagram)
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut diagram = search()?;
+    let report = diagram.render()?;
+    for problem in &report.problems {
+        eprintln!("{problem}");
+    }
+    std::fs::write("search.svg", &report.svg)?;
+    Ok(())
+}
+```
+
+To read the other formats instead, use `from_spec` or `load_spec` for JSON and `from_mermaid` or `load_mermaid` for Mermaid. `from_mermaid_with` also takes a routing. Their errors, `SpecError` and `MermaidError`, name the place of the mistake.
+
+## Blocks
 
 | Type | What it draws |
 | --- | --- |
-| `Panel::new(title)` then `.section`, `.subtitle`, `.status`, `.step`, `.footer`, `.tone`, `.name` | The main box: a colored header, sections stacked inside, an optional footer such as "Owner: Data team" |
-| `Tiles::new(items, cols, label)` | A grid of tiles with one cell size |
-| `Tile::new(label)` then `.subtitle`, `.status`, `.icon` | One small box. `.icon` takes a PNG or SVG path, or an icon name resolved by JSON |
-| `Resource::new(...)` | A standalone cloud resource: large icon above its workload label and service name |
-| `Card::new(title, rows, intro)` | A worked example: rows of name and value |
-| `Graph::new(...)` | Things on a grid, joined by labelled lines. The build reports labels that touch nodes |
+| `Panel::new(title)`, then `.section`, `.subtitle`, `.status`, `.step`, `.footer`, `.tone`, `.name` | The main box: a header, sections stacked inside it, and an optional footer such as "Owner: Data team" |
+| `Tiles::new(items, cols, label)` | A grid of tiles that share one cell size |
+| `Tile::new(label)`, then `.subtitle`, `.status`, `.icon` | One small box. `.icon` takes the path of a PNG or SVG file, or an icon name such as `aws/s3` when the diagram comes from JSON |
+| `Resource::new(...)` | A cloud resource: a large icon with its label and service name underneath |
+| `Card::new(title, rows, intro)` | A worked example, as rows of names and values |
+| `Graph::new(...)` | Points on a grid joined by labelled lines. `render` reports a label that touches a point |
 | `Row::new(items, gap)` | Sections side by side inside a panel |
 | `Text::new(text)` | A wrapped paragraph |
-| `Note::new(title, lines)` | A boxed note for the top right |
+| `Note::new(title, lines)` | A boxed note for the top right corner |
 
-`Block` is the enum these types convert into.
+Each of these converts into `Block` with `.into()`. `Panel::section` takes a `Block`.
 
-## Diagram
+## Diagram methods
 
 | Method | What it does |
 | --- | --- |
-| `Diagram::new(title)` then `.subtitle`, `.tag`, `.note`, `.theme`, `.steps`, `.routing` | Start a picture. `routing("orthogonal")` draws every self-routed line as straight runs that meet at right angles; the default, `curved`, draws smooth curves |
-| `add(block, x, y)` | Place a block |
-| `right_of(refer, block, gap, align, width, name)` and `below(...)` | Place a block next to another. `gap` and `width` are `Option<f64>`. `align` is `center`, `left`, `right`, `top` or `bottom` |
-| `columns(cols, origin, gap, row_gap, valign, same_width)` and `stack(blocks, x, y, gap)` | Place columns left to right, or one column top to bottom. `valign` is `top`, `center` or `bottom` |
-| `ring(blocks, x, y, gap, start_angle, center)` | Place blocks around a circle. Returns `(ring, center)` |
-| `group(label, members, sub, pad)` | A shaded area around some blocks |
-| `enclosure(label, members, opts)` | A boundary around resources or nested enclosures. `EnclosureOpts` carries border, style, pad, fill, stroke and tone. `style = "panel"` adds the sloped lid and a filled header |
-| `link(a, b, spec)` | An arrow. `LinkSpec::default().kind("planned").label("new").start("auto").end("auto").via_y(y).dash("dashed").routing("orthogonal")`. `routing` sets curved or right-angle for this line only |
-| `set_statuses(map)` | Set states by panel title, id or tile label |
-| `render()` | SVG text and a `Report` |
-| `save(path, png, scale, strict)` | Write `<path>.svg` and, when `png` is true, `<path>.png`. When `strict` is true and problems remain, the files are already written and the error is `SaveError::Layout` |
-| `describe()` | What the picture says, in plain words. The same text is the SVG `<desc>` |
-
-JSON goes through `from_spec` / `load_spec`. Mermaid goes through `from_mermaid` / `load_mermaid`. `SpecError` and `MermaidError` name the place of the mistake.
+| `Diagram::new(title)`, then `.subtitle`, `.tag`, `.note`, `.theme`, `.steps`, `.routing` | Starts a picture. `.routing("orthogonal")` draws right-angle lines, described below |
+| `add(block, x, y)` | Places a block at a position |
+| `right_of(other, block, gap, align, width, name)` and `below(...)` | Places a block next to another one. `gap` and `width` are `Option<f64>`. `align` is `center`, `left`, `right`, `top` or `bottom` |
+| `columns(cols, origin, gap, row_gap, valign, same_width)` | Places columns of blocks left to right. `valign` is `top`, `center` or `bottom` |
+| `stack(blocks, x, y, gap)` | Places blocks in one column, top to bottom |
+| `ring(blocks, x, y, gap, start_angle, center)` | Places blocks around a circle and returns `(ring, center)` |
+| `group(label, members, sub, pad)` | Draws a shaded area around some blocks |
+| `enclosure(label, members, opts)` | Draws a boundary around resources or other enclosures. `EnclosureOpts` sets the border, style, padding, fill, stroke and tone. `style = "panel"` adds a sloped lid and a filled header |
+| `link(a, b, spec)` | Draws an arrow. For example: `LinkSpec::default().kind("planned").label("new").start("auto").end("auto").via_y(y).dash("dashed").routing("orthogonal")`. `.routing` sets curved or right-angle for this line only |
+| `set_statuses(map)` | Sets states by panel title, panel id or tile label |
+| `render()` | Returns a `Report` with the SVG text and the list of problems |
+| `save(path, png, scale, strict)` | Writes `<path>.svg`, and `<path>.png` when `png` is true. With `strict`, it returns `SaveError::Layout` if problems remain, after writing the files |
+| `describe()` | Returns what the picture says in plain words. The SVG carries the same text in its `<desc>` element |
 
 ## Right-angle lines
 
-`Diagram::new(title).routing("orthogonal")` draws every line the diagram routes itself as straight runs that meet at right angles, with slightly rounded corners. When two blocks face each other and their sides overlap, the line runs straight across. Lines that would share the same gap each get their own track, 12 px apart, ordered so they cross as little as possible. A line with `via_x` or `via_y` already has right angles. The layout checks work the same way for both kinds of line. Graph blocks inside panels keep their own straight lines.
+`Diagram::new(title).routing("orthogonal")` draws every line the diagram routes itself as straight runs that meet at right angles, with slightly rounded corners. The default, `curved`, draws smooth curves. `routing_style()` returns the current setting.
 
-## Statuses, colors and sizes
+When two blocks face each other and their sides overlap, the line runs straight across. Lines that would share a gap each get their own track, 12 px apart where there is room, ordered so they cross as little as possible. A track stays between the stubs at its two ends. A line with `via_x` or `via_y` already turns at right angles, and graph blocks inside panels keep their own straight lines. The layout checks work the same way for both kinds of line.
 
-Panels have light gray headers and yellow step numbers. When any panel uses the yellow `accent` header, step numbers turn charcoal so yellow keeps one meaning. Each panel has a sloped top and each tile a raised edge. `Theme` fields `lid` and `depth` set to `0.0` turn that off. `tone` `accent` is a soft yellow header. `tone` `dark` is charcoal. Header text turns white on a dark header.
+## States, colors and sizes
 
-Statuses are Live, Being built, In trial, Planned and Retiring. Add one with `theme.statuses.insert("pilot".into(), Status { ... })`.
+The states are Live, Being built, In trial, Planned and Retiring. To add your own, insert into `theme.statuses`, for example `theme.statuses.insert("pilot".into(), Status { ... })`.
 
-The smallest text drawn is recorded on `Report.min_text`. The theme minimum is 10 px.
+Panel headers are light gray by default. `tone` `accent` makes a header soft yellow, and `tone` `dark` makes it charcoal with white text. Step numbers are yellow, unless some panel uses the `accent` tone. Then they turn charcoal, so that yellow means only one thing in the picture.
 
-## Checked pictures
+Panels have a sloped top and tiles have a raised edge. Set the `Theme` fields `lid` and `depth` to `0.0` for flat boxes.
 
-`examples::pictures()` returns every named builder the golden test renders. `examples::quickstart()` is the search diagram in the README. Cloud templates load from the files shipped inside this crate.
+No text is drawn smaller than the theme's minimum, 10 px. `Report.min_text` records the smallest size in the picture.
+
+## Example pictures
+
+`examples::pictures()` returns the builder of every picture in [docs/images](images). The test suite renders each one and compares it with the committed SVG. `examples::quickstart()` builds the search diagram from the README.

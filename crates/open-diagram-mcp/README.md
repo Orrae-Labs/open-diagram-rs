@@ -1,18 +1,19 @@
 # open-diagram-rs-mcp
 
-MCP server for architecture diagrams. An MCP app starts it over stdio.
+An MCP server that lets AI apps draw architecture diagrams and check their layout. The app starts the server and talks to it over stdio.
 
 ```bash
 cargo install open-diagram-rs-mcp --locked
-open-diagram-rs-mcp --out ./open-diagram-rs
 ```
 
-Tools: `format_guide`, `template`, `check`, `describe`, `draw`. The input is JSON or Mermaid. Files are written only inside the output folder. `--icons` and `$OPEN_DIAGRAM_RS_ICONS` add icon folders. The built-in icons are always included.
+The tools are `format_guide`, `template`, `check`, `describe` and `draw`. They read JSON or Mermaid. `draw` returns the PNG as an image.
 
-When this checkout's `skills/` folder is visible, or `$OPEN_DIAGRAM_RS_SKILLS` points at a skill folder, those skills are served with the SDK's skill catalog. That catalog is Skills over MCP (`io.modelcontextprotocol/skills`, directory read included). `draw` returns the PNG as a tool image.
+The server writes files only inside its output folder: `--out FOLDER`, otherwise `$OPEN_DIAGRAM_RS_OUT`, otherwise `./open-diagram-rs`. The built-in icons are always available, and `--icons` or `$OPEN_DIAGRAM_RS_ICONS` add more icon folders.
 
-The library is the `open-diagram-rs` crate. Repository: <https://github.com/Orrae-Labs/open-diagram-rs>
+When the server can see this repository's `skills/` folder, or `$OPEN_DIAGRAM_RS_SKILLS` names a skill folder, it also offers those skills through the Skills over MCP extension (`io.modelcontextprotocol/skills`).
 
-- MCP Registry name: `mcp-name: io.github.Orrae-Labs/open-diagram-rs`
+Setup for Claude Code, Codex, Cursor, Grok and VS Code: <https://github.com/Orrae-Labs/open-diagram-rs/blob/main/docs/agents.md>
 
-Host setup for Grok, Claude, Codex, Cursor, and VS Code: <https://github.com/Orrae-Labs/open-diagram-rs/blob/main/docs/agents.md>
+The server is built on the `open-diagram-rs` library crate. Repository: <https://github.com/Orrae-Labs/open-diagram-rs>
+
+MCP Registry name: `mcp-name: io.github.Orrae-Labs/open-diagram-rs`
