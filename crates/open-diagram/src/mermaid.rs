@@ -336,6 +336,31 @@ fn read_statement(
     record_chain(graph, stmt, n, stack.first().copied())
 }
 
+/// Split `line` at each `marker` outside double quotes, after at most `limit` splits when
+/// `limit` is not zero. Mermaid keeps `;` and `%%` inside a quoted label as text, so
+/// `a["a;b"] --> b; c` is two statements. A quote that is never closed runs to the end of the
+/// line, which keeps the line whole so the parse error still names it.
+fn split_outside<'a>(line: &'a str, marker: &str, limit: usize) -> Vec<&'a str> {
+    let mut parts = Vec::new();
+    let (mut start, mut quoted) = (0, false);
+    for (at, ch) in line.char_indices() {
+        if at < start {
+            continue;
+        }
+        if ch == '"' {
+            quoted = !quoted;
+        } else if !quoted && line.get(at..).is_some_and(|rest| rest.starts_with(marker)) {
+            parts.push(line.get(start..at).unwrap_or_default());
+            start = at + marker.len();
+            if limit != 0 && parts.len() == limit {
+                break;
+            }
+        }
+    }
+    parts.push(line.get(start..).unwrap_or_default());
+    parts
+}
+
 /// Read a Mermaid flowchart into its nodes, edges and groups.
 ///
 /// # Errors
@@ -374,9 +399,13 @@ pub fn parse(source: &str) -> Result<Parsed, MermaidError> {
             }
             continue;
         }
-        let raw = line.split("%%").next().unwrap_or("").trim();
-        for stmt in raw
-            .split(';')
+        let raw = split_outside(line, "%%", 1)
+            .into_iter()
+            .next()
+            .unwrap_or("")
+            .trim();
+        for stmt in split_outside(raw, ";", 0)
+            .into_iter()
             .map(str::trim)
             .filter(|stmt| !stmt.is_empty())
         {
@@ -1133,5 +1162,119 @@ fn chosen_routing(requested: Option<&str>, curve: Option<&str>) -> String {
         "orthogonal".to_owned()
     } else {
         "curved".to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Graph, parse};
+
+    fn graph(source: &str) -> Graph {
+        parse(source).unwrap_or_else(|err| panic!("{err}")).graph
+    }
+
+    fn texts(graph: &Graph) -> Vec<(&str, &str)> {
+        graph
+            .order
+            .iter()
+            .map(|id| (id.as_str(), graph.text.get(id).map_or("", String::as_str)))
+            .collect()
+    }
+
+    fn edges(graph: &Graph) -> Vec<(&str, &str, &str, Option<&str>)> {
+        graph
+            .edges
+            .iter()
+            .map(|(from, to, kind, label)| {
+                (from.as_str(), to.as_str(), kind.as_str(), label.as_deref())
+            })
+            .collect()
+    }
+
+    // Ported from open-diagram e99256ae9bfce8def8df11ed361cbe861b5ad2e8. Mermaid keeps `;` and
+    // `%%` inside a quoted label, so splitting the line on them first cut the statement in two.
+    #[test]
+    fn separators_inside_quotes_are_part_of_the_text() {
+        for (source, text_of, label) in [
+            ("flowchart LR\n  a[\"a;b\"] --> b\n", "a;b", None),
+            (
+                "flowchart LR\n  a[\"100%% sure\"] --> b\n",
+                "100%% sure",
+                None,
+            ),
+            ("flowchart LR\n  a -->|\"x; y\"| b\n", "a", Some("x; y")),
+            ("flowchart LR\n  a -- \"x; y\" --> b\n", "a", Some("x; y")),
+            ("flowchart LR\n  a[\"x] y\"] --> b\n", "x] y", None),
+        ] {
+            let graph = graph(source);
+            assert_eq!(texts(&graph), [("a", text_of), ("b", "b")], "{source}");
+            assert_eq!(edges(&graph), [("a", "b", "flow", label)], "{source}");
+        }
+    }
+
+    #[test]
+    fn separators_after_a_quoted_label_still_split_statements_and_comments() {
+        let graph = graph(
+            "flowchart LR\n  a[\"a;b\"] --> b; b --> c %% not read; x --> y\n  c -->|\"x; y\"| d\n",
+        );
+        assert_eq!(
+            texts(&graph),
+            [("a", "a;b"), ("b", "b"), ("c", "c"), ("d", "d")]
+        );
+        assert_eq!(
+            edges(&graph),
+            [
+                ("a", "b", "flow", None),
+                ("b", "c", "flow", None),
+                ("c", "d", "flow", Some("x; y")),
+            ]
+        );
+    }
+
+    #[test]
+    fn subgraph_title_with_a_separator_in_quotes() {
+        let graph = graph("flowchart LR\n  subgraph s[\"a;b\"]\n    x --> y\n  end\n  y --> z\n");
+        assert_eq!(graph.groups, ["a;b"]);
+        assert_eq!(
+            graph
+                .group_of
+                .iter()
+                .map(|(id, group)| (id.as_str(), *group))
+                .collect::<Vec<_>>(),
+            [("x", 0), ("y", 0)]
+        );
+        let pairs: Vec<_> = edges(&graph)
+            .into_iter()
+            .map(|(from, to, _, _)| (from, to))
+            .collect();
+        assert_eq!(pairs, [("x", "y"), ("y", "z")]);
+    }
+
+    #[test]
+    fn separators_outside_quotes_are_unchanged() {
+        for source in [
+            "flowchart LR\n  a --> b; c --> d\n",
+            "flowchart LR\n  a --- b; c --x d\n",
+            "flowchart LR\n  a ==> b; c <--> d\n",
+        ] {
+            let graph = graph(source);
+            assert_eq!(graph.order, ["a", "b", "c", "d"], "{source}");
+            let pairs: Vec<_> = edges(&graph)
+                .into_iter()
+                .map(|(from, to, _, _)| (from, to))
+                .collect();
+            assert_eq!(pairs, [("a", "b"), ("c", "d")], "{source}");
+        }
+    }
+
+    #[test]
+    fn an_unclosed_quote_keeps_the_line_whole_and_the_error_names_it() {
+        let err = parse("flowchart LR\n  a[\"a] --> b; c --> d\n")
+            .err()
+            .map(|err| err.to_string());
+        assert_eq!(
+            err.as_deref(),
+            Some("line 2: cannot read the shape of node 'b; c'")
+        );
     }
 }
