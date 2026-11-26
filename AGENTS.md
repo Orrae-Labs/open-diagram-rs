@@ -55,6 +55,8 @@ A comment records a constraint the code cannot show. A test that passes by weake
 
 `upstream` is lukendeasy/open-diagram. Port a commit when it changes a diagram, an error sentence, or the command, and name that commit in the Rust change. `rust-port` keeps the 0.6.0 SVG bytes. This branch, `main`, is where a fix may differ from that snapshot. The pictures in `examples::pictures()` still have to match `docs/images`.
 
+Versions follow upstream. Release `X.Y.Z` only after upstream tags `vX.Y.Z`, and only once every upstream commit up to that tag is ported or named as not ported in a pull request. Changes made only here ship in the next such release. Each release entry in `CHANGELOG.md` names the upstream tag it matches.
+
 ## Publishing
 
 Trusted publishing only. The OIDC exchange is `rust-lang/crates-io-auth-action` in `publish.yml`. Do not add a crates.io token to the repo or the environment.

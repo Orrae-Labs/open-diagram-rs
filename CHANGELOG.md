@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+These ship in the version that matches open-diagram's next release.
+
 - A quoted Mermaid label or line label can hold `;` and `%%`. `a["a;b"] --> b` and `a -->|"x; y"| b` used to be cut at the separator and reported as unreadable. Outside quotes, `;` still separates statements and `%%` still starts a comment. Ported from open-diagram e99256ae9bfce8def8df11ed361cbe861b5ad2e8.
 - The GitHub Action example in `docs/cli.md` kept `states.json` inside the folder its `*.json` pattern reads, so the run stopped with `unknown key(s)`. The example now keeps it outside, and the page says every name in a states file must be in each diagram. Ported from open-diagram 3d281382eeae250069fdd19e6b72546cc2d95834, as are the next three entries.
 - The agent skill and the MCP server's guide list the specific layout problems first, so `sits on the title of group` and `group ... overlaps` no longer match the general rows. They gain rows for `groups ... overlap` and `graph: the labels ... touch`.
@@ -11,7 +13,9 @@
 
 ## 0.6.2
 
-The version number jumps from 0.1.0 to 0.6.2. From here on, versions count up from 0.6.2.
+The version number jumps from 0.1.0 to 0.6.2. From here on, a version has the features of the open-diagram release with the same number.
+
+This release does not yet have one fix in open-diagram 0.6.2: quoted Mermaid labels that hold `;` or `%%` (e99256ae9bfce8def8df11ed361cbe861b5ad2e8). It is listed under Unreleased.
 
 - Lines can be drawn as straight runs that meet at right angles. Set `"routing": "orthogonal"` at the top of a JSON file, or on one link. In Rust, use `Diagram::routing("orthogonal")` or `LinkSpec::routing`. A Mermaid flowchart whose `curve` is `step`, `stepBefore` or `stepAfter` gets right angles too. Lines that share a gap get their own tracks, ordered to avoid crossing each other. The default is still curved, so existing pictures don't change. Ported from open-diagram bd276519b62301fcf76d91aacab95c30eff4a925.
 - `from_mermaid_with` reads a Mermaid flowchart with a given routing. `from_mermaid` keeps its 0.1.0 signature.

@@ -2,6 +2,15 @@
 
 The three crates are published to crates.io with [trusted publishing](https://crates.io/docs/trusted-publishing). The publish workflow trades a GitHub OIDC token for a crates.io token that expires after about 30 minutes, so the repository holds no crates.io API token.
 
+## Pick the version
+
+The version numbers follow open-diagram, the Python project this one ports. Our `X.Y.Z` has the features and fixes of open-diagram `X.Y.Z`, so a release waits for open-diagram to tag `vX.Y.Z`. Before releasing:
+
+1. List the upstream commits since the last release: `git log --oneline vA.B.C..vX.Y.Z` in an open-diagram checkout, where `vA.B.C` is the previous upstream tag.
+2. Check that each one is ported, or named as not ported in a pull request.
+
+Changes made only in this repository wait in `Unreleased` and ship with the next matching version.
+
 ## Cut a release
 
 1. Set the same `version` in the three package manifests (`crates/open-diagram`, `crates/open-diagram-cli`, `crates/open-diagram-mcp`) and in `server.json`.
