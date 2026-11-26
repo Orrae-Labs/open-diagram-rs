@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- The GitHub Action example in `docs/cli.md` kept `states.json` inside the folder its `*.json` pattern reads, so the run stopped with `unknown key(s)`. The example now keeps it outside, and the page says every name in a states file must be in each diagram.
+- The agent skill and the MCP server's guide list the specific layout problems first, so `sits on the title of group` and `group ... overlaps` no longer match the general rows. They gain rows for `groups ... overlap` and `graph: the labels ... touch`.
+- `docs/json.md` and the agent skill describe `legend` and `theme.link_labels`. The skills carry `license: MIT`.
+- The comparison table has corrected entries for Mermaid, D2 and archify.
+
+Ported from open-diagram 3d281382eeae250069fdd19e6b72546cc2d95834, and the skill license from d40f02f65fd0bca697efbfa6ed660f279d8b5087.
+
 ## 0.6.2
 
 The version number jumps from 0.1.0 to 0.6.2. From here on, versions count up from 0.6.2.

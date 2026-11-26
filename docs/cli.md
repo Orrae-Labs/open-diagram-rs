@@ -44,11 +44,13 @@ jobs:
       - uses: Orrae-Labs/open-diagram-rs@main
         with:
           files: docs/diagrams/*.json docs/diagrams/*.mmd
-          statuses: docs/diagrams/states.json   # optional
+          statuses: docs/states.json            # optional; keep it outside the folders that files matches
           mode: check                           # or draw, to write SVG and PNG next to each file
 ```
 
 `files` takes globs separated by spaces or newlines, including `**`. A pattern that matches nothing fails the job, so a moved folder doesn't pass silently.
+
+Keep the states file out of the folders that `files` matches. Otherwise the Action reads it as a diagram and stops with `unknown key(s)`. One states file applies to every file in the run, so every name in it must be a part of each diagram. A name that one diagram lacks stops the run with `no panel or tile is named ...`.
 
 ## Track state in one file
 
