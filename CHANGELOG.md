@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A quoted Mermaid label or line label can hold `;` and `%%`. `a["a;b"] --> b` and `a -->|"x; y"| b` used to be cut at the separator and reported as unreadable. Outside quotes, `;` still separates statements and `%%` still starts a comment. Ported from open-diagram e99256ae9bfce8def8df11ed361cbe861b5ad2e8.
+
 ## 0.6.2
 
 The version number jumps from 0.1.0 to 0.6.2. From here on, versions count up from 0.6.2.
