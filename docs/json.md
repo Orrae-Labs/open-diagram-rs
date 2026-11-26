@@ -43,7 +43,8 @@ Optional keys:
 | `enclosures` | Boxes around resources, panels or other enclosures |
 | `links` | Lines between panels or resources |
 | `statuses` | States by name, as in the [statuses file](cli.md#track-state-in-one-file) |
-| `theme` | Colors and sizes |
+| `theme` | Colors and sizes. `link_labels` names a kind of line in the legend, such as `{"link_labels": {"flow": "Sends mail"}}`. Kinds you leave out keep their default names |
+| `legend` | `false` hides the legend |
 | `routing` | `curved` (the default) or `orthogonal`, which draws every line as straight runs that meet at right angles |
 
 ## Panel

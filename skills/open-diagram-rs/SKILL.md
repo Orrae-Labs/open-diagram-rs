@@ -1,6 +1,7 @@
 ---
 name: open-diagram-rs
 description: Draw architecture diagrams, systems maps, layered stacks, data flows, cycles, cloud resource diagrams and concept maps as SVG and PNG with the open-diagram-rs library, which measures every label and names each layout problem. Use when asked for an architecture diagram, systems map, stack picture, data flow, cloud architecture picture, "what is live and what is planned" picture, or concept map that should look finished on the first pass.
+license: MIT
 ---
 
 # open-diagram-rs
@@ -19,7 +20,7 @@ open-diagram-rs turns a short description (JSON or Mermaid) into a finished diag
 
 Write the plan in a few lines first. Use only facts the user gave. Never invent systems, owners, numbers or statuses; if a fact the picture needs is missing, ask, or write "Owner: Not yet named" when owner lines are wanted but no owner was named.
 
-- **Layout.** `columns` for flows, read left to right (where things come from, what handles them, who uses the result) or top to bottom for layers. `ring` for cycles, with goals or shared parts in `center`. `panels` with an `x` and `y` for any other shape.
+- **Layout.** `columns` for flows, read left to right (where things come from, what handles them, who uses the result) or top to bottom for layers (in JSON, one column holding every layer: `"columns": [[top, ..., bottom]]`). `ring` for cycles, with goals or shared parts in `center`. `panels` with an `x` and `y` for any other shape.
 - **Columns.** Three to six columns, each holding one to three panels. Avoid long lines between distant panels: place the two side by side, or route through a lane.
 - **Panels.** One panel per system or team, titled in two to four words. Add a `sub` line only when it adds a fact.
 - **Tiles.** Up to about nine per panel, labels of four words or fewer. Put detail in `sub`.
@@ -40,7 +41,7 @@ Write the plan in a few lines first. Use only facts the user gave. Never invent 
            {"from": "web", "to": "ops", "lane": "top", "kind": "planned", "label": "direct"}]}
 ```
 
-Top-level keys: `title` (required); one layout of `columns`, `ring` (with optional `center`, `start_angle`) or `panels`; plus `subtitle`, `tag`, `note` (`title`, `lines`), `steps` (`[[1, "First"]]`), `steps_label`, `gap`, `row_gap`, `valign`, `groups`, `links`, `statuses`, `theme`, `routing` (`curved` or `orthogonal`). Panel keys: `title` (required), `id`, `sub`, `status`, `step`, `footer`, `tone`, `width`, `x`/`y` (in `panels` only), `tiles` with `cols` and `label`, or `sections`. Link keys: `from`, `to`, `kind`, `label`, `start`, `end` (a side or `auto`), `lane`, `via_x`, `via_y`, `cross_ok`, `dash` (`solid`, `dashed` or `dotted`), `routing`.
+Top-level keys: `title` (required); one layout of `columns`, `ring` (with optional `center`, `start_angle`) or `panels`; plus `subtitle`, `tag`, `note` (`title`, `lines`), `steps` (`[[1, "First"]]`), `steps_label`, `gap`, `row_gap`, `valign`, `groups`, `links`, `statuses`, `theme`, `routing` (`curved` or `orthogonal`), `legend` (`false` hides the key). The key says "Live" for parts with no state and "Data flows today" for solid lines. For a process, a cycle or a stack, set `"legend": false`, or rename a line kind in `"theme": {"link_labels": {"flow": "..."}}`. Kinds you leave out keep their default names. Panel keys: `title` (required), `id`, `sub`, `status`, `step`, `footer`, `tone`, `width`, `x`/`y` (in `panels` only), `tiles` with `cols` and `label`, or `sections`. Link keys: `from`, `to`, `kind`, `label`, `start`, `end` (a side or `auto`), `lane`, `via_x`, `via_y`, `cross_ok`, `dash` (`solid`, `dashed` or `dotted`), `routing`.
 
 A cycle uses `"ring"` and optional `"center"`. Links in a ring or a free `panels` layout set `"start": "auto"` and `"end": "auto"`.
 
@@ -56,13 +57,15 @@ Run `open-diagram-rs check FILE` on the `.json`, `.mmd` or `.mermaid` file. `dra
 
 | Message contains | Fix |
 | --- | --- |
+| `sits on the title of group` | Give the line a different start or end side, route it through a lane, or move the group's blocks |
+| `group ... overlaps` | Add the block to the group, or move it out of the group's area |
+| `groups ... overlap` | Move one group's blocks so the two shaded areas no longer cross, or put one group wholly inside the other |
+| `graph: the label ... touches` | Spread the nodes in `at`, or shorten the label |
+| `graph: the labels ... touch` | Spread the nodes in `at`, or shorten one of the labels |
 | `overlap` or `px apart` | Move one block, raise `gap` or `row_gap`, or place it beside or below its neighbor |
 | `crosses` | Route the line through a lane (`lane`, `via_y` or `via_x`), change `start` and `end` sides, or move a block. Use `cross_ok` only when the line should pass behind |
 | `label ... sits on` | Shorten the label, or widen the gap between the two columns |
 | `facing away` | Use `start` and `end` of `auto`, choose other sides, or route the line through a lane |
-| `sits on the title of group` | Give the line a different start or end side, route it through a lane, or move the group's blocks |
-| `group ... overlaps` | Add the block to the group, or move it out of the group's area |
-| `graph: the label ... touches` | Spread the nodes in `at`, or shorten the label |
 | `graph: the line ... runs through` | Move a node so the straight line between the pair is clear |
 | `needs N px` | Give the block more width, or shorten the words |
 | `smallest text` | Keep text at or above the theme minimum; shorten the words |
