@@ -2,12 +2,12 @@
 
 ## Unreleased
 
-- The GitHub Action example in `docs/cli.md` kept `states.json` inside the folder its `*.json` pattern reads, so the run stopped with `unknown key(s)`. The example now keeps it outside, and the page says every name in a states file must be in each diagram.
+- A quoted Mermaid label or line label can hold `;` and `%%`. `a["a;b"] --> b` and `a -->|"x; y"| b` used to be cut at the separator and reported as unreadable. Outside quotes, `;` still separates statements and `%%` still starts a comment. Ported from open-diagram e99256ae9bfce8def8df11ed361cbe861b5ad2e8.
+- The GitHub Action example in `docs/cli.md` kept `states.json` inside the folder its `*.json` pattern reads, so the run stopped with `unknown key(s)`. The example now keeps it outside, and the page says every name in a states file must be in each diagram. Ported from open-diagram 3d281382eeae250069fdd19e6b72546cc2d95834, as are the next three entries.
 - The agent skill and the MCP server's guide list the specific layout problems first, so `sits on the title of group` and `group ... overlaps` no longer match the general rows. They gain rows for `groups ... overlap` and `graph: the labels ... touch`.
-- `docs/json.md` and the agent skill describe `legend` and `theme.link_labels`. The skills carry `license: MIT`.
+- `docs/json.md` and the agent skill describe `legend` and `theme.link_labels`.
 - The comparison table has corrected entries for Mermaid, D2 and archify.
-
-Ported from open-diagram 3d281382eeae250069fdd19e6b72546cc2d95834, and the skill license from d40f02f65fd0bca697efbfa6ed660f279d8b5087.
+- The skills carry `license: MIT`. Ported from open-diagram d40f02f65fd0bca697efbfa6ed660f279d8b5087.
 
 ## 0.6.2
 
